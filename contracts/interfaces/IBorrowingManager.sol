@@ -254,6 +254,15 @@ interface IBorrowingManager {
     function totalAssetInterestAmountByEpoch(address asset, uint256 epoch) external view returns (uint256);
 
     /*
+     * @notice Returns the total number of epochs left given an epoch
+     *
+     * @param epoch
+     *
+     * @return (uint256,uint256) representing the total number of epochs left given an epoch.
+     */
+    function totalEpochsLeftByEpoch(uint256 epoch) external view returns (uint256);
+
+    /*
      * @notice Returns the utilization rate (percentage of borrowed tokens compared to the lended ones) in the given epoch
      *
      * @param epoch

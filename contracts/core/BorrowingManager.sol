@@ -14,8 +14,6 @@ import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
 
-import "hardhat/console.sol";
-
 contract BorrowingManager is
     IBorrowingManager,
     Initializable,
@@ -147,11 +145,6 @@ contract BorrowingManager is
     function claimInterest(address asset, uint256 epoch) external {
         address lender = _msgSender();
 
-        /*if (_lendersEpochsClaim[lender][epoch]) {
-            revert Errors.AlreadyClaimed();
-        }*/
-
-        // TODO: do we need it?
         if (epoch > IEpochsManager(epochsManager).currentEpoch()) {
             revert Errors.InvalidEpoch();
         }
@@ -162,7 +155,6 @@ contract BorrowingManager is
         }
 
         _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] += amount;
-        //_lendersEpochsClaim[lender][epoch] = true;
         IERC20Upgradeable(asset).safeTransfer(lender, amount);
 
         emit InterestClaimed(lender, asset, epoch, amount);
@@ -244,7 +236,7 @@ contract BorrowingManager is
         return _totalEpochsAssetsInterestAmount[asset][epoch];
     }
 
-    // TODO
+    /// @inheritdoc IBorrowingManager
     function totalEpochsLeftByEpoch(uint256 epoch) external view returns (uint256) {
         return _epochTotalEpochsLeft[epoch];
     }
@@ -277,13 +269,10 @@ contract BorrowingManager is
         uint256 lenderCurrentLoanEndEpoch = _lendersLoanEndEpoch[lender];
         uint256 lenderCurrentLoanStartEpoch = _lendersLoanStartEpoch[lender];
 
-       
-
         uint256 effectiveStartEpoch = startEpoch;
         // if a lender increases his position where the currentEpoch is less than the current
         // end epoch, the start epoch should be preserved when updating the _epochTotalEpochsLeft
         if (currentEpoch < lenderCurrentLoanEndEpoch && currentEpoch >= lenderCurrentLoanStartEpoch) {
-
             // if a lender increase his position where the currentEpoch is less than the current end epoch
             // we have to reset  _epochTotalEpochsLeft[epoch] based on lender's previous start & end epochs
             // in order to don't update twice the _epochTotalEpochsLeft[epoch]
@@ -293,8 +282,6 @@ contract BorrowingManager is
                 //currentEpoch <= lenderCurrentLoanEndEpoch &&
                 (lenderCurrentLoanEndEpoch - lenderCurrentLoanStartEpoch > 0)
             ) {
-                // console.log("here i am %s %s", startEpoch, endEpoch);
-                // console.log("resetting i am %s %s", lenderCurrentLoanStartEpoch, lenderCurrentLoanEndEpoch);
                 for (uint256 epoch = lenderCurrentLoanStartEpoch; epoch <= lenderCurrentLoanEndEpoch; ) {
                     _epochTotalEpochsLeft[epoch] -= (lenderCurrentLoanEndEpoch - epoch) + 1;
                     unchecked {
@@ -305,8 +292,6 @@ contract BorrowingManager is
 
             effectiveStartEpoch = lenderCurrentLoanStartEpoch;
         }
-
-        // console.log("startEpoch %s endEpoch %s", effectiveStartEpoch, endEpoch);
 
         if (endEpoch >= lenderCurrentLoanEndEpoch) {
             for (uint256 epoch = effectiveStartEpoch; epoch <= endEpoch; ) {

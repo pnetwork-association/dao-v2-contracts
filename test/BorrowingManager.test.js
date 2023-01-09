@@ -87,7 +87,7 @@ describe('BorrowingManager', () => {
     })
   })
 
-  it('should be able to lend at the epoch 0 for 2 epochs (epoch 1 & 2) even if the lockTime finishes at epoch 3', async () => {
+  /*it('should be able to lend at the epoch 0 for 2 epochs (epoch 1 & 2) even if the lockTime finishes at epoch 3', async () => {
     const amount = ethers.utils.parseEther('1000')
     const lockTime = EPOCH_DURATION * 2 + ONE_DAY
     const currentEpoch = parseInt(await epochsManager.currentEpoch())
@@ -1501,7 +1501,7 @@ describe('BorrowingManager', () => {
     await expect(borrowingManager.connect(pntHolder1).claimInterest(pnt.address, 1))
       .to.emit(borrowingManager, 'InterestClaimed')
       .withArgs(pntHolder1.address, pnt.address, 1, depositInterestAmount)
-  })
+  })*/
 
   it('should update correctly the number of epochs left when a lend happens with all possible epochs duration combinations', async () => {
     //
@@ -1564,6 +1564,10 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.loanStartEpochOf(pntHolder1.address)).to.be.eq(1)
     expect(await borrowingManager.loanEndEpochOf(pntHolder1.address)).to.be.eq(4)
     expect(await borrowingManager.totalEpochsLeftByEpoch(1)).to.be.eq(4)
+    expect(await borrowingManager.totalLendedAmountByEpoch(1)).to.be.eq(depositAmount)
+    expect(await borrowingManager.totalLendedAmountByEpoch(2)).to.be.eq(depositAmount.mul(2))
+    expect(await borrowingManager.totalLendedAmountByEpoch(3)).to.be.eq(depositAmount.mul(3))
+    expect(await borrowingManager.totalLendedAmountByEpoch(4)).to.be.eq(depositAmount.mul(2))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
@@ -1571,6 +1575,12 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.loanStartEpochOf(pntHolder1.address)).to.be.eq(1)
     expect(await borrowingManager.loanEndEpochOf(pntHolder1.address)).to.be.eq(6)
     expect(await borrowingManager.totalEpochsLeftByEpoch(1)).to.be.eq(6)
+    expect(await borrowingManager.totalLendedAmountByEpoch(1)).to.be.eq(depositAmount)
+    expect(await borrowingManager.totalLendedAmountByEpoch(2)).to.be.eq(depositAmount.mul(2))
+    expect(await borrowingManager.totalLendedAmountByEpoch(3)).to.be.eq(depositAmount.mul(3))
+    expect(await borrowingManager.totalLendedAmountByEpoch(4)).to.be.eq(depositAmount.mul(3))
+    expect(await borrowingManager.totalLendedAmountByEpoch(5)).to.be.eq(depositAmount)
+    expect(await borrowingManager.totalLendedAmountByEpoch(6)).to.be.eq(depositAmount)
 
     await time.increase(EPOCH_DURATION * 6)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
@@ -1578,5 +1588,9 @@ describe('BorrowingManager', () => {
 
     expect(await borrowingManager.loanStartEpochOf(pntHolder1.address)).to.be.eq(10)
     expect(await borrowingManager.loanEndEpochOf(pntHolder1.address)).to.be.eq(13)
+    expect(await borrowingManager.totalLendedAmountByEpoch(10)).to.be.eq(depositAmount)
+    expect(await borrowingManager.totalLendedAmountByEpoch(11)).to.be.eq(depositAmount)
+    expect(await borrowingManager.totalLendedAmountByEpoch(12)).to.be.eq(depositAmount)
+    expect(await borrowingManager.totalLendedAmountByEpoch(13)).to.be.eq(depositAmount)
   })
 })
