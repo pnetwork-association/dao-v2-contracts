@@ -14,8 +14,8 @@ Create an __.env__ file with the following fields:
 
 ```
 ETHERSCAN_API_KEY=
-POLYGON_MAINNET_NODE=
-POLYGON_MAINNET_PRIVATE_KEY=
+PK=
+ETH_MAINNET_NODE=
 ```
 
 
