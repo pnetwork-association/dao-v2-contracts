@@ -10,14 +10,6 @@ pNetwork DAO V2 smart contracts.
 
 ## :white_check_mark: Publish & Verify
 
-Create an __.env__ file with the following fields:
-
-```
-ETHERSCAN_API_KEY=
-PK=
-ETH_MAINNET_NODE=
-```
-
 
 ### publish
 

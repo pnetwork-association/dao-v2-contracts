@@ -69,7 +69,7 @@ contract RegistrationManager is
     function sentinelReservedAmountByEpochOf(uint256 epoch, address sentinel) external view returns (uint256) {
         Registration storage registration = _sentinelRegistrations[sentinel];
         return
-            registration.kind == Constants.REGISTRATION_STAKING
+            registration.kind == Constants.REGISTRATION_SENTINEL_STAKING
                 ? _sentinelsEpochsStakingAmount[epoch][sentinel]
                 : IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(registration.owner, epoch);
     }
@@ -89,7 +89,7 @@ contract RegistrationManager is
         address sentinel = address(2); //getSentinelAddressFromSignature(owner, signature);
 
         Registration storage registration = _sentinelRegistrations[sentinel];
-        if (registration.kind == Constants.REGISTRATION_STAKING) revert Errors.InvalidRegistration();
+        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) revert Errors.InvalidRegistration();
 
         (uint256 startEpoch, uint256 endEpoch) = IBorrowingManager(borrowingManager).borrow(
             amount,
@@ -107,7 +107,7 @@ contract RegistrationManager is
             startEpoch = registration.startEpoch;
         }
 
-        _updateSentinel(sentinel, owner, startEpoch, endEpoch, Constants.REGISTRATION_BORROWING);
+        _updateSentinel(sentinel, owner, startEpoch, endEpoch, Constants.REGISTRATION_SENTINEL_BORROWING);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -118,7 +118,7 @@ contract RegistrationManager is
         address sentinel = address(1); //getSentinelAddressFromSignature(owner, signature);
 
         Registration storage registration = _sentinelRegistrations[sentinel];
-        if (registration.kind == Constants.REGISTRATION_BORROWING) revert Errors.InvalidRegistration();
+        if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) revert Errors.InvalidRegistration();
 
         IERC20Upgradeable(token).safeTransferFrom(owner, address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
@@ -148,7 +148,13 @@ contract RegistrationManager is
             registrationEndEpoch = endEpoch;
         }
 
-        _updateSentinel(sentinel, owner, registrationStartEpoch, registrationEndEpoch, Constants.REGISTRATION_STAKING);
+        _updateSentinel(
+            sentinel,
+            owner,
+            registrationStartEpoch,
+            registrationEndEpoch,
+            Constants.REGISTRATION_SENTINEL_STAKING
+        );
     }
 
     /// @inheritdoc IRegistrationManager
@@ -164,7 +170,7 @@ contract RegistrationManager is
 
         for (uint256 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
             delete _sentinelsEpochsStakingAmount[epoch][sentinel];
-            if (registration.kind == Constants.REGISTRATION_BORROWING) {
+            if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
                 IBorrowingManager(borrowingManager).release(sentinelOwner, epoch);
             }
             unchecked {

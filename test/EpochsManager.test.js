@@ -1,4 +1,4 @@
-/*const { expect } = require('chai')
+const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { getRole } = require('./utils')
@@ -20,7 +20,7 @@ describe('EpochsManager', () => {
 
     epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION], {
       initializer: 'initialize',
-      kind: 'uups',
+      kind: 'uups'
     })
   })
 
@@ -60,4 +60,4 @@ describe('EpochsManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
   })
-})*/
+})
