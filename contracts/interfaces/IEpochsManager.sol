@@ -12,9 +12,9 @@ interface IEpochsManager {
     /*
      * @notice Returns the current epoch number.
      *
-     * @return uint256 representing the current epoch.
+     * @return uint16 representing the current epoch.
      */
-    function currentEpoch() external view returns (uint256);
+    function currentEpoch() external view returns (uint16);
 
     /*
      * @notice Returns the epoch duration.
@@ -28,5 +28,5 @@ interface IEpochsManager {
      *
      * @return uint256 representing the timestamp at which the first epoch is started.
      */
-    function startFirstEpochDate() external view returns (uint256);
+    function startFirstEpochTimestamp() external view returns (uint256);
 }
