@@ -6,3 +6,5 @@ module.exports.getSentinelIdentity = async (_ownerAddress, { sentinel }) => {
   const messageHash = ethers.utils.solidityKeccak256(['address'], [_ownerAddress])
   return sentinel.signMessage(ethers.utils.arrayify(messageHash))
 }
+
+module.exports.parseWithPrecision = (_value) => ethers.utils.parseUnits(ethers.utils.formatUnits(_value, 18), 2)

@@ -9,4 +9,5 @@ library Constants {
     uint32 public constant REGISTRATION_NULL = 0;
     uint32 public constant REGISTRATION_SENTINEL_STAKING = 1;
     uint32 public constant REGISTRATION_SENTINEL_BORROWING = 2;
+    uint16 public constant PRECISION = 2;
 }

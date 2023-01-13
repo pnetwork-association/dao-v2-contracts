@@ -12,10 +12,12 @@ interface IBorrowingManager {
     /**
      * @dev Emitted when the lended amount for a certain epoch increase.
      *
-     * @param epoch The epoch
+     * @param lender The lender
+     * @param startEpoch The start epoch
+     * @param endEpoch The end epoch
      * @param amount The amount
      */
-    event LendedAmountIncreased(uint256 indexed epoch, uint256 amount);
+    event Lended(address indexed lender, uint256 indexed startEpoch, uint256 indexed endEpoch, uint256 amount);
 
     /**
      * @dev Emitted when a borrower borrows a certain amount of tokens for a number of epochs.
@@ -65,15 +67,15 @@ interface IBorrowingManager {
      * @param minAmount
      * @param maxAmount
      *
-     * @return (uint256,uint256) representing the starting and the ending epochs of the current borrowing position.
+     * @return (uint16,uint16) representing the starting and the ending epochs of the current borrowing position.
      */
     function borrow(
         uint256 amount,
-        uint256 numberOfEpochs,
+        uint16 numberOfEpochs,
         address borrower,
         uint256 minAmount,
         uint256 maxAmount
-    ) external returns (uint256, uint256);
+    ) external returns (uint16, uint16);
 
     /*
      * @notice Claim the interests earned by the lender for a given epoch.
@@ -82,7 +84,7 @@ interface IBorrowingManager {
      * @param epoch
      *
      */
-    function claimInterest(address asset, uint256 epoch) external;
+    function claimInterestByEpoch(address asset, uint16 epoch) external;
 
     /*
      * @notice TODO
@@ -92,16 +94,16 @@ interface IBorrowingManager {
      * @param epoch
      *
      */
-    function depositInterest(address asset, uint256 amount, uint256 epoch) external;
+    function depositInterest(address asset, uint16 epoch, uint256 amount) external;
 
     /*
      * @notice Returns the borrowable amount for the given epoch
      *
      * @param epoch
      *
-     * @return uint256 an integer representing the borrowable amount for the given epoch.
+     * @return uint24 an integer representing the borrowable amount for the given epoch.
      */
-    function borrowableAmountByEpoch(uint256 epoch) external view returns (uint256);
+    function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24);
 
     /*
      * @notice Returns the borrowed amount for a borrower for given epoch.
@@ -109,9 +111,9 @@ interface IBorrowingManager {
      * @param borrower
      * @param epoch
      *
-     * @return uint256 an integer representing the borrowed amount for a given borrower and a given epoch
+     * @return uint24 an integer representing the borrowed amount for a given borrower and a given epoch
      */
-    function borrowedAmountByEpochOf(address borrower, uint256 epoch) external view returns (uint256);
+    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24);
 
     /*
      * @notice Returns the lender's claimable amount for a given asset in a specifich epoch.
@@ -122,11 +124,7 @@ interface IBorrowingManager {
      *
      * @return uint256 an integer representing the lender's claimable value for a given asset in a specifich epoch..
      */
-    function claimableAssetAmountByEpochOf(
-        address lender,
-        address asset,
-        uint256 epoch
-    ) external view returns (uint256);
+    function claimableAssetAmountByEpochOf(address lender, address asset, uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the lender's claimable amount for a set of assets in an epochs range
@@ -141,8 +139,8 @@ interface IBorrowingManager {
     function claimableAssetsAmountByEpochsRangeOf(
         address lender,
         address[] memory assets,
-        uint256 startEpoch,
-        uint256 endEpoch
+        uint16 startEpoch,
+        uint16 endEpoch
     ) external view returns (uint256[] memory);
 
     /*
@@ -151,9 +149,9 @@ interface IBorrowingManager {
      * @param lender
      * @param epoch
      *
-     * @return uint256 an integer representing the lended amount for a given user and a given epoch.
+     * @return uint256 representing an integer representing the lended amount for a given user and a given epoch.
      */
-    function lendedAmountByEpochOf(address lender, uint256 epoch) external view returns (uint256);
+    function lendedAmountByEpochOf(address lender, uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the lended amount by an user in the selected epochs
@@ -162,12 +160,12 @@ interface IBorrowingManager {
      * @param startEpoch
      * @param endEpoch
      *
-     * @return uint256 an integer representing the lended amount by an user in the selected epochs.
+     * @return uint24[] representing an array of integers representing the lended amount by an user in the selected epochs.
      */
     function lendedAmountByEpochsRangeOf(
         address lender,
-        uint256 startEpoch,
-        uint256 endEpoch
+        uint16 startEpoch,
+        uint16 endEpoch
     ) external view returns (uint256[] memory);
 
     /*
@@ -176,9 +174,9 @@ interface IBorrowingManager {
      * @param lender
      * @param epoch
      *
-     * @return uint256 an integer representing the epoch at which the loan starts.
+     * @return uint16 an integer representing the epoch at which the loan starts.
      */
-    function loanStartEpochOf(address lender) external view returns (uint256);
+    function loanStartEpochOf(address lender) external view returns (uint16);
 
     /*
      * @notice Returns the epoch at which the loan ends given a lender.
@@ -186,18 +184,18 @@ interface IBorrowingManager {
      * @param borrower
      * @param epoch
      *
-     * @return uint256 an integer representing the epoch at which the loan ends.
+     * @return uint16 an integer representing the epoch at which the loan ends.
      */
-    function loanEndEpochOf(address lender) external view returns (uint256);
+    function loanEndEpochOf(address lender) external view returns (uint16);
 
     /*
      * @notice Returns the borrowed amount for a given epoch.
      *
      * @param epoch
      *
-     * @return uint256 an integer representing the borrowed amount for a given epoch
+     * @return uint24 representing an integer representing the borrowed amount for a given epoch
      */
-    function totalBorrowedAmountByEpoch(uint256 epoch) external view returns (uint256);
+    function totalBorrowedAmountByEpoch(uint16 epoch) external view returns (uint24);
 
     /*
      * @notice Returns the lended amount for a given epoch.
@@ -206,7 +204,7 @@ interface IBorrowingManager {
      *
      * @return uint256 an integer representing the lended amount for a given epoch.
      */
-    function totalLendedAmountByEpoch(uint256 epoch) external view returns (uint256);
+    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the maximum lended amount for the selected epochs.
@@ -214,12 +212,9 @@ interface IBorrowingManager {
      * @param startEpoch
      * @param endEpoch
      *
-     * @return uint256 an integer representing the maximum lended amount for a given epoch.
+     * @return uint24[] representing an array of integers representing the maximum lended amount for a given epoch.
      */
-    function totalLendedAmountByEpochsRange(
-        uint256 startEpoch,
-        uint256 endEpoch
-    ) external view returns (uint256[] memory);
+    function totalLendedAmountByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory);
 
     /*
      * @notice Lend in behalf of receiver a certain amount of tokens locked for a given period of time. The lended
@@ -241,7 +236,7 @@ interface IBorrowingManager {
      * @param epoch
      *
      */
-    function release(address borrower, uint256 epoch) external;
+    function release(address borrower, uint16 epoch) external;
 
     /*
      * @notice Returns the current total asset interest amount by epoch
@@ -251,16 +246,16 @@ interface IBorrowingManager {
      *
      * @return (uint256,uint256) representing the total asset interest amount by epoch.
      */
-    function totalAssetInterestAmountByEpoch(address asset, uint256 epoch) external view returns (uint256);
+    function totalAssetInterestAmountByEpoch(address asset, uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the total number of epochs left given an epoch
      *
      * @param epoch
      *
-     * @return (uint256,uint256) representing the total number of epochs left given an epoch.
+     * @return uint16 representing the total number of epochs left given an epoch.
      */
-    function totalEpochsLeftByEpoch(uint256 epoch) external view returns (uint256);
+    function totalEpochsLeftByEpoch(uint16 epoch) external view returns (uint16);
 
     /*
      * @notice Returns the utilization rate (percentage of borrowed tokens compared to the lended ones) in the given epoch
@@ -269,7 +264,7 @@ interface IBorrowingManager {
      *
      * @return uint256 an integer representing the utilization rate in a given epoch.
      */
-    function utilizationRatioByEpoch(uint256 epoch) external view returns (uint256);
+    function utilizationRatioByEpoch(uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the utilization rate (percentage of borrowed tokens compared to the lended ones) given the start end the end epoch
@@ -279,8 +274,5 @@ interface IBorrowingManager {
      *
      * @return uint256 an integer representing the utilization rate in a given the start end the end epoch.
      */
-    function utilizationRatioByEpochsRange(
-        uint256 startEpoch,
-        uint256 endEpoch
-    ) external view returns (uint256[] memory);
+    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint256[] memory);
 }
