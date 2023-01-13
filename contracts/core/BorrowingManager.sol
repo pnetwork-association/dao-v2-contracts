@@ -270,7 +270,7 @@ contract BorrowingManager is
         uint256 lenderCurrentLoanStartEpoch = _lendersLoanStartEpoch[lender];
 
         uint256 effectiveStartEpoch = startEpoch;
-        // if a lender increases his position where the currentEpoch is less than the current
+        // if a lender increases his position when the currentEpoch is less than the current
         // end epoch, the start epoch should be preserved when updating the _epochTotalEpochsLeft
         if (currentEpoch < lenderCurrentLoanEndEpoch && currentEpoch >= lenderCurrentLoanStartEpoch) {
             // if a lender increase his position where the currentEpoch is less than the current end epoch
