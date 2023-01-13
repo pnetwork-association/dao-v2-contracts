@@ -166,7 +166,7 @@ interface IBorrowingManager {
         address lender,
         uint16 startEpoch,
         uint16 endEpoch
-    ) external view returns (uint256[] memory);
+    ) external view returns (uint24[] memory);
 
     /*
      * @notice Returns the epoch at which the loan starts given a lender.
