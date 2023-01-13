@@ -178,6 +178,7 @@ contract BorrowingManagerV2 is
         emit InterestClaimed(lender, asset, epoch, amount);
     }
 
+    /// @inheritdoc IBorrowingManager
     function claimInterestByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
         address lender = _msgSender();
         uint256 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
@@ -351,7 +352,7 @@ contract BorrowingManagerV2 is
         }
 
         if (_lendersEpochsLendedAmount[lender].length == 0) {
-            _lendersEpochsLendedAmount[lender] = new uint24[](100);
+            _lendersEpochsLendedAmount[lender] = new uint24[](30);
         }
 
         // the _epochsTotalLendedAmount instead, should be updated by using the new start & end epoch

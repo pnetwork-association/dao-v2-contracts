@@ -78,25 +78,6 @@ interface IBorrowingManager {
     ) external returns (uint16, uint16);
 
     /*
-     * @notice Claim the interests earned by the lender for a given epoch.
-     *
-     * @param asset
-     * @param epoch
-     *
-     */
-    function claimInterestByEpoch(address asset, uint16 epoch) external;
-
-    /*
-     * @notice TODO
-     *
-     * @param amount
-     * @param asset
-     * @param epoch
-     *
-     */
-    function depositInterest(address asset, uint16 epoch, uint256 amount) external;
-
-    /*
      * @notice Returns the borrowable amount for the given epoch
      *
      * @param epoch
@@ -142,6 +123,35 @@ interface IBorrowingManager {
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory);
+
+    /*
+     * @notice Claim the interests earned by the lender for a given epoch for a given asset.
+     *
+     * @param asset
+     * @param epoch
+     *
+     */
+    function claimInterestByEpoch(address asset, uint16 epoch) external;
+
+    /*
+     * @notice Claim the interest earned by the lender in an epochs range for a given asset.
+     *
+     * @param asset
+     * @param startEpoch
+     * @param endEpoch
+     *
+     */
+    function claimInterestByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external;
+
+    /*
+     * @notice Deposit an interest amount of an asset in a given epoch.
+     *
+     * @param amount
+     * @param asset
+     * @param epoch
+     *
+     */
+    function depositInterest(address asset, uint16 epoch, uint256 amount) external;
 
     /*
      * @notice Returns the lended amount by an user and an epoch.
