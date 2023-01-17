@@ -4,11 +4,12 @@ const { getRole } = require('../../test/utils/index')
 const EPOCH_DURATION = 60 * 60 * 24 * 15
 const STAKING_MANAGER_ADDRESS = '0xeb10e80D99655B51E3a981E888a73D0B21e21A6C'
 const PNT_ADDRESS = '0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD'
+const LEND_MAX_EPOCHS = 24
 
 const main = async () => {
   const signer = await ethers.getSigner()
   const EpochsManager = await ethers.getContractFactory('EpochsManager')
-  const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
+  const BorrowingManager = await ethers.getContractFactory('BorrowingManagerV2')
   const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
   // const FeesManager = await ethers.getContractFactory('FeesManager')
   const StandardToken = await ethers.getContractFactory('StandardToken')
@@ -22,7 +23,7 @@ const main = async () => {
 
   const borrowingManager = await upgrades.deployProxy(
     BorrowingManager,
-    [STAKING_MANAGER_ADDRESS, PNT_ADDRESS, epochsManager.address],
+    [STAKING_MANAGER_ADDRESS, PNT_ADDRESS, epochsManager.address, LEND_MAX_EPOCHS],
     {
       initializer: 'initialize',
       kind: 'uups'

@@ -13,16 +13,8 @@ const main = async () => {
   const token2 = await ERC20.attach(TOKEN_ADDRESS_2)
   const borrowingManager = await BorrowingManager.attach(BORROWING_MANAGER_ADDRESS)
 
-  console.log(
-    '#1 totalLendedAmount: ',
-    ethers.utils.formatEther((await borrowingManager.totalLendedAmountByEpoch(1)).toString()),
-    'PNT'
-  )
-  console.log(
-    '#1 lendedAmountByEpochOf: ',
-    ethers.utils.formatEther((await borrowingManager.lendedAmountByEpochOf(LENDER, 1)).toString()),
-    'PNT'
-  )
+  console.log('#1 totalLendedAmount: ', ethers.utils.formatEther((await borrowingManager.totalLendedAmountByEpoch(1)).toString()), 'PNT')
+  console.log('#1 lendedAmountByEpochOf: ', ethers.utils.formatEther((await borrowingManager.lendedAmountByEpochOf(LENDER, 1)).toString()), 'PNT')
   console.log(
     '#1 totalAssetInterestAmountByEpoch (token1):',
     ethers.utils.formatEther((await borrowingManager.totalAssetInterestAmountByEpoch(TOKEN_ADDRESS_1, 1)).toString()),
@@ -35,25 +27,15 @@ const main = async () => {
   )
   console.log(
     '#1 claimableAssetAmountByEpochOf:',
-    ethers.utils.formatEther(
-      (await borrowingManager.claimableAssetAmountByEpochOf(LENDER, TOKEN_ADDRESS_1, 1)).toString()
-    ),
+    ethers.utils.formatEther((await borrowingManager.claimableAssetAmountByEpochOf(LENDER, TOKEN_ADDRESS_1, 1)).toString()),
     'TST1'
   )
   console.log('#1 totalEpochsLeftByEpoch:', (await borrowingManager.totalEpochsLeftByEpoch(1)).toString())
   console.log('#1 loanEndEpochOf:', (await borrowingManager.loanEndEpochOf(LENDER)).toString())
 
   console.log('\n')
-  console.log(
-    '#2 totalLendedAmount: ',
-    ethers.utils.formatEther((await borrowingManager.totalLendedAmountByEpoch(2)).toString()),
-    'PNT'
-  )
-  console.log(
-    '#2 lendedAmountByEpochOf: ',
-    ethers.utils.formatEther((await borrowingManager.lendedAmountByEpochOf(LENDER, 2)).toString()),
-    'PNT'
-  )
+  console.log('#2 totalLendedAmount: ', ethers.utils.formatEther((await borrowingManager.totalLendedAmountByEpoch(2)).toString()), 'PNT')
+  console.log('#2 lendedAmountByEpochOf: ', ethers.utils.formatEther((await borrowingManager.lendedAmountByEpochOf(LENDER, 2)).toString()), 'PNT')
   console.log(
     '#2 totalAssetInterestAmountByEpoch (token1):',
     ethers.utils.formatEther((await borrowingManager.totalAssetInterestAmountByEpoch(TOKEN_ADDRESS_1, 2)).toString()),
@@ -66,14 +48,8 @@ const main = async () => {
   )
   console.log('#2 totalEpochsLeftByEpoch:', (await borrowingManager.totalEpochsLeftByEpoch(2)).toString())
 
-  console.log(
-    'token1.balanceOf(borrowingManager) ',
-    ethers.utils.formatEther((await token1.balanceOf(borrowingManager.address)).toString())
-  )
-  console.log(
-    'token2.balanceOf(borrowingManager) ',
-    ethers.utils.formatEther((await token2.balanceOf(borrowingManager.address)).toString())
-  )
+  console.log('token1.balanceOf(borrowingManager) ', ethers.utils.formatEther((await token1.balanceOf(borrowingManager.address)).toString()))
+  console.log('token2.balanceOf(borrowingManager) ', ethers.utils.formatEther((await token2.balanceOf(borrowingManager.address)).toString()))
 }
 
 main()

@@ -11,9 +11,9 @@ pragma solidity 0.8.17;
 interface IRegistrationManager {
     struct Registration {
         address owner;
-        uint256 startEpoch;
-        uint256 endEpoch;
-        uint32 kind;
+        uint16 startEpoch;
+        uint16 endEpoch;
+        uint8 kind;
     }
 
     /**
@@ -27,10 +27,10 @@ interface IRegistrationManager {
      */
     event SentinelRegistrationUpdated(
         address indexed owner,
-        uint256 indexed startEpoch,
-        uint256 indexed endEpoch,
+        uint16 indexed startEpoch,
+        uint16 indexed endEpoch,
         address sentinel,
-        uint32 kind
+        uint8 kind
     );
 
     /**
@@ -39,7 +39,7 @@ interface IRegistrationManager {
      * @param sentinel The sentinel address
      * @param epoch The epoch at which the release happens
      */
-    event SentinelReleased(address indexed sentinel, uint256 indexed epoch);
+    event SentinelReleased(address indexed sentinel, uint16 indexed epoch);
 
     /*
      * @notice Returns the sentinel address given the owner and the signature
@@ -76,7 +76,7 @@ interface IRegistrationManager {
      *
      * @return address representing the sentinel registration data.
      */
-    function sentinelReservedAmountByEpochOf(uint256 epoch, address sentinel) external returns (uint256);
+    function sentinelReservedAmountByEpochOf(uint16 epoch, address sentinel) external returns (uint256);
 
     /*
      * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
@@ -88,7 +88,7 @@ interface IRegistrationManager {
      */
     function updateSentinelRegistrationByBorrowing(
         uint256 amount,
-        uint256 numberOfEpochs,
+        uint16 numberOfEpochs,
         bytes calldata signature
     ) external;
 

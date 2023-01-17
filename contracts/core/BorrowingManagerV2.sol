@@ -16,6 +16,8 @@ import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 
+import "hardhat/console.sol";
+
 contract BorrowingManagerV2 is
     IBorrowingManager,
     Initializable,
@@ -25,18 +27,14 @@ contract BorrowingManagerV2 is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    mapping(address => uint16) private _lendersLoanEndEpoch;
-    mapping(address => uint16) private _lendersLoanStartEpoch;
-
-    mapping(address => uint24[]) _lendersEpochsLendedAmount;
+    mapping(address => uint32[]) private _lendersEpochsWeight;
     mapping(address => uint24[]) _borrowersEpochsBorrowedAmount;
-
     mapping(address => mapping(uint256 => uint256)) private _totalEpochsAssetsInterestAmount;
     mapping(address => mapping(uint256 => mapping(address => uint256))) private _lendersEpochsAssetsInterestsClaim;
 
-    uint16[] private _epochTotalEpochsLeft;
     uint24[] private _epochsTotalLendedAmount;
     uint24[] private _epochsTotalBorrowedAmount;
+    uint32[] private _epochTotalWeight;
 
     address public stakingManager;
     address public token;
@@ -60,9 +58,9 @@ contract BorrowingManagerV2 is
         epochsManager = epochsManager_;
         lendMaxEpochs = _lendMaxEpochs;
 
-        _epochTotalEpochsLeft = new uint16[](100);
         _epochsTotalLendedAmount = new uint24[](100);
         _epochsTotalBorrowedAmount = new uint24[](100);
+        _epochTotalWeight = new uint32[](100);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -79,7 +77,7 @@ contract BorrowingManagerV2 is
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         uint16 nextEpoch = currentEpoch + 1;
         uint16 endEpoch = nextEpoch + numberOfEpochs - 1;
-        uint24 truncatedAmount = Helpers.truncate(amount, Constants.PRECISION);
+        uint24 truncatedAmount = Helpers.truncate(amount, 0);
 
         if (_borrowersEpochsBorrowedAmount[borrower].length == 0) {
             _borrowersEpochsBorrowedAmount[borrower] = new uint24[](100);
@@ -119,30 +117,18 @@ contract BorrowingManagerV2 is
 
     /// @inheritdoc IBorrowingManager
     function claimableAssetAmountByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
-        uint24[] storage lenderEpochsLendedAmount = _lendersEpochsLendedAmount[lender];
-        if (lenderEpochsLendedAmount.length == 0) return 0;
-
-        uint256 size = _epochsTotalLendedAmount[epoch];
-        uint256 amountWeight = size > 0 ? (uint256(lenderEpochsLendedAmount[epoch]) * 10 ** 18) / size : 0;
-
-        uint16 lenderLoanEndEpoch = _lendersLoanEndEpoch[lender];
-        if (epoch > lenderLoanEndEpoch) return 0;
-
-        uint16 lenderEpochsLeft = 1 + lenderLoanEndEpoch - epoch;
-        uint256 totalEpochsLeft = _epochTotalEpochsLeft[epoch];
-        uint256 epochsWeight = totalEpochsLeft > 0 ? (lenderEpochsLeft * 10 ** 18) / totalEpochsLeft : 0;
-
-        uint256 weight = (amountWeight + epochsWeight) / 2;
+        if (_lendersEpochsWeight[lender].length == 0) return 0;
+        uint256 percentage = (_lendersEpochsWeight[lender][epoch] * 10 ** 18) / _epochTotalWeight[epoch];
 
         return
-            ((_totalEpochsAssetsInterestAmount[asset][epoch] * weight) / 10 ** 18) -
+            ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / 10 ** 18) -
             _lendersEpochsAssetsInterestsClaim[lender][epoch][asset];
     }
 
     /// @inheritdoc IBorrowingManager
     function claimableAssetsAmountByEpochsRangeOf(
         address lender,
-        address[] memory assets,
+        address[] calldata assets,
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory) {
@@ -217,37 +203,13 @@ contract BorrowingManagerV2 is
     function lend(uint256 amount, uint64 lockTime, address receiver) external {
         address lender = _msgSender();
         IERC20Upgradeable(token).safeTransferFrom(lender, address(this), amount);
-        IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(amount, lockTime, receiver);
-        _increaseLendedAmountByLockTime(lender, amount, lockTime);
-    }
 
-    /// @inheritdoc IBorrowingManager
-    function lendedAmountByEpochOf(address lender, uint16 epoch) external view returns (uint256) {
-        return _lendersEpochsLendedAmount[lender][epoch];
-    }
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
+        uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
 
-    /// @inheritdoc IBorrowingManager
-    function lendedAmountByEpochsRangeOf(
-        address lender,
-        uint16 startEpoch,
-        uint16 endEpoch
-    ) external view returns (uint24[] memory) {
-        uint24[] memory result = new uint24[](endEpoch - startEpoch + 1);
-        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
-            result[epoch - startEpoch] = _lendersEpochsLendedAmount[lender][epoch];
-        }
-        return result;
-    }
-
-    /// @inheritdoc IBorrowingManager
-    function loanStartEpochOf(address lender) external view returns (uint16) {
-        return _lendersLoanStartEpoch[lender];
-    }
-
-    /// @inheritdoc IBorrowingManager
-    function loanEndEpochOf(address lender) external view returns (uint16) {
-        return _lendersLoanEndEpoch[lender];
+        _prepareLend(receiver, lockTime, currentEpoch, epochDuration, startFirstEpochTimestamp);
+        _stakeAndUpdateWeights(receiver, amount, lockTime, epochDuration, startFirstEpochTimestamp);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -282,9 +244,18 @@ contract BorrowingManagerV2 is
         return _totalEpochsAssetsInterestAmount[asset][epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
-    function totalEpochsLeftByEpoch(uint16 epoch) external view returns (uint16) {
-        return _epochTotalEpochsLeft[epoch];
+    /// TODO
+    function totalWeightByEpoch(uint16 epoch) external view returns (uint32) {
+        return _epochTotalWeight[epoch];
+    }
+
+    /// TODO
+    function totalWeightByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory) {
+        uint32[] memory result = new uint32[](endEpoch - startEpoch + 1);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
+            result[epoch - startEpoch] = _epochTotalWeight[epoch];
+        }
+        return result;
     }
 
     /// @inheritdoc IBorrowingManager
@@ -305,81 +276,92 @@ contract BorrowingManagerV2 is
         return result;
     }
 
-    function _increaseLendedAmountByLockTime(address lender, uint256 amount, uint256 lockTime) internal {
-        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+    /// TODO
+    function weightByEpochOf(address lender, uint16 epoch) external view returns (uint32) {
+        return _lendersEpochsWeight[lender][epoch];
+    }
 
-        uint16 startEpoch = currentEpoch + 1;
-        uint16 numberOfEpochs = uint16(lockTime / epochDuration);
-        uint16 endEpoch = (currentEpoch + numberOfEpochs) - 1;
-        uint16 lenderCurrentLoanEndEpoch = _lendersLoanEndEpoch[lender];
-        uint16 lenderCurrentLoanStartEpoch = _lendersLoanStartEpoch[lender];
+    /// TODO
+    function weightByEpochsRangeOf(
+        address lender,
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint32[] memory) {
+        uint32[] memory result = new uint32[](endEpoch - startEpoch + 1);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
+            result[epoch - startEpoch] = _lendersEpochsWeight[lender][epoch];
+        }
+        return result;
+    }
 
-        if (endEpoch < startEpoch) {
-            revert Errors.InvalidLockTime();
+    function _stakeAndUpdateWeights(
+        address lender,
+        uint256 amount,
+        uint64 lockTime,
+        uint256 epochDuration,
+        uint256 startFirstEpochTimestamp
+    ) internal {
+        IERC20Upgradeable(token).approve(stakingManager, amount);
+        IStakingManager(stakingManager).stake(amount, lockTime, lender);
+        (uint64 lockDate, uint64 duration, uint256 lockAmount) = IStakingManager(stakingManager).addressStakeLocks(
+            lender,
+            0
+        );
+
+        uint16 stakeEpoch = uint16((lockDate - startFirstEpochTimestamp) / epochDuration);
+        uint16 startEpoch = stakeEpoch + 1;
+        uint16 endEpoch = (stakeEpoch + uint16(((lockDate + duration) - startFirstEpochTimestamp) / epochDuration) - 1);
+
+        if (_lendersEpochsWeight[lender].length == 0) {
+            _lendersEpochsWeight[lender] = new uint32[](36);
         }
 
-        uint16 effectiveStartEpoch = startEpoch;
-        // NOTE: if a lender increases his position when the currentEpoch is less than the current
-        // end epoch, the start epoch should be preserved when updating the _epochTotalEpochsLeft
-        if (currentEpoch < lenderCurrentLoanEndEpoch && currentEpoch >= lenderCurrentLoanStartEpoch) {
-            // if a lender increase his position when the currentEpoch is less than the current end epoch
-            // we have to reset  _epochTotalEpochsLeft[epoch] based on lender's previous start & end epochs
-            // in order to don't update twice the _epochTotalEpochsLeft[epoch]
-            if (
-                startEpoch >= lenderCurrentLoanStartEpoch &&
-                endEpoch >= lenderCurrentLoanEndEpoch &&
-                (lenderCurrentLoanEndEpoch - lenderCurrentLoanStartEpoch > 0)
-            ) {
-                for (uint16 epoch = lenderCurrentLoanStartEpoch; epoch <= lenderCurrentLoanEndEpoch; ) {
-                    _epochTotalEpochsLeft[epoch] -= (lenderCurrentLoanEndEpoch - epoch) + 1;
-                    unchecked {
-                        ++epoch;
-                    }
-                }
-            }
-
-            effectiveStartEpoch = lenderCurrentLoanStartEpoch;
-        }
-
-        if (endEpoch >= lenderCurrentLoanEndEpoch) {
-            for (uint16 epoch = effectiveStartEpoch; epoch <= endEpoch; ) {
-                _epochTotalEpochsLeft[epoch] += uint16((endEpoch - epoch) + 1);
-                unchecked {
-                    ++epoch;
-                }
-            }
-        }
-
-        if (_lendersEpochsLendedAmount[lender].length == 0) {
-            _lendersEpochsLendedAmount[lender] = new uint24[](30);
-        }
-
-        // the _epochsTotalLendedAmount instead, should be updated by using the new start & end epoch
-        uint24 truncatedValue = Helpers.truncate(amount, Constants.PRECISION);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            _epochsTotalLendedAmount[epoch] += truncatedValue;
-            _lendersEpochsLendedAmount[lender][epoch] += truncatedValue;
+            uint24 weight = Helpers.truncate(lockAmount, 0) * ((endEpoch - epoch) + 1);
+            _epochTotalWeight[epoch] += weight;
+            _lendersEpochsWeight[lender][epoch] = weight;
+            _epochsTotalLendedAmount[epoch] += Helpers.truncate(lockAmount, 0);
+
             unchecked {
                 ++epoch;
             }
         }
 
-        if (startEpoch > lenderCurrentLoanEndEpoch) {
-            lenderCurrentLoanStartEpoch = startEpoch;
-            _lendersLoanStartEpoch[lender] = startEpoch;
-        }
-
-        if (endEpoch > lenderCurrentLoanEndEpoch) {
-            lenderCurrentLoanEndEpoch = endEpoch;
-            _lendersLoanEndEpoch[lender] = endEpoch;
-        }
-
-        if (lenderCurrentLoanEndEpoch - lenderCurrentLoanStartEpoch > lendMaxEpochs) {
-            revert Errors.LendPeriodTooBig();
-        }
+        // TODO: add duration check
 
         emit Lended(lender, startEpoch, endEpoch, amount);
+    }
+
+    function _prepareLend(
+        address lender,
+        uint64 lockTime,
+        uint16 currentEpoch,
+        uint256 epochDuration,
+        uint256 startFirstEpochTimestamp
+    ) internal {
+        if (IStakingManager(stakingManager).getNumberOfStakedLocks(lender) == 0) return;
+        (uint64 lockDate, uint64 duration, uint256 lockAmount) = IStakingManager(stakingManager).addressStakeLocks(
+            lender,
+            0
+        );
+
+        uint16 stakeEpoch = uint16((lockDate - startFirstEpochTimestamp) / epochDuration);
+        uint16 oldEndEpoch = (stakeEpoch +
+            uint16(((lockDate + duration) - startFirstEpochTimestamp) / epochDuration) -
+            1);
+        uint16 newStartEpoch = currentEpoch + 1;
+        uint16 newEndEpoch = (currentEpoch + uint16(lockTime / epochDuration)) - 1;
+
+        uint24 truncatedLockAmount = Helpers.truncate(lockAmount, 0);
+        if (newStartEpoch <= oldEndEpoch && newEndEpoch >= oldEndEpoch) {
+            for (uint16 epoch = newStartEpoch; epoch <= oldEndEpoch; ) {
+                _epochsTotalLendedAmount[epoch] -= truncatedLockAmount;
+                _epochTotalWeight[epoch] -= _lendersEpochsWeight[lender][epoch];
+                unchecked {
+                    ++epoch;
+                }
+            }
+        }
     }
 
     function _release(address borrower, uint16 epoch) internal {

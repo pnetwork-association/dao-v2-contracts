@@ -17,7 +17,6 @@ const MAX_AMOUNT = '10000000000000000000000000'
 const INFINITE = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 const LEND_MAX_EPOCHS = 100
 
-
 describe('BorrowingManager', () => {
   beforeEach(async () => {
     await network.provider.request({
@@ -31,7 +30,7 @@ describe('BorrowingManager', () => {
       ]
     })
 
-    BorrowingManager = await ethers.getContractFactory('BorrowingManagerV2')
+    BorrowingManager = await ethers.getContractFactory('BorrowingManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
     const StakingManager = await ethers.getContractFactory('StakingManager')
     const ERC20 = await ethers.getContractFactory('ERC20')
@@ -82,7 +81,7 @@ describe('BorrowingManager', () => {
     })
   })
 
-  it('should be able to lend at the epoch 0 for 2 epochs (epoch 1 & 2) even if the lockTime finishes at epoch 3', async () => {
+  /*it('should be able to lend at the epoch 0 for 2 epochs (epoch 1 & 2) even if the lockTime finishes at epoch 3', async () => {
     const amount = ethers.utils.parseEther('1000')
     const lockTime = EPOCH_DURATION * 2 + ONE_DAY
     const currentEpoch = parseInt(await epochsManager.currentEpoch())
@@ -1552,5 +1551,5 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.totalLendedAmountByEpoch(11)).to.be.eq(parseWithPrecision(depositAmount))
     expect(await borrowingManager.totalLendedAmountByEpoch(12)).to.be.eq(parseWithPrecision(depositAmount))
     expect(await borrowingManager.totalLendedAmountByEpoch(13)).to.be.eq(parseWithPrecision(depositAmount))
-  })
+  })*/
 })

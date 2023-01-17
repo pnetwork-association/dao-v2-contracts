@@ -66,7 +66,7 @@ contract RegistrationManager is
     }
 
     /// @inheritdoc IRegistrationManager
-    function sentinelReservedAmountByEpochOf(uint256 epoch, address sentinel) external view returns (uint256) {
+    function sentinelReservedAmountByEpochOf(uint16 epoch, address sentinel) external view returns (uint256) {
         Registration storage registration = _sentinelRegistrations[sentinel];
         return
             registration.kind == Constants.REGISTRATION_SENTINEL_STAKING
@@ -82,7 +82,7 @@ contract RegistrationManager is
     /// @inheritdoc IRegistrationManager
     function updateSentinelRegistrationByBorrowing(
         uint256 amount,
-        uint256 numberOfEpochs,
+        uint16 numberOfEpochs,
         bytes calldata signature
     ) external {
         address owner = _msgSender();
@@ -91,7 +91,7 @@ contract RegistrationManager is
         Registration storage registration = _sentinelRegistrations[sentinel];
         if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) revert Errors.InvalidRegistration();
 
-        (uint256 startEpoch, uint256 endEpoch) = IBorrowingManager(borrowingManager).borrow(
+        (uint16 startEpoch, uint16 endEpoch) = IBorrowingManager(borrowingManager).borrow(
             amount,
             numberOfEpochs,
             owner,
@@ -99,7 +99,7 @@ contract RegistrationManager is
             Constants.MAXMIMUM_AMOUNT_BORROWABLE_FOR_SENTINEL_REGISTRATION
         );
 
-        uint256 registrationEndEpoch = registration.endEpoch;
+        uint16 registrationEndEpoch = registration.endEpoch;
         if (endEpoch < registrationEndEpoch) revert Errors.InvalidNumberOfEpochs();
 
         // NOTE: in case of renew startEpoch should not change
@@ -125,15 +125,15 @@ contract RegistrationManager is
         IStakingManager(stakingManager).stake(amount, lockTime, owner);
 
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
-        uint256 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
 
-        uint256 startEpoch = currentEpoch + 1;
-        uint256 numberOfEpochs = lockTime / epochDuration;
-        uint256 endEpoch = currentEpoch + numberOfEpochs - 1;
-        uint256 registrationStartEpoch = registration.startEpoch;
-        uint256 registrationEndEpoch = registration.endEpoch;
+        uint16 startEpoch = currentEpoch + 1;
+        uint16 numberOfEpochs = uint16(lockTime / epochDuration);
+        uint16 endEpoch = currentEpoch + numberOfEpochs - 1;
+        uint16 registrationStartEpoch = registration.startEpoch;
+        uint16 registrationEndEpoch = registration.endEpoch;
 
-        for (uint256 epoch = startEpoch; epoch <= endEpoch; ) {
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             _sentinelsEpochsStakingAmount[epoch][sentinel] += amount;
             unchecked {
                 ++epoch;
@@ -159,16 +159,16 @@ contract RegistrationManager is
 
     /// @inheritdoc IRegistrationManager
     function releaseSentinel(address sentinel) external onlyRole(Roles.RELEASE_SENTINEL) {
-        uint256 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
 
         Registration storage registration = _sentinelRegistrations[sentinel];
         address sentinelOwner = registration.owner;
 
-        uint256 registrationEndEpoch = registration.endEpoch;
-        uint256 registrationStartEpoch = registration.startEpoch;
+        uint16 registrationEndEpoch = registration.endEpoch;
+        uint16 registrationStartEpoch = registration.startEpoch;
         if (registrationEndEpoch < currentEpoch) revert Errors.SentinelNotReleasable(sentinel);
 
-        for (uint256 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
+        for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
             delete _sentinelsEpochsStakingAmount[epoch][sentinel];
             if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
                 IBorrowingManager(borrowingManager).release(sentinelOwner, epoch);
@@ -188,13 +188,7 @@ contract RegistrationManager is
         emit SentinelReleased(sentinel, currentEpoch);
     }
 
-    function _updateSentinel(
-        address sentinel,
-        address owner,
-        uint256 startEpoch,
-        uint256 endEpoch,
-        uint32 kind
-    ) internal {
+    function _updateSentinel(address sentinel, address owner, uint16 startEpoch, uint16 endEpoch, uint8 kind) internal {
         _sentinelOwners[owner] = sentinel;
         _sentinelRegistrations[sentinel] = Registration(owner, startEpoch, endEpoch, kind);
         emit SentinelRegistrationUpdated(owner, startEpoch, endEpoch, sentinel, kind);

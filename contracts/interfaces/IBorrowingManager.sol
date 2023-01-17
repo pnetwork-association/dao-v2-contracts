@@ -119,7 +119,7 @@ interface IBorrowingManager {
      */
     function claimableAssetsAmountByEpochsRangeOf(
         address lender,
-        address[] memory assets,
+        address[] calldata assets,
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory);
@@ -154,49 +154,16 @@ interface IBorrowingManager {
     function depositInterest(address asset, uint16 epoch, uint256 amount) external;
 
     /*
-     * @notice Returns the lended amount by an user and an epoch.
+     * @notice Lend in behalf of receiver a certain amount of tokens locked for a given period of time. The lended
+     * tokens are forwarded within the StakingManager. This fx is just a proxy fx to the StakingManager.stake that counts
+     * how many tokens can be borrowed.
      *
-     * @param lender
-     * @param epoch
+     * @param amount
+     * @param lockTime
+     * @param receiver
      *
-     * @return uint256 representing an integer representing the lended amount for a given user and a given epoch.
      */
-    function lendedAmountByEpochOf(address lender, uint16 epoch) external view returns (uint256);
-
-    /*
-     * @notice Returns the lended amount by an user in the selected epochs
-     *
-     * @param lender
-     * @param startEpoch
-     * @param endEpoch
-     *
-     * @return uint24[] representing an array of integers representing the lended amount by an user in the selected epochs.
-     */
-    function lendedAmountByEpochsRangeOf(
-        address lender,
-        uint16 startEpoch,
-        uint16 endEpoch
-    ) external view returns (uint24[] memory);
-
-    /*
-     * @notice Returns the epoch at which the loan starts given a lender.
-     *
-     * @param lender
-     * @param epoch
-     *
-     * @return uint16 an integer representing the epoch at which the loan starts.
-     */
-    function loanStartEpochOf(address lender) external view returns (uint16);
-
-    /*
-     * @notice Returns the epoch at which the loan ends given a lender.
-     *
-     * @param borrower
-     * @param epoch
-     *
-     * @return uint16 an integer representing the epoch at which the loan ends.
-     */
-    function loanEndEpochOf(address lender) external view returns (uint16);
+    function lend(uint256 amount, uint64 lockTime, address receiver) external;
 
     /*
      * @notice Returns the borrowed amount for a given epoch.
@@ -227,18 +194,6 @@ interface IBorrowingManager {
     function totalLendedAmountByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory);
 
     /*
-     * @notice Lend in behalf of receiver a certain amount of tokens locked for a given period of time. The lended
-     * tokens are forwarded within the StakingManager. This fx is just a proxy fx to the StakingManager.stake that counts
-     * how many tokens can be borrowed.
-     *
-     * @param amount
-     * @param lockTime
-     * @param receiver
-     *
-     */
-    function lend(uint256 amount, uint64 lockTime, address receiver) external;
-
-    /*
      * @notice Delete the borrower for a given epoch.
      * In order to call it the sender must have the RELEASE_ROLE role.
      *
@@ -257,15 +212,6 @@ interface IBorrowingManager {
      * @return (uint256,uint256) representing the total asset interest amount by epoch.
      */
     function totalAssetInterestAmountByEpoch(address asset, uint16 epoch) external view returns (uint256);
-
-    /*
-     * @notice Returns the total number of epochs left given an epoch
-     *
-     * @param epoch
-     *
-     * @return uint16 representing the total number of epochs left given an epoch.
-     */
-    function totalEpochsLeftByEpoch(uint16 epoch) external view returns (uint16);
 
     /*
      * @notice Returns the utilization rate (percentage of borrowed tokens compared to the lended ones) in the given epoch

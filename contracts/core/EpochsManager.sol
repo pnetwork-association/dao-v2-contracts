@@ -10,19 +10,19 @@ import {Roles} from "../libraries/Roles.sol";
 
 contract EpochsManager is IEpochsManager, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     uint256 private _epochDuration;
-    uint256 private _startFirstEpochDate;
+    uint256 private _startFirstEpochTimestamp;
 
     function initialize(uint256 epochDuration_) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
 
         _epochDuration = epochDuration_;
-        _startFirstEpochDate = block.timestamp;
+        _startFirstEpochTimestamp = block.timestamp;
     }
 
     /// @inheritdoc IEpochsManager
     function currentEpoch() external view returns (uint16) {
-        return uint16((block.timestamp - _startFirstEpochDate) / _epochDuration);
+        return uint16((block.timestamp - _startFirstEpochTimestamp) / _epochDuration);
     }
 
     /// @inheritdoc IEpochsManager
@@ -32,7 +32,7 @@ contract EpochsManager is IEpochsManager, Initializable, UUPSUpgradeable, Ownabl
 
     /// @inheritdoc IEpochsManager
     function startFirstEpochTimestamp() external view returns (uint256) {
-        return _startFirstEpochDate;
+        return _startFirstEpochTimestamp;
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
