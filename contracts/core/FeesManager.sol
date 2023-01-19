@@ -28,7 +28,7 @@ contract FeesManager is
 
     mapping(uint256 => mapping(address => uint256)) _epochsSentinelsStakingAssetsFee;
     mapping(uint256 => mapping(address => uint256)) _epochsSentinelsBorrowingAssetsFee;
-    mapping(address => mapping(address => mapping(uint16 => bytes1))) _ownersEpochsAssetsClaim;
+    mapping(address => mapping(address => mapping(uint16 => bool))) _ownersEpochsAssetsClaim;
 
     uint24 public minimumBorrowingFee;
 
@@ -61,7 +61,7 @@ contract FeesManager is
     function claimFeeByEpoch(address asset, uint16 epoch) external {
         address owner = _msgSender();
 
-        if (_ownersEpochsAssetsClaim[owner][asset][epoch] == 0x01) {
+        if (_ownersEpochsAssetsClaim[owner][asset][epoch] == false) {
             revert Errors.AlreadyClaimed(asset, epoch);
         }
 
@@ -73,7 +73,7 @@ contract FeesManager is
             revert Errors.NothingToClaim();
         }
 
-        _ownersEpochsAssetsClaim[owner][asset][epoch] = 0x01;
+        _ownersEpochsAssetsClaim[owner][asset][epoch] = true;
         IERC20Upgradeable(asset).safeTransfer(owner, fee);
         emit FeeClaimed(owner, sentinel, epoch, asset, fee);
     }
