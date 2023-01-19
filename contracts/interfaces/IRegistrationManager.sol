@@ -81,13 +81,11 @@ interface IRegistrationManager {
     /*
      * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
      *
-     * @param amount
      * @param numberOfEpochs
      * @param signature
      *
      */
     function updateSentinelRegistrationByBorrowing(
-        uint256 amount,
         uint16 numberOfEpochs,
         bytes calldata signature
     ) external;

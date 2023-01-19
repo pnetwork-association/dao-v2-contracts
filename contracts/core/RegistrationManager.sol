@@ -72,7 +72,7 @@ contract RegistrationManager is
         return
             registration.kind == Constants.REGISTRATION_SENTINEL_STAKING
                 ? _sentinelsEpochsStakedAmount[epoch][sentinel]
-                : IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(registration.owner, epoch) * 10 ** 18;
+                : Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION;
     }
 
     /// @inheritdoc IRegistrationManager
@@ -81,11 +81,7 @@ contract RegistrationManager is
     }
 
     /// @inheritdoc IRegistrationManager
-    function updateSentinelRegistrationByBorrowing(
-        uint256 amount,
-        uint16 numberOfEpochs,
-        bytes calldata signature
-    ) external {
+    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external {
         address owner = _msgSender();
         address sentinel = getSentinelAddressFromSignature(owner, signature);
 
@@ -93,11 +89,9 @@ contract RegistrationManager is
         if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) revert Errors.InvalidRegistration();
 
         (uint16 startEpoch, uint16 endEpoch) = IBorrowingManager(borrowingManager).borrow(
-            amount,
+            Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
             numberOfEpochs,
-            owner,
-            0, //Constants.MINIMUM_AMOUNT_BORROWABLE_FOR_SENTINEL_REGISTRATION,
-            Constants.MAXMIMUM_AMOUNT_BORROWABLE_FOR_SENTINEL_REGISTRATION
+            owner
         );
 
         uint16 registrationEndEpoch = registration.endEpoch;
@@ -113,8 +107,6 @@ contract RegistrationManager is
 
     /// @inheritdoc IRegistrationManager
     function updateSentinelRegistrationByStaking(uint256 amount, uint64 lockTime, bytes calldata signature) external {
-        //if (amount < Constants.MINIMUM_AMOUNT_FOR_SENTINEL_REGISTRATION) revert Errors.InsufficentAmount();
-
         address owner = _msgSender();
         address sentinel = getSentinelAddressFromSignature(owner, signature);
 
@@ -175,7 +167,11 @@ contract RegistrationManager is
         for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
             uint256 sentinelEpochStakingAmount = _sentinelsEpochsStakedAmount[epoch][sentinel];
             if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
-                IBorrowingManager(borrowingManager).release(sentinelOwner, epoch);
+                IBorrowingManager(borrowingManager).release(
+                    sentinelOwner,
+                    epoch,
+                    Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION
+                );
             }
 
             if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {

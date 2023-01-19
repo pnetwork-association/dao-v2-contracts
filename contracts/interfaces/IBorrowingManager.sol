@@ -58,24 +58,15 @@ interface IBorrowingManager {
     event Released(address indexed borrower, uint256 indexed epoch, uint256 amount);
 
     /*
-     * @notice Borrow a certain amount of tokens for a certain number of epochs for a borrower. This function shold be called
-     * only by who owns the BORROW_ROLE role.
+     * @notice Borrow a certain amount of tokens for a certain number of epochs for a borrower
      *
      * @param amount
      * @param numberOfEpochs
      * @param borrower
-     * @param minAmount
-     * @param maxAmount
      *
      * @return (uint16,uint16) representing the starting and the ending epochs of the current borrowing position.
      */
-    function borrow(
-        uint256 amount,
-        uint16 numberOfEpochs,
-        address borrower,
-        uint256 minAmount,
-        uint256 maxAmount
-    ) external returns (uint16, uint16);
+    function borrow(uint256 amount, uint16 numberOfEpochs, address borrower) external returns (uint16, uint16);
 
     /*
      * @notice Returns the borrowable amount for the given epoch
@@ -85,16 +76,6 @@ interface IBorrowingManager {
      * @return uint24 an integer representing the borrowable amount for the given epoch.
      */
     function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24);
-
-    /*
-     * @notice Returns the borrowed amount for a borrower for given epoch.
-     *
-     * @param borrower
-     * @param epoch
-     *
-     * @return uint24 an integer representing the borrowed amount for a given borrower and a given epoch
-     */
-    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24);
 
     /*
      * @notice Returns the lender's claimable amount for a given asset in a specifich epoch.
@@ -199,9 +180,10 @@ interface IBorrowingManager {
      *
      * @param borrower
      * @param epoch
+     * @param amount
      *
      */
-    function release(address borrower, uint16 epoch) external;
+    function release(address borrower, uint16 epoch, uint256 amount) external;
 
     /*
      * @notice Returns the current total asset interest amount by epoch

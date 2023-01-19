@@ -61,7 +61,7 @@ contract FeesManager is
     function claimFeeByEpoch(address asset, uint16 epoch) external {
         address owner = _msgSender();
 
-        if (_ownersEpochsAssetsClaim[owner][asset][epoch] == false) {
+        if (_ownersEpochsAssetsClaim[owner][asset][epoch] == true) {
             revert Errors.AlreadyClaimed(asset, epoch);
         }
 
@@ -100,14 +100,10 @@ contract FeesManager is
         if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             uint256 sentinelBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
             uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(epoch);
-            uint256 borrowedAmount = IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(
-                registration.owner,
-                epoch
-            );
 
             fee =
-                ((((borrowedAmount * Constants.DECIMALS_PRECISION) / totalBorrowedAmount) * sentinelBorrowingAssetFee) /
-                    Constants.DECIMALS_PRECISION) *
+                ((((Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION * Constants.DECIMALS_PRECISION) /
+                    totalBorrowedAmount) * sentinelBorrowingAssetFee) / Constants.DECIMALS_PRECISION) *
                 10 ** 18;
         }
 

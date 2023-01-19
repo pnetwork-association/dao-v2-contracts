@@ -31,7 +31,7 @@ describe('RegistrationManager', () => {
 
     FeesManager = await ethers.getContractFactory('FeesManager')
     const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
-    const BorrowingManager = await ethers.getContractFactory('BorrowingManagerV2')
+    const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
     const StakingManager = await ethers.getContractFactory('StakingManager')
     const ERC20 = await ethers.getContractFactory('ERC20')
@@ -122,7 +122,6 @@ describe('RegistrationManager', () => {
     const lockTime = EPOCH_DURATION * 4
 
     const lendAmount = ethers.utils.parseEther('200000')
-    const borrowAmount = ethers.utils.parseEther('200000')
     await pnt.connect(pntHolder1).approve(borrowingManager.address, lendAmount)
     await borrowingManager.connect(pntHolder1).lend(lendAmount, EPOCH_DURATION * 10, pntHolder1.address)
 
@@ -131,7 +130,7 @@ describe('RegistrationManager', () => {
     await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(stakeAmount, lockTime, signature1)
 
     const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
-    await registrationManager.connect(sentinelBorrowerRegistrator1).updateSentinelRegistrationByBorrowing(borrowAmount, 3, signature2)
+    await registrationManager.connect(sentinelBorrowerRegistrator1).updateSentinelRegistrationByBorrowing(3, signature2)
 
     await time.increase(EPOCH_DURATION)
 
