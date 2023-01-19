@@ -13,7 +13,7 @@ interface IRegistrationManager {
         address owner;
         uint16 startEpoch;
         uint16 endEpoch;
-        uint8 kind;
+        bytes1 kind;
     }
 
     /**
@@ -30,7 +30,7 @@ interface IRegistrationManager {
         uint16 indexed startEpoch,
         uint16 indexed endEpoch,
         address sentinel,
-        uint8 kind
+        bytes1 kind
     );
 
     /**
@@ -93,6 +93,32 @@ interface IRegistrationManager {
     ) external;
 
     /*
+     * @notice Release a specific sentinel. This function shold be called only by who owns the RELEASE_SENTINEL_ROLE role.
+     *
+     * @param sentinel
+     *
+     */
+    function releaseSentinel(address sentinel) external;
+
+    /*
+     * @notice Return the staked amount by a sentinel in a given epoch.
+     *
+     * @param epoch
+     *
+     * @return uint256 representing staked amount by a sentinel in a given epoch.
+     */
+    function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256);
+
+    /*
+     * @notice Return the total staked amount by the sentinels in a given epoch.
+     *
+     * @param epoch
+     *
+     * @return uint256 representing  total staked amount by the sentinels in a given epoch.
+     */
+    function totalSentinelStakedAmountByEpoch(uint256 epoch) external view returns (uint256);
+
+    /*
      * @notice Registers/Renew a sentine for a given number of epochs
      *
      * @param amount
@@ -101,12 +127,4 @@ interface IRegistrationManager {
      *
      */
     function updateSentinelRegistrationByStaking(uint256 amount, uint64 lockTime, bytes calldata signature) external;
-
-    /*
-     * @notice Release a specific sentinel. This function shold be called only by who owns the RELEASE_SENTINEL role.
-     *
-     * @param sentinel
-     *
-     */
-    function releaseSentinel(address sentinel) external;
 }

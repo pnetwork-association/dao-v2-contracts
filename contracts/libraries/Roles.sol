@@ -11,7 +11,6 @@ library Roles {
     bytes32 public constant INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE = keccak256("INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE");
     bytes32 public constant BORROW_ROLE = keccak256("BORROW_ROLE");
     bytes32 public constant RELEASE_ROLE = keccak256("RELEASE_ROLE");
-    bytes32 public constant RELEASE_SENTINEL = keccak256("RELEASE_SENTINEL");
-
-    bytes32 public constant DEPOSIT_INTEREST = keccak256("DEPOSIT_INTEREST");
+    bytes32 public constant RELEASE_SENTINEL_ROLE = keccak256("RELEASE_SENTINEL_ROLE");
+    bytes32 public constant DEPOSIT_INTEREST_ROLE = keccak256("DEPOSIT_INTEREST_ROLE");
 }

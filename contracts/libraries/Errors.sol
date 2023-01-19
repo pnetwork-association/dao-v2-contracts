@@ -14,7 +14,7 @@ library Errors {
     error InvalidRegistration();
     error SentinelNotReleasable(address sentinel);
     error SentinelNotRegistered();
-    error AlreadyClaimed();
+    error AlreadyClaimed(address asset, uint16 epoch);
     error NothingToClaim();
     error LendPeriodTooBig();
 }

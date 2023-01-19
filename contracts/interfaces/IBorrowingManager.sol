@@ -181,7 +181,7 @@ interface IBorrowingManager {
      *
      * @return uint256 an integer representing the lended amount for a given epoch.
      */
-    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint256);
+    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint24);
 
     /*
      * @notice Returns the maximum lended amount for the selected epochs.
@@ -214,13 +214,33 @@ interface IBorrowingManager {
     function totalAssetInterestAmountByEpoch(address asset, uint16 epoch) external view returns (uint256);
 
     /*
+     * @notice Returns the current total weight for a given epoch. The total weight is the sum of the user weights in a specific epoch.
+     *
+     * @param asset
+     * @param epoch
+     *
+     * @return uint32 representing the current total weight for a given epoch.
+     */
+    function totalWeightByEpoch(uint16 epoch) external view returns (uint32);
+
+    /*
+     * @notice Returns the current total weight for a given epochs range. The total weight is the sum of the user weights in a specific epochs range.
+     *
+     * @param asset
+     * @param epoch
+     *
+     * @return uint32 representing the current total weight for a given epochs range.
+     */
+    function totalWeightByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory);
+
+    /*
      * @notice Returns the utilization rate (percentage of borrowed tokens compared to the lended ones) in the given epoch
      *
      * @param epoch
      *
-     * @return uint256 an integer representing the utilization rate in a given epoch.
+     * @return uint24 an integer representing the utilization rate in a given epoch.
      */
-    function utilizationRatioByEpoch(uint16 epoch) external view returns (uint256);
+    function utilizationRatioByEpoch(uint16 epoch) external view returns (uint24);
 
     /*
      * @notice Returns the utilization rate (percentage of borrowed tokens compared to the lended ones) given the start end the end epoch
@@ -228,7 +248,33 @@ interface IBorrowingManager {
      * @param startEpoch
      * @param endEpoch
      *
-     * @return uint256 an integer representing the utilization rate in a given the start end the end epoch.
+     * @return uint24 an integer representing the utilization rate in a given the start end the end epoch.
      */
-    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint256[] memory);
+    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory);
+
+    /*
+     * @notice Returns the user weight in a given epoch. The user weight is calculated with
+     * the following formula: lendedAmount * numberOfEpochsLeft in a given epoch
+     *
+     * @param lender
+     * @param epoch
+     *
+     * @return uint32 an integer representing the user weight in a given epoch.
+     */
+    function weightByEpochOf(address lender, uint16 epoch) external view returns (uint32);
+
+    /*
+     * @notice Returns the user weights in an epochs range. The user weight is calculated with
+     * the following formula: lendedAmount * numberOfEpochsLeft in a given epoch
+     *
+     * @param lender
+     * @param epoch
+     *
+     * @return uint32[] an integer representing the user weights in an epochs range.
+     */
+    function weightByEpochsRangeOf(
+        address lender,
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint32[] memory);
 }

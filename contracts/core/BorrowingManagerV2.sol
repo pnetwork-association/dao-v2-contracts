@@ -42,9 +42,9 @@ contract BorrowingManagerV2 is
     uint16 public lendMaxEpochs;
 
     function initialize(
-        address stakingManager_,
-        address token_,
-        address epochsManager_,
+        address _stakingManager,
+        address _token,
+        address _epochsManager,
         uint16 _lendMaxEpochs
     ) public initializer {
         __Ownable_init();
@@ -53,9 +53,9 @@ contract BorrowingManagerV2 is
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
-        stakingManager = stakingManager_;
-        token = token_;
-        epochsManager = epochsManager_;
+        stakingManager = _stakingManager;
+        token = _token;
+        epochsManager = _epochsManager;
         lendMaxEpochs = _lendMaxEpochs;
 
         _epochsTotalLendedAmount = new uint24[](100);
@@ -118,10 +118,11 @@ contract BorrowingManagerV2 is
     /// @inheritdoc IBorrowingManager
     function claimableAssetAmountByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
         if (_lendersEpochsWeight[lender].length == 0) return 0;
-        uint256 percentage = (_lendersEpochsWeight[lender][epoch] * 10 ** 18) / _epochTotalWeight[epoch];
+        uint256 percentage = (uint256(_lendersEpochsWeight[lender][epoch]) * Constants.DECIMALS_PRECISION) /
+            _epochTotalWeight[epoch];
 
         return
-            ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / 10 ** 18) -
+            ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / Constants.DECIMALS_PRECISION) -
             _lendersEpochsAssetsInterestsClaim[lender][epoch][asset];
     }
 
@@ -193,7 +194,11 @@ contract BorrowingManagerV2 is
     }
 
     /// @inheritdoc IBorrowingManager
-    function depositInterest(address asset, uint16 epoch, uint256 amount) external onlyRole(Roles.DEPOSIT_INTEREST) {
+    function depositInterest(
+        address asset,
+        uint16 epoch,
+        uint256 amount
+    ) external onlyRole(Roles.DEPOSIT_INTEREST_ROLE) {
         IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
         _totalEpochsAssetsInterestAmount[asset][epoch] += amount;
         emit InterestDeposited(asset, epoch, amount);
@@ -218,7 +223,7 @@ contract BorrowingManagerV2 is
     }
 
     /// @inheritdoc IBorrowingManager
-    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint256) {
+    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint24) {
         return _epochsTotalLendedAmount[epoch];
     }
 
@@ -244,12 +249,12 @@ contract BorrowingManagerV2 is
         return _totalEpochsAssetsInterestAmount[asset][epoch];
     }
 
-    /// TODO
+    /// @inheritdoc IBorrowingManager
     function totalWeightByEpoch(uint16 epoch) external view returns (uint32) {
         return _epochTotalWeight[epoch];
     }
 
-    /// TODO
+    /// @inheritdoc IBorrowingManager
     function totalWeightByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory) {
         uint32[] memory result = new uint32[](endEpoch - startEpoch + 1);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
@@ -259,29 +264,27 @@ contract BorrowingManagerV2 is
     }
 
     /// @inheritdoc IBorrowingManager
-    function utilizationRatioByEpoch(uint16 epoch) public view returns (uint256) {
-        uint256 size = _epochsTotalLendedAmount[epoch];
-        return size > 0 ? (_epochsTotalBorrowedAmount[epoch] * 10 ** 18) / size : 0;
+    function utilizationRatioByEpoch(uint16 epoch) public view returns (uint24) {
+        uint24 size = _epochsTotalLendedAmount[epoch];
+        return
+            size > 0 ? uint24((uint256(_epochsTotalBorrowedAmount[epoch]) * Constants.DECIMALS_PRECISION) / size) : 0;
     }
 
     /// @inheritdoc IBorrowingManager
-    function utilizationRatioByEpochsRange(
-        uint16 startEpoch,
-        uint16 endEpoch
-    ) external view returns (uint256[] memory) {
-        uint256[] memory result = new uint256[](endEpoch - startEpoch + 1);
+    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory) {
+        uint24[] memory result = new uint24[](endEpoch - startEpoch + 1);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = utilizationRatioByEpoch(epoch);
         }
         return result;
     }
 
-    /// TODO
+    /// @inheritdoc IBorrowingManager
     function weightByEpochOf(address lender, uint16 epoch) external view returns (uint32) {
         return _lendersEpochsWeight[lender][epoch];
     }
 
-    /// TODO
+    /// @inheritdoc IBorrowingManager
     function weightByEpochsRangeOf(
         address lender,
         uint16 startEpoch,
