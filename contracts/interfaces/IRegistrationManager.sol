@@ -85,10 +85,7 @@ interface IRegistrationManager {
      * @param signature
      *
      */
-    function updateSentinelRegistrationByBorrowing(
-        uint16 numberOfEpochs,
-        bytes calldata signature
-    ) external;
+    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external;
 
     /*
      * @notice Release a specific sentinel. This function shold be called only by who owns the RELEASE_SENTINEL_ROLE role.

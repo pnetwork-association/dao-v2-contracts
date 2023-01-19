@@ -101,10 +101,8 @@ contract FeesManager is
             uint256 sentinelBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
             uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(epoch);
 
-            fee =
-                ((((Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION * Constants.DECIMALS_PRECISION) /
-                    totalBorrowedAmount) * sentinelBorrowingAssetFee) / Constants.DECIMALS_PRECISION) *
-                10 ** 18;
+            fee = ((((Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION * Constants.DECIMALS_PRECISION) /
+                (uint256(totalBorrowedAmount) * 10 ** 18)) * sentinelBorrowingAssetFee) / Constants.DECIMALS_PRECISION);
         }
 
         return fee;
