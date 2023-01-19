@@ -17,8 +17,6 @@ import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 
-import "hardhat/console.sol";
-
 contract FeesManager is
     IFeesManager,
     Initializable,
@@ -59,20 +57,64 @@ contract FeesManager is
         minimumBorrowingFee = _minimumBorrowingFee;
     }
 
-    function z() public pure returns (uint256) {
-        return 1;
-    }
+    /// @inheritdoc IFeesManager
+    function claimFeeByEpoch(address asset, uint16 epoch) external {
+        address owner = _msgSender();
 
-    function kByEpoch(uint16 epoch) public view returns (uint256) {
-        uint256 utilizationRatio = IBorrowingManager(borrowingManager).utilizationRatioByEpoch(epoch);
-        if (utilizationRatio == 0) {
-            return 0;
+        if (_ownersEpochsAssetsClaim[owner][asset][epoch] == 0x01) {
+            revert Errors.AlreadyClaimed(asset, epoch);
         }
 
-        uint256 k = (utilizationRatio * utilizationRatio) + minimumBorrowingFee;
-        return k > Constants.DECIMALS_PRECISION ? Constants.DECIMALS_PRECISION : k;
+        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
+        if (sentinel == address(0)) revert Errors.SentinelNotRegistered();
+
+        uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
+        if (fee == 0) {
+            revert Errors.NothingToClaim();
+        }
+
+        _ownersEpochsAssetsClaim[owner][asset][epoch] = 0x01;
+        IERC20Upgradeable(asset).safeTransfer(owner, fee);
+        emit FeeClaimed(owner, sentinel, epoch, asset, fee);
     }
 
+    /// @inheritdoc IFeesManager
+    function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) public view returns (uint256) {
+        IRegistrationManager.Registration memory registration = IRegistrationManager(registrationManager)
+            .sentinelRegistration(sentinel);
+
+        uint256 fee = 0;
+        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
+            uint256 sentinelStakingAssetFee = _epochsSentinelsStakingAssetsFee[epoch][asset];
+            uint256 stakedAmount = IRegistrationManager(registrationManager).sentinelStakedAmountByEpochOf(
+                sentinel,
+                epoch
+            );
+            uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
+                epoch
+            );
+            fee =
+                (((stakedAmount * Constants.DECIMALS_PRECISION) / totalStakedAmount) * sentinelStakingAssetFee) /
+                Constants.DECIMALS_PRECISION;
+        }
+        if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+            uint256 sentinelBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
+            uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(epoch);
+            uint256 borrowedAmount = IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(
+                registration.owner,
+                epoch
+            );
+
+            fee =
+                ((((borrowedAmount * Constants.DECIMALS_PRECISION) / totalBorrowedAmount) * sentinelBorrowingAssetFee) /
+                    Constants.DECIMALS_PRECISION) *
+                10 ** 18;
+        }
+
+        return fee;
+    }
+
+    /// @inheritdoc IFeesManager
     function depositFee(address asset, uint256 amount) external {
         IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
@@ -111,53 +153,15 @@ contract FeesManager is
         emit FeeDeposited(asset, currentEpoch, amount);
     }
 
-    function claimFeeByEpoch(address asset, uint16 epoch) external {
-        address owner = _msgSender();
-
-        if (_ownersEpochsAssetsClaim[owner][asset][epoch] == 0x01) {
-            revert Errors.AlreadyClaimed(asset, epoch);
+    /// @inheritdoc IFeesManager
+    function kByEpoch(uint16 epoch) public view returns (uint256) {
+        uint256 utilizationRatio = IBorrowingManager(borrowingManager).utilizationRatioByEpoch(epoch);
+        if (utilizationRatio == 0) {
+            return 0;
         }
 
-        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
-        if (sentinel == address(0)) revert Errors.SentinelNotRegistered();
-
-        uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
-        if (fee == 0) {
-            revert Errors.NothingToClaim();
-        }
-
-        _ownersEpochsAssetsClaim[owner][asset][epoch] = 0x01;
-        IERC20Upgradeable(asset).safeTransfer(owner, fee);
-        emit FeeClaimed(owner, sentinel, epoch, asset, fee);
-    }
-
-    function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) public view returns (uint256) {
-        IRegistrationManager.Registration memory registration = IRegistrationManager(registrationManager)
-            .sentinelRegistration(sentinel);
-
-        uint256 fee = 0;
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
-            uint256 sentinelStakingAssetFee = _epochsSentinelsStakingAssetsFee[epoch][asset];
-            uint256 stakedAmount = IRegistrationManager(registrationManager).sentinelStakedAmountByEpochOf(
-                sentinel,
-                epoch
-            );
-            uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
-                epoch
-            );
-            fee = (((stakedAmount * Constants.DECIMALS_PRECISION) / totalStakedAmount) *
-                sentinelStakingAssetFee) / Constants.DECIMALS_PRECISION;
-
-        } if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
-            uint256 sentinelBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
-            uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(epoch);
-            uint256 borrowedAmount = IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(registration.owner, epoch);
-
-            fee = ((((borrowedAmount * Constants.DECIMALS_PRECISION) / totalBorrowedAmount) *
-                sentinelBorrowingAssetFee) / Constants.DECIMALS_PRECISION) * 10 ** 18;
-        }
-
-        return fee;
+        uint256 k = (utilizationRatio * utilizationRatio) + minimumBorrowingFee;
+        return k > Constants.DECIMALS_PRECISION ? Constants.DECIMALS_PRECISION : k;
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

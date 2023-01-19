@@ -34,4 +34,41 @@ interface IFeesManager {
         address asset,
         uint256 amount
     );
+
+    /*
+     * @notice Claim a fee for a given asset in a specific epoch.
+     *
+     * @param asset
+     * @param epoch
+     *
+     */
+    function claimFeeByEpoch(address asset, uint16 epoch) external;
+
+    /*
+     * @notice Indicates the claimable asset fee amount in a specific epoch.
+     *
+     * @param asset
+     * @param epoch
+     *
+     * @return uint256 an integer representing the claimable asset fee amount in a specific epoch.
+     */
+    function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) external view returns (uint256);
+
+    /*
+     * @notice Deposit an asset fee amount in the current epoch.
+     *
+     * @param asset
+     * @param amount
+     *
+     */
+    function depositFee(address asset, uint256 amount) external;
+
+    /*
+     * @notice Indicates the K factor in a specific epoch. The K factor is calculated with the following formula: utilizationRatio^2 + minimumBorrowinfFee
+     *
+     * @param epoch
+     *
+     * @return uint256 an integer representing the K factor in a specific epoch.
+     */
+    function kByEpoch(uint16 epoch) external view returns (uint256);
 }
