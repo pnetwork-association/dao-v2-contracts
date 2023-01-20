@@ -111,7 +111,19 @@ interface IRegistrationManager {
      *
      * @return uint256 representing  total staked amount by the sentinels in a given epoch.
      */
-    function totalSentinelStakedAmountByEpoch(uint256 epoch) external view returns (uint256);
+    function totalSentinelStakedAmountByEpoch(uint16 epoch) external view returns (uint256);
+
+    /*
+     * @notice Return the total staked amount by the sentinels in a given epochs range.
+     *
+     * @param epoch
+     *
+     * @return uint256[] representing  total staked amount by the sentinels in a given epochs range.
+     */
+    function totalSentinelStakedAmountByEpochsRange(
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint256[] memory);
 
     /*
      * @notice Registers/Renew a sentine for a given number of epochs

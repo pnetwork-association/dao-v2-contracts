@@ -64,11 +64,21 @@ interface IFeesManager {
     function depositFee(address asset, uint256 amount) external;
 
     /*
-     * @notice Indicates the K factor in a specific epoch. The K factor is calculated with the following formula: utilizationRatio^2 + minimumBorrowinfFee
+     * @notice Indicates the K factor in a specific epoch. The K factor is calculated with the following formula: utilizationRatio^2 + minimumBorrowingFee
      *
      * @param epoch
      *
      * @return uint256 an integer representing the K factor in a specific epoch.
      */
     function kByEpoch(uint16 epoch) external view returns (uint256);
+
+    /*
+     * @notice Indicates the K factor in a specific epochs range.
+     *
+     * @param startEpoch
+     * @params endEpoch
+     *
+     * @return uint256[] an integer representing the K factor in a specific epochs range.
+     */
+    function kByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint256[] memory);
 }

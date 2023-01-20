@@ -193,12 +193,26 @@ contract RegistrationManager is
         emit SentinelReleased(sentinel, currentEpoch);
     }
 
+    /// @inheritdoc IRegistrationManager
     function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256) {
         return _sentinelsEpochsStakedAmount[epoch][sentinel];
     }
 
-    function totalSentinelStakedAmountByEpoch(uint256 epoch) external view returns (uint256) {
+    /// @inheritdoc IRegistrationManager
+    function totalSentinelStakedAmountByEpoch(uint16 epoch) external view returns (uint256) {
         return _sentinelsEpochsTotalStakedAmount[epoch];
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function totalSentinelStakedAmountByEpochsRange(
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint256[] memory) {
+        uint256[] memory result = new uint256[](endEpoch - startEpoch + 1);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
+            result[epoch - startEpoch] = _sentinelsEpochsTotalStakedAmount[epoch];
+        }
+        return result;
     }
 
     function _updateSentinel(

@@ -151,9 +151,22 @@ interface IBorrowingManager {
      *
      * @param epoch
      *
-     * @return uint24 representing an integer representing the borrowed amount for a given epoch
+     * @return uint24 representing an integer representing the borrowed amount for a given epoch.
      */
     function totalBorrowedAmountByEpoch(uint16 epoch) external view returns (uint24);
+
+    /*
+     * @notice Returns the borrowed amount in an epochs range.
+     *
+     * @param startEpoch
+     * @param endEpoch
+     *
+     * @return uint24[] representing an integer representing the borrowed amount in an epochs range.
+     */
+    function totalBorrowedAmountByEpochsRange(
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint24[] memory);
 
     /*
      * @notice Returns the lended amount for a given epoch.

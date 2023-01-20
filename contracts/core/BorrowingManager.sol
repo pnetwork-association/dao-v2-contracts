@@ -209,6 +209,18 @@ contract BorrowingManager is
     }
 
     /// @inheritdoc IBorrowingManager
+    function totalBorrowedAmountByEpochsRange(
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint24[] memory) {
+        uint24[] memory result = new uint24[](endEpoch - startEpoch + 1);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
+            result[epoch - startEpoch] = _epochsTotalBorrowedAmount[epoch];
+        }
+        return result;
+    }
+
+    /// @inheritdoc IBorrowingManager
     function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint24) {
         return _epochsTotalLendedAmount[epoch];
     }

@@ -158,5 +158,14 @@ contract FeesManager is
         return k > Constants.DECIMALS_PRECISION ? Constants.DECIMALS_PRECISION : k;
     }
 
+    /// @inheritdoc IFeesManager
+    function kByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint256[] memory) {
+        uint256[] memory result = new uint256[](endEpoch - startEpoch + 1);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
+            result[epoch - startEpoch] = kByEpoch(epoch);
+        }
+        return result;
+    }
+
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }
