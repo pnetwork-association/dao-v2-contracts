@@ -9,7 +9,7 @@ import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgrad
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
-import {IStakingManager} from "../interfaces/external/IStakingManager.sol";
+import {IStakingManager} from "../interfaces/IStakingManager.sol";
 import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
@@ -197,10 +197,10 @@ contract BorrowingManager is
 
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
-        uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
+        // uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
 
-        _prepareLend(receiver, lockTime, currentEpoch, epochDuration, startFirstEpochTimestamp);
-        _stakeAndUpdateWeights(receiver, amount, lockTime, epochDuration, startFirstEpochTimestamp);
+        // _prepareLend(receiver, lockTime, currentEpoch, epochDuration, startFirstEpochTimestamp);
+        _stakeAndUpdateWeights(receiver, amount, lockTime, currentEpoch, epochDuration);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -295,65 +295,24 @@ contract BorrowingManager is
         return result;
     }
 
-    function _stakeAndUpdateWeights(
-        address lender,
-        uint256 amount,
-        uint64 lockTime,
-        uint256 epochDuration,
-        uint256 startFirstEpochTimestamp
-    ) internal {
-        IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(amount, lockTime, lender);
-        (uint64 lockDate, uint64 duration, uint256 lockAmount) = IStakingManager(stakingManager).addressStakeLocks(
-            lender,
-            0
-        );
-
-        uint16 stakeEpoch = uint16((lockDate - startFirstEpochTimestamp) / epochDuration);
-        uint16 startEpoch = stakeEpoch + 1;
-        uint16 endEpoch = (stakeEpoch + uint16(((lockDate + duration) - startFirstEpochTimestamp) / epochDuration) - 1);
-
-        if (_lendersEpochsWeight[lender].length == 0) {
-            _lendersEpochsWeight[lender] = new uint32[](36);
-        }
-
-        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            uint24 weight = Helpers.truncate(lockAmount, 0) * ((endEpoch - epoch) + 1);
-            _epochTotalWeight[epoch] += weight;
-            _lendersEpochsWeight[lender][epoch] = weight;
-            _epochsTotalLendedAmount[epoch] += Helpers.truncate(lockAmount, 0);
-
-            unchecked {
-                ++epoch;
-            }
-        }
-
-        // TODO: add duration check
-
-        emit Lended(lender, startEpoch, endEpoch, amount);
-    }
-
-    function _prepareLend(
+    /*function _prepareLend(
         address lender,
         uint64 lockTime,
         uint16 currentEpoch,
         uint256 epochDuration,
         uint256 startFirstEpochTimestamp
     ) internal {
-        if (IStakingManager(stakingManager).getNumberOfStakedLocks(lender) == 0) return;
-        (uint64 lockDate, uint64 duration, uint256 lockAmount) = IStakingManager(stakingManager).addressStakeLocks(
-            lender,
-            0
-        );
+        IStakingManager.Stake memory stake = IStakingManager(stakingManager).stakeOf(lender);
+        if (stake.amount == 0) return;
 
-        uint16 stakeEpoch = uint16((lockDate - startFirstEpochTimestamp) / epochDuration);
+        uint16 stakeEpoch = uint16((stake.startDate - startFirstEpochTimestamp) / epochDuration);
         uint16 oldEndEpoch = (stakeEpoch +
-            uint16(((lockDate + duration) - startFirstEpochTimestamp) / epochDuration) -
+            uint16((stake.endDate - startFirstEpochTimestamp) / epochDuration) -
             1);
         uint16 newStartEpoch = currentEpoch + 1;
         uint16 newEndEpoch = (currentEpoch + uint16(lockTime / epochDuration)) - 1;
 
-        uint24 truncatedLockAmount = Helpers.truncate(lockAmount, 0);
+        uint24 truncatedLockAmount = Helpers.truncate(stake.amount, 0);
         if (newStartEpoch <= oldEndEpoch && newEndEpoch >= oldEndEpoch) {
             for (uint16 epoch = newStartEpoch; epoch <= oldEndEpoch; ) {
                 _epochsTotalLendedAmount[epoch] -= truncatedLockAmount;
@@ -363,12 +322,49 @@ contract BorrowingManager is
                 }
             }
         }
-    }
+    }*/
 
     function _release(address borrower, uint16 epoch, uint256 amount) internal {
         _epochsTotalLendedAmount[epoch] += uint24(Helpers.truncate(amount, 0));
         // TODO: maybe multiply userBorrowedAmount x 10 ** (18 - precision)?
         emit Released(borrower, epoch, amount);
+    }
+
+    function _stakeAndUpdateWeights(
+        address lender,
+        uint256 amount,
+        uint64 lockTime,
+        uint16 currentEpoch,
+        uint256 epochDuration
+    ) internal {
+        IERC20Upgradeable(token).approve(stakingManager, amount);
+        IStakingManager(stakingManager).stake(amount, lockTime, lender);
+        
+        /*uint16 stakeEpoch = uint16((stake.startDate - startFirstEpochTimestamp) / epochDuration);
+        uint16 startEpoch = stakeEpoch + 1;*/
+        uint16 startEpoch = currentEpoch + 1;
+        uint16 numberOfEpochs = uint16(lockTime / epochDuration);
+        uint16 endEpoch = uint16(currentEpoch + numberOfEpochs - 1);
+        //uint16 endEpoch = (stakeEpoch + uint16((stake.endDate - startFirstEpochTimestamp) / epochDuration) - 1);
+
+        if (_lendersEpochsWeight[lender].length == 0) {
+            _lendersEpochsWeight[lender] = new uint32[](36);
+        }
+
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            uint24 weight = Helpers.truncate(amount, 0) * ((endEpoch - epoch) + 1);
+            _epochTotalWeight[epoch] += weight;
+            _lendersEpochsWeight[lender][epoch] += weight;
+            _epochsTotalLendedAmount[epoch] += Helpers.truncate(amount, 0);
+
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        // TODO: add duration check
+
+        emit Lended(lender, startEpoch, endEpoch, amount);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

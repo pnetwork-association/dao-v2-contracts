@@ -7,4 +7,4 @@ module.exports.getSentinelIdentity = async (_ownerAddress, { sentinel }) => {
   return sentinel.signMessage(ethers.utils.arrayify(messageHash))
 }
 
-module.exports.parseWithPrecision = (_value) => ethers.utils.parseUnits(ethers.utils.formatUnits(_value, 18), 2)
+module.exports.truncateWithPrecision = (_value, _precision = 0) => ethers.utils.parseUnits(ethers.utils.formatUnits(_value, 18), _precision)

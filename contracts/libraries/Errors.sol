@@ -17,4 +17,6 @@ library Errors {
     error AlreadyClaimed(address asset, uint16 epoch);
     error NothingToClaim();
     error LendPeriodTooBig();
+    error InvalidDuration();
+    error UnfinishedStakingPeriod();
 }

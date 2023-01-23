@@ -8,4 +8,5 @@ library Constants {
     bytes1 public constant REGISTRATION_SENTINEL_STAKING = 0x01;
     bytes1 public constant REGISTRATION_SENTINEL_BORROWING = 0x02;
     uint24 public constant DECIMALS_PRECISION = 10 ** 6;
+    uint64 public constant MIN_STAKE_DURATION = 604800; // 7 days
 }
