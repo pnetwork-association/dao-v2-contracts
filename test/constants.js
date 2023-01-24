@@ -4,7 +4,7 @@ const constants = {
   DAO_ROOT_ADDRESS: '0x6Ae14ff8d24F719a8cf5A9FAa2Ad05dA7e44C8b6',
   EPOCH_DURATION: 1314001,
   INFINITE: '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-  LEND_MAX_EPOCHS: 100,
+  LEND_MAX_EPOCHS: 24,
   MIN_LOCK_DURATION: 604800,
   ONE_DAY: 86400,
   PNT_ADDRESS: '0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD',
