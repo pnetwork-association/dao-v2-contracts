@@ -91,6 +91,17 @@ describe('BorrowingManager', () => {
     })
   })
 
+  it('should not be able to lend for more than lendMaxEpochs', async () => {
+    const amount = ethers.utils.parseEther('1000')
+    const lendMaxEpochs = await borrowingManager.lendMaxEpochs()
+    const lockTime = EPOCH_DURATION * (lendMaxEpochs + 3)
+    await pnt.connect(pntHolder1).approve(borrowingManager.address, amount)
+    await expect(borrowingManager.connect(pntHolder1).lend(amount, lockTime, pntHolder1.address)).to.be.revertedWithCustomError(
+      borrowingManager,
+      'LendPeriodTooBig'
+    )
+  })
+
   it('should be able to lend at the epoch 0 for 2 epochs (epoch 1 & 2) even if the lockTime finishes at epoch 3', async () => {
     const amount = ethers.utils.parseEther('1000')
     const lockTime = EPOCH_DURATION * 2 + ONE_DAY

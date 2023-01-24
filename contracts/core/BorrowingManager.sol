@@ -16,8 +16,6 @@ import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 
-import "hardhat/console.sol";
-
 contract BorrowingManager is
     IBorrowingManager,
     Initializable,
@@ -96,10 +94,6 @@ contract BorrowingManager is
     function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24) {
         return _epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch];
     }
-
-    /*function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24) {
-        return _borrowersEpochsBorrowedAmount[borrower][epoch];
-    }*/
 
     /// @inheritdoc IBorrowingManager
     function claimableAssetAmountByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
@@ -195,12 +189,10 @@ contract BorrowingManager is
         address lender = _msgSender();
         IERC20Upgradeable(token).safeTransferFrom(lender, address(this), amount);
 
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
-        // uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
+        IERC20Upgradeable(token).approve(stakingManager, amount);
+        IStakingManager(stakingManager).stake(amount, lockTime, lender);
 
-        // _prepareLend(receiver, lockTime, currentEpoch, epochDuration, startFirstEpochTimestamp);
-        _stakeAndUpdateWeights(receiver, amount, lockTime, currentEpoch, epochDuration);
+        _updateWeights(receiver, amount, lockTime);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -325,19 +317,17 @@ contract BorrowingManager is
         }
     }*/
 
-    function _stakeAndUpdateWeights(
-        address lender,
-        uint256 amount,
-        uint64 lockTime,
-        uint16 currentEpoch,
-        uint256 epochDuration
-    ) internal {
-        IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(amount, lockTime, lender);
+    function _updateWeights(address lender, uint256 amount, uint64 lockTime) internal {
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
 
         uint16 startEpoch = currentEpoch + 1;
         uint16 numberOfEpochs = uint16(lockTime / epochDuration);
         uint16 endEpoch = uint16(currentEpoch + numberOfEpochs - 1);
+
+        if (endEpoch - startEpoch > lendMaxEpochs) {
+            revert Errors.LendPeriodTooBig();
+        }
 
         if (_lendersEpochsWeight[lender].length == 0) {
             _lendersEpochsWeight[lender] = new uint32[](36);
@@ -353,8 +343,6 @@ contract BorrowingManager is
                 ++epoch;
             }
         }
-
-        // TODO: add duration check
 
         emit Lended(lender, startEpoch, endEpoch, amount);
     }
