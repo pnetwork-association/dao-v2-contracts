@@ -239,7 +239,8 @@ contract BorrowingManager is
 
     /// @inheritdoc IBorrowingManager
     function release(address borrower, uint16 epoch, uint256 amount) external onlyRole(Roles.RELEASE_ROLE) {
-        _release(borrower, epoch, amount);
+        _epochsTotalLendedAmount[epoch] += uint24(Helpers.truncate(amount, 0));
+        emit Released(borrower, epoch, amount);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -324,12 +325,6 @@ contract BorrowingManager is
         }
     }*/
 
-    function _release(address borrower, uint16 epoch, uint256 amount) internal {
-        _epochsTotalLendedAmount[epoch] += uint24(Helpers.truncate(amount, 0));
-        // TODO: maybe multiply userBorrowedAmount x 10 ** (18 - precision)?
-        emit Released(borrower, epoch, amount);
-    }
-
     function _stakeAndUpdateWeights(
         address lender,
         uint256 amount,
@@ -339,13 +334,10 @@ contract BorrowingManager is
     ) internal {
         IERC20Upgradeable(token).approve(stakingManager, amount);
         IStakingManager(stakingManager).stake(amount, lockTime, lender);
-        
-        /*uint16 stakeEpoch = uint16((stake.startDate - startFirstEpochTimestamp) / epochDuration);
-        uint16 startEpoch = stakeEpoch + 1;*/
+
         uint16 startEpoch = currentEpoch + 1;
         uint16 numberOfEpochs = uint16(lockTime / epochDuration);
         uint16 endEpoch = uint16(currentEpoch + numberOfEpochs - 1);
-        //uint16 endEpoch = (stakeEpoch + uint16((stake.endDate - startFirstEpochTimestamp) / epochDuration) - 1);
 
         if (_lendersEpochsWeight[lender].length == 0) {
             _lendersEpochsWeight[lender] = new uint32[](36);
