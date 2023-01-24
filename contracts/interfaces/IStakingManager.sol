@@ -16,6 +16,14 @@ interface IStakingManager {
     }
 
     /**
+     * @dev Emitted when an user increases his stake duration.
+     *
+     * @param owner The owner
+     * @param duration The staking duration to add to the current one
+     */
+    event DurationIncreased(address indexed owner, uint64 duration);
+
+    /**
      * @dev Emitted when an user stakes some tokens
      *
      * @param receiver The receiver
@@ -31,6 +39,13 @@ interface IStakingManager {
      * @param amount The unstaked amount
      */
     event Unstaked(address indexed owner, uint256 amount);
+
+    /*
+     * @notice Increase the duration of a stake.
+     *
+     * @param duration
+     */
+    function increaseDuration(uint64 duration) external;
 
     /*
      * @notice Stake an certain amount of tokens locked for a period of time in behalf of receiver.

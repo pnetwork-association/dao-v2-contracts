@@ -19,4 +19,5 @@ library Errors {
     error LendPeriodTooBig();
     error InvalidDuration();
     error UnfinishedStakingPeriod();
+    error NothingAtStake();
 }

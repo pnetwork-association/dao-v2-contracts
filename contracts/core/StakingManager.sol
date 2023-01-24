@@ -10,7 +10,6 @@ import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IStakingManager} from "../interfaces/IStakingManager.sol";
 import {ITokenManager} from "../interfaces/external/ITokenManager.sol";
-import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 
@@ -40,7 +39,30 @@ contract StakingManager is
     }
 
     /// @inheritdoc IStakingManager
-    function stake(uint256 amount, uint64 duration, address receiver) external{
+    function increaseDuration(uint64 duration) external {
+        address owner = _msgSender();
+
+        Stake storage st = _stakes[owner];
+        uint64 startDate = st.startDate;
+        uint64 endDate = st.endDate;
+        uint64 blockTimestamp = uint64(block.timestamp);
+
+        if (st.amount == 0) {
+            revert Errors.NothingAtStake();
+        }
+
+        if (endDate < blockTimestamp) {
+            st.startDate = blockTimestamp;
+            st.endDate = blockTimestamp + duration;
+        } else {
+            st.endDate = startDate + (endDate - startDate) + duration;
+        }
+
+        emit DurationIncreased(owner, duration);
+    }
+
+    /// @inheritdoc IStakingManager
+    function stake(uint256 amount, uint64 duration, address receiver) external {
         if (duration < Constants.MIN_STAKE_DURATION) {
             revert Errors.InvalidDuration();
         }

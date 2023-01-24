@@ -239,4 +239,54 @@ describe('StakingManager', () => {
 
     await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount.add(1))).to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
   })
+
+  it('should be able to increase the duration if the staking period is not finished yet', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+    const duration1 = MIN_LOCK_DURATION * 2
+    const duration2 = MIN_LOCK_DURATION * 5
+
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration1, pntHolder1.address))
+      .to.emit(stakingManager, 'Staked')
+      .withArgs(pntHolder1.address, stakeAmount, duration1)
+    const expectedStartDate = await time.latest()
+    const firstEndDate = expectedStartDate + duration1
+
+    await expect(stakingManager.connect(pntHolder1).increaseDuration(duration2))
+      .to.emit(stakingManager, 'DurationIncreased')
+      .withArgs(pntHolder1.address, duration2)
+    const increasedEndDate = firstEndDate + duration2
+
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
+    await expect(stake.startDate).to.be.eq(expectedStartDate)
+    await expect(stake.endDate).to.be.eq(increasedEndDate)
+  })
+
+  it('should be able to increase the duration if the staking period is finished', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+    const duration1 = MIN_LOCK_DURATION * 2
+    const duration2 = MIN_LOCK_DURATION * 5
+
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration1, pntHolder1.address))
+      .to.emit(stakingManager, 'Staked')
+      .withArgs(pntHolder1.address, stakeAmount, duration1)
+
+    await time.increase(duration1 + 1)
+
+    await expect(stakingManager.connect(pntHolder1).increaseDuration(duration2))
+      .to.emit(stakingManager, 'DurationIncreased')
+      .withArgs(pntHolder1.address, duration2)
+    const expectedStartDate = await time.latest()
+    const increasedEndDate = expectedStartDate + duration2
+
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
+    await expect(stake.startDate).to.be.eq(expectedStartDate)
+    await expect(stake.endDate).to.be.eq(increasedEndDate)
+  })
+
+  it('should not be able to increase duration if there is anything at stake', async () => {
+    const duration = MIN_LOCK_DURATION * 5
+    await expect(stakingManager.connect(pntHolder1).increaseDuration(duration)).to.be.revertedWithCustomError(stakingManager, 'NothingAtStake')
+  })
 })
