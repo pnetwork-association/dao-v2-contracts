@@ -25,9 +25,10 @@ contract BorrowingManager is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
+    mapping(address => uint24[]) private _borrowersEpochsBorrowedAmount;
     mapping(address => uint32[]) private _lendersEpochsWeight;
-    mapping(address => mapping(uint256 => uint256)) private _totalEpochsAssetsInterestAmount;
     mapping(address => mapping(uint256 => mapping(address => uint256))) private _lendersEpochsAssetsInterestsClaim;
+    mapping(address => mapping(uint256 => uint256)) private _totalEpochsAssetsInterestAmount;
 
     uint24[] private _epochsTotalLendedAmount;
     uint24[] private _epochsTotalBorrowedAmount;
@@ -63,36 +64,38 @@ contract BorrowingManager is
     /// @inheritdoc IBorrowingManager
     function borrow(
         uint256 amount,
-        uint16 numberOfEpochs,
+        uint16 epoch,
         address borrower
-    ) external onlyRole(Roles.BORROW_ROLE) returns (uint16, uint16) {
-        if (numberOfEpochs == 0) revert Errors.InvalidNumberOfEpochs();
+    ) external onlyRole(Roles.BORROW_ROLE) returns (uint24) {
         if (amount == 0) revert Errors.InvalidAmount();
-
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        uint16 nextEpoch = currentEpoch + 1;
-        uint16 endEpoch = nextEpoch + numberOfEpochs - 1;
         uint24 truncatedAmount = Helpers.truncate(amount, 0);
 
-        for (uint16 epoch = nextEpoch; epoch <= endEpoch; ) {
-            if (_epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch] >= truncatedAmount) {
-                _epochsTotalBorrowedAmount[epoch] += truncatedAmount;
-            } else {
-                revert Errors.AmountNotAvailableInEpoch(epoch);
-            }
+        // TODO: is it possible to borrow in the current epoch?
 
-            unchecked {
-                ++epoch;
-            }
+        if (_borrowersEpochsBorrowedAmount[borrower].length == 0) {
+            _borrowersEpochsBorrowedAmount[borrower] = new uint24[](30);
         }
 
-        emit Borrowed(borrower, nextEpoch, endEpoch, amount);
-        return (nextEpoch, endEpoch);
+        if (_epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch] < truncatedAmount) {
+            revert Errors.AmountNotAvailableInEpoch(epoch);
+        }
+
+        uint24 newBorrowerEpochBorrowedAmount = _borrowersEpochsBorrowedAmount[borrower][epoch] + truncatedAmount;
+        _epochsTotalBorrowedAmount[epoch] += truncatedAmount;
+        _borrowersEpochsBorrowedAmount[borrower][epoch] = newBorrowerEpochBorrowedAmount;
+
+        emit Borrowed(borrower, epoch, amount);
+        return newBorrowerEpochBorrowedAmount;
     }
 
     /// @inheritdoc IBorrowingManager
     function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24) {
         return _epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch];
+    }
+
+    /// @inheritdoc IBorrowingManager
+    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24) {
+        return _borrowersEpochsBorrowedAmount[borrower][epoch];
     }
 
     /// @inheritdoc IBorrowingManager
@@ -231,7 +234,9 @@ contract BorrowingManager is
 
     /// @inheritdoc IBorrowingManager
     function release(address borrower, uint16 epoch, uint256 amount) external onlyRole(Roles.RELEASE_ROLE) {
-        _epochsTotalLendedAmount[epoch] += uint24(Helpers.truncate(amount, 0));
+        uint24 truncatedAmount = uint24(Helpers.truncate(amount, 0));
+        _epochsTotalBorrowedAmount[epoch] -= truncatedAmount;
+        _borrowersEpochsBorrowedAmount[borrower][epoch] -= truncatedAmount;
         emit Released(borrower, epoch, amount);
     }
 

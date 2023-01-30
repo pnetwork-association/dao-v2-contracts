@@ -23,6 +23,7 @@ module.exports = {
   },
   networks: {
     hardhat: {
+      chainId: 1,
       forking: {
         url: `${getEnvironmentVariable('ETH_MAINNET_NODE')}`,
         accounts: [getEnvironmentVariable('PK')]

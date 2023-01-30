@@ -153,17 +153,11 @@ describe('BorrowingManager', () => {
     await expect(borrowingManager.borrow(amount, 2, owner.address)).to.be.revertedWithCustomError(borrowingManager, 'AmountNotAvailableInEpoch')
   })
 
-  it('should not be able to borrow for 0 epochs', async () => {
-    await expect(borrowingManager.borrow(1, 0, owner.address)).to.be.revertedWithCustomError(borrowingManager, 'InvalidNumberOfEpochs')
-  })
-
   it('should be be able to borrow for 1 epoch (at epoch 0 for epoch 1) if the lend happens in the middle of epoch 0 and the lockTime is equal to the epoch duration', async () => {
     //  |-----xxxxx|vvvvvvvvvv|xxxxx-----|
     //  0          1          2          3
 
     const amount = ethers.utils.parseEther('1000')
-    const expectedNumberOfEpochs = 1
-    const currentEpoch = parseInt(await epochsManager.currentEpoch())
     const lockTime = EPOCH_DURATION * 2
     await pnt.connect(pntHolder1).approve(borrowingManager.address, amount)
     await borrowingManager.connect(pntHolder1).lend(amount, lockTime, pntHolder1.address)
@@ -172,9 +166,9 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(amount))
     expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(0)
 
-    await expect(borrowingManager.borrow(amount, expectedNumberOfEpochs, owner.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(owner.address, currentEpoch + 1, currentEpoch + expectedNumberOfEpochs, amount)
+    await expect(borrowingManager.borrow(amount, 1, owner.address)).to.emit(borrowingManager, 'Borrowed').withArgs(owner.address, 1, amount)
+
+    expect(await borrowingManager.borrowedAmountByEpochOf(owner.address, 1)).to.be.eq(truncateWithPrecision(amount))
   })
 
   it('should be able to borrow for 3 epochs (at epoch 2 for epoch 3,4,5) if the lend happens in the middle of epoch 2', async () => {
@@ -182,12 +176,10 @@ describe('BorrowingManager', () => {
     //   0          1          2          3          4          5         6           7          8
 
     const amount = ethers.utils.parseEther('1000')
-    const expectedNumberOfEpochs = 3
     const lockTime = EPOCH_DURATION * 4
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
-    const currentEpoch = parseInt(await epochsManager.currentEpoch())
 
     await pnt.connect(pntHolder1).approve(borrowingManager.address, amount)
     await borrowingManager.connect(pntHolder1).lend(amount, lockTime, pntHolder1.address)
@@ -198,9 +190,13 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
     expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(0)
 
-    await expect(borrowingManager.borrow(amount, expectedNumberOfEpochs, owner.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(owner.address, currentEpoch + 1, currentEpoch + expectedNumberOfEpochs, amount)
+    for (let epoch = 3; epoch <= 5; epoch++) {
+      await expect(borrowingManager.borrow(amount, epoch, owner.address)).to.emit(borrowingManager, 'Borrowed').withArgs(owner.address, epoch, amount)
+    }
+
+    expect(await borrowingManager.borrowedAmountByEpochOf(owner.address, 3)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowedAmountByEpochOf(owner.address, 4)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowedAmountByEpochOf(owner.address, 5)).to.be.eq(truncateWithPrecision(amount))
   })
 
   it('should be able to borrow for 3 epochs (at epoch 2 for epoch 3,4,5) if the lend happens in the middle of epoch 2 for 2 users', async () => {
@@ -227,12 +223,9 @@ describe('BorrowingManager', () => {
     const depositAmount = ethers.utils.parseEther('2000')
     const borrowAmount = ethers.utils.parseEther('1000')
     const lockTime = EPOCH_DURATION * 4
-    const expectedNumberOfEpochs = 3
 
     await time.increase(EPOCH_DURATION * 2)
-
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
-    const currentEpoch = parseInt(await epochsManager.currentEpoch())
 
     await pnt.connect(pntHolder1).approve(borrowingManager.address, depositAmount)
     await borrowingManager.connect(pntHolder1).lend(depositAmount, lockTime, pntHolder1.address)
@@ -243,13 +236,15 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(5)).to.be.eq(truncateWithPrecision(depositAmount))
     expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(0)
 
-    await expect(borrowingManager.borrow(borrowAmount, expectedNumberOfEpochs, user2.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user2.address, currentEpoch + 1, currentEpoch + expectedNumberOfEpochs, borrowAmount)
+    for (let epoch = 3; epoch <= 5; epoch++) {
+      await expect(borrowingManager.borrow(borrowAmount, epoch, user2.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user2.address, epoch, borrowAmount)
 
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount, expectedNumberOfEpochs, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, currentEpoch + 1, currentEpoch + expectedNumberOfEpochs, borrowAmount)
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount)
+    }
   })
 
   it('should pntHolder1 lend 1k pnt for 3 epochs and pntHolder2 2k pnt for 5 epochs at the epoch 2 and user1 borrowing 2k pnt for 4 epochs and user2 borrowing 1k pnt for 2 epochs', async () => {
@@ -283,11 +278,8 @@ describe('BorrowingManager', () => {
     const depositAmountPntHolder12 = depositAmountPntHolder1.add(depositAmountPntHolder2)
     const borrowAmountUser1 = ethers.utils.parseEther('2000')
     const borrowAmountUser2 = ethers.utils.parseEther('1000')
-    const expectedNumberOfEpochsUser1 = 4
-    const expectedNumberOfEpochsUser2 = 2
     const lockTimePntHolder1 = EPOCH_DURATION * 3
     const lockTimePntHolder2 = EPOCH_DURATION * 5
-    const expectedEpoch = 3
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -307,13 +299,17 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(truncateWithPrecision(depositAmountPntHolder2))
     expect(await borrowingManager.borrowableAmountByEpoch(7)).to.be.eq(0)
 
-    await expect(borrowingManager.connect(user2).borrow(borrowAmountUser2, expectedNumberOfEpochsUser2, user2.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user2.address, expectedEpoch, currentEpoch + expectedNumberOfEpochsUser2, borrowAmountUser2)
+    for (let epoch = 3; epoch <= 4; epoch++) {
+      await expect(borrowingManager.connect(user2).borrow(borrowAmountUser2, epoch, user2.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user2.address, epoch, borrowAmountUser2)
+    }
 
-    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, expectedNumberOfEpochsUser1, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, expectedEpoch, currentEpoch + expectedNumberOfEpochsUser1, borrowAmountUser1)
+    for (let epoch = 3; epoch <= 6; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmountUser1)
+    }
 
     expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(3)).to.be.eq(0)
@@ -322,7 +318,7 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(7)).to.be.eq(0)
 
-    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, expectedNumberOfEpochsUser1, user1.address)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, 4, user1.address)).to.be.revertedWithCustomError(
       borrowingManager,
       'AmountNotAvailableInEpoch'
     )
@@ -354,7 +350,6 @@ describe('BorrowingManager', () => {
     const depositAmountPntHolder12 = depositAmountPntHolder1.add(depositAmountPntHolder2)
     const borrowAmountUser1 = ethers.utils.parseEther('1000')
     const expectedLeftAmountEpoch56 = ethers.utils.parseEther('1000')
-    const expectedNumberOfEpochsUser1 = 2
     const lockTimePntHolder1 = EPOCH_DURATION * 3
     const lockTimePntHolder2 = EPOCH_DURATION * 5
 
@@ -366,14 +361,15 @@ describe('BorrowingManager', () => {
     await pnt.connect(pntHolder2).approve(borrowingManager.address, depositAmountPntHolder2)
     await borrowingManager.connect(pntHolder2).lend(depositAmountPntHolder2, lockTimePntHolder2, pntHolder2.address)
 
-    let expectedCurrentEpoch = 4
     await time.increase(EPOCH_DURATION * 2)
     const currentEpoch = await epochsManager.currentEpoch()
-    expect(currentEpoch).to.be.equal(expectedCurrentEpoch)
+    expect(currentEpoch).to.be.equal(4)
 
-    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, expectedNumberOfEpochsUser1, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, expectedCurrentEpoch + 1, currentEpoch + expectedNumberOfEpochsUser1, borrowAmountUser1)
+    for (let epoch = 5; epoch <= 6; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmountUser1)
+    }
 
     expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(3)).to.be.eq(truncateWithPrecision(depositAmountPntHolder12))
@@ -421,7 +417,7 @@ describe('BorrowingManager', () => {
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
 
-    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, 3, user1.address)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, 7, user1.address)).to.be.revertedWithCustomError(
       borrowingManager,
       'AmountNotAvailableInEpoch'
     )
@@ -463,7 +459,7 @@ describe('BorrowingManager', () => {
     await pnt.connect(pntHolder2).approve(borrowingManager.address, depositAmountPntHolder2)
     await borrowingManager.connect(pntHolder2).lend(depositAmountPntHolder2, lockTimePntHolder2, pntHolder2.address)
 
-    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, 1, user1.address)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(user1).borrow(borrowAmountUser1, 3, user1.address)).to.be.revertedWithCustomError(
       borrowingManager,
       'AmountNotAvailableInEpoch'
     )
@@ -527,18 +523,23 @@ describe('BorrowingManager', () => {
     await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTimePntHolder1, pntHolder1.address)
 
     const borrowAmount1 = ethers.utils.parseEther('1000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount1, 3, user1.address))
+    for (let epoch = 1; epoch <= 3; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
       .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 1, 3, borrowAmount1)
+      .withArgs(user1.address,epoch, borrowAmount1)
+    }
+
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
     //expect(await borrowingManager.getBorrowingEndEpochOf(user1.address)).to.be.eq(3)
 
     const borrowAmount2 = ethers.utils.parseEther('2000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 3, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 2, 4, borrowAmount2)
+    for (let epoch = 2; epoch <= 4; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount2, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount2)
+    }
 
     expect(await borrowingManager.borrowableAmountByEpoch(0)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount1)))
@@ -579,18 +580,19 @@ describe('BorrowingManager', () => {
     await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTimePntHolder1, pntHolder1.address)
 
     const borrowAmount1 = ethers.utils.parseEther('1000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount1, 3, user1.address))
+    for (let epoch = 1; epoch <= 3; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
       .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 1, 3, borrowAmount1)
+      .withArgs(user1.address,epoch, borrowAmount1)
+    }
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
-    // expect(await borrowingManager.getBorrowingEndEpochOf(user1.address)).to.be.eq(3)
 
     const borrowAmount2 = ethers.utils.parseEther('2000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 1, user1.address))
+    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 2, user1.address))
       .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 2, 2, borrowAmount2)
+      .withArgs(user1.address, 2, borrowAmount2)
 
     expect(await borrowingManager.borrowableAmountByEpoch(0)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount1)))
@@ -632,13 +634,18 @@ describe('BorrowingManager', () => {
     await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTimePntHolder1, pntHolder1.address)
 
     const borrowAmount = ethers.utils.parseEther('1000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount, 3, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 1, 3, borrowAmount)
+    for (let epoch = 1; epoch <= 3; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount)
+    }
 
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount)))
     expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount)))
     expect(await borrowingManager.borrowableAmountByEpoch(3)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount)))
+    expect(await borrowingManager.borrowedAmountByEpochOf(user1.address, 1)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await borrowingManager.borrowedAmountByEpochOf(user1.address, 2)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await borrowingManager.borrowedAmountByEpochOf(user1.address, 3)).to.be.eq(truncateWithPrecision(borrowAmount))
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -653,6 +660,9 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount)))
     expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1))
     expect(await borrowingManager.borrowableAmountByEpoch(3)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1))
+    expect(await borrowingManager.borrowedAmountByEpochOf(user1.address, 1)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await borrowingManager.borrowedAmountByEpochOf(user1.address, 2)).to.be.eq(0)
+    expect(await borrowingManager.borrowedAmountByEpochOf(user1.address, 3)).to.be.eq(0)
   })
 
   it("should user1 be able to borrow more than once in differents epochs (2 - last epoch shouldn't change at the 2 borrow) after a contract upgrade between the 2 borrow phases", async () => {
@@ -682,9 +692,11 @@ describe('BorrowingManager', () => {
     await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTimePntHolder1, pntHolder1.address)
 
     const borrowAmount1 = ethers.utils.parseEther('1000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount1, 3, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 1, 3, borrowAmount1)
+    for (let epoch = 1; epoch <= 3; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount1)
+    }
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
@@ -694,9 +706,9 @@ describe('BorrowingManager', () => {
     })
 
     const borrowAmount2 = ethers.utils.parseEther('2000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 1, user1.address))
+    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 2, user1.address))
       .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 2, 2, borrowAmount2)
+      .withArgs(user1.address, 2, borrowAmount2)
 
     expect(await borrowingManager.borrowableAmountByEpoch(0)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount1)))
@@ -733,17 +745,19 @@ describe('BorrowingManager', () => {
     await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTimePntHolder1, pntHolder1.address)
 
     const borrowAmount1 = ethers.utils.parseEther('1000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount1, 3, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 1, 3, borrowAmount1)
+    for (let epoch = 1; epoch <= 3; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount1)
+    }
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
 
     const borrowAmount2 = ethers.utils.parseEther('2000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 1, user1.address))
+    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 2, user1.address))
       .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 2, 2, borrowAmount2)
+      .withArgs(user1.address, 2, borrowAmount2)
 
     expect(await borrowingManager.borrowableAmountByEpoch(0)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount1)))
@@ -753,7 +767,7 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(4)).to.be.eq(0)
   })
 
-  it('should user1 be able to borrow more than once in differents epochs by changing the start epoch', async () => {
+  it('should user1 be able to borrow more than once in differents epochs by changing the start epoch (1)', async () => {
     //   pntHolder1
     //
     //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|
@@ -780,17 +794,21 @@ describe('BorrowingManager', () => {
     await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTimePntHolder1, pntHolder1.address)
 
     const borrowAmount1 = ethers.utils.parseEther('1000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount1, 3, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 1, 3, borrowAmount1)
+    for (let epoch = 1; epoch <= 3; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount1)
+    }
 
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
 
     const borrowAmount2 = ethers.utils.parseEther('2000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 2, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 5, 6, borrowAmount2)
+    for (let epoch = 5; epoch <= 6; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount2, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount2)
+    }
 
     expect(await borrowingManager.borrowableAmountByEpoch(0)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount1)))
@@ -801,7 +819,7 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount2)))
   })
 
-  it('should user1 be able to borrow more than once in differents epochs by changing the start epoch', async () => {
+  it('should user1 be able to borrow more than once in differents epochs by changing the start epoch (2)', async () => {
     //   pntHolder1
     //
     //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx------|
@@ -829,17 +847,19 @@ describe('BorrowingManager', () => {
     await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTimePntHolder1, pntHolder1.address)
 
     const borrowAmount1 = ethers.utils.parseEther('1000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount1, 3, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 1, 3, borrowAmount1)
+    for (let epoch = 1; epoch <= 3; epoch++) {
+      await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount1)
+    }
 
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
 
     const borrowAmount2 = ethers.utils.parseEther('2000')
-    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 1, user1.address))
+    await expect(borrowingManager.connect(user1).borrow(borrowAmount2, 5, user1.address))
       .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address, 5, 5, borrowAmount2)
+      .withArgs(user1.address, 5, borrowAmount2)
 
     expect(await borrowingManager.borrowableAmountByEpoch(0)).to.be.eq(0)
     expect(await borrowingManager.borrowableAmountByEpoch(1)).to.be.eq(truncateWithPrecision(depositAmountPntHolder1.sub(borrowAmount1)))

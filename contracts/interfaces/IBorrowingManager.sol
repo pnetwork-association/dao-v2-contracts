@@ -23,11 +23,10 @@ interface IBorrowingManager {
      * @dev Emitted when a borrower borrows a certain amount of tokens for a number of epochs.
      *
      * @param borrower The borrower address
-     * @param startEpoch The start epoch
-     * @param endEpoch The end epoch
+     * @param epoch The epoch
      * @param amount The amount
      */
-    event Borrowed(address indexed borrower, uint256 indexed startEpoch, uint256 indexed endEpoch, uint256 amount);
+    event Borrowed(address indexed borrower, uint256 indexed epoch, uint256 amount);
 
     /**
      * @dev Emitted when an interest is claimed
@@ -57,16 +56,17 @@ interface IBorrowingManager {
      */
     event Released(address indexed borrower, uint256 indexed epoch, uint256 amount);
 
+
     /*
-     * @notice Borrow a certain amount of tokens for a certain number of epochs for a borrower
+     * @notice Borrow a certain amount of tokens in a given epoch
      *
      * @param amount
-     * @param numberOfEpochs
+     * @param epoch
      * @param borrower
      *
-     * @return (uint16,uint16) representing the starting and the ending epochs of the current borrowing position.
+     * @return uint24 representing the current borrower's borrowed amount in the selected epoch.
      */
-    function borrow(uint256 amount, uint16 numberOfEpochs, address borrower) external returns (uint16, uint16);
+    function borrow(uint256 amount, uint16 epoch, address borrower) external returns (uint24);
 
     /*
      * @notice Returns the borrowable amount for the given epoch
@@ -76,6 +76,16 @@ interface IBorrowingManager {
      * @return uint24 an integer representing the borrowable amount for the given epoch.
      */
     function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24);
+
+    /*
+     * @notice Returns the borrowed amount of a given user in a given epoch
+     *
+     * @param borrower
+     * @param epoch
+     *
+     * @return uint24 an integer representing the borrowed amount of a given user in a given epoch.
+     */
+    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24);
 
     /*
      * @notice Returns the lender's claimable amount for a given asset in a specifich epoch.
