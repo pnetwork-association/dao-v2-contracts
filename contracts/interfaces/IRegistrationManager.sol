@@ -20,8 +20,8 @@ interface IRegistrationManager {
      * @dev Emitted when a sentinel registration is completed.
      *
      * @param owner The sentinel owner
-     * @param startEpoch The start epoch at which the registration starts
-     * @param endEpoch The start epoch at which the registration ends
+     * @param startEpoch The epoch in which the registration starts
+     * @param endEpoch The epoch at which the registration ends
      * @param sentinel The sentinel address
      * @param kind The type of registration
      */
@@ -67,16 +67,6 @@ interface IRegistrationManager {
      * @return address representing the sentinel registration data.
      */
     function sentinelRegistration(address sentinel) external view returns (Registration memory);
-
-    /*
-     * @notice Returns the reserved amount for a given sentinel in a specifi epoch. The reserved amount is the amount staked/borrowed
-     * by an user in an epoch to register a sentinel.
-     *
-     * @param sentinel
-     *
-     * @return address representing the sentinel registration data.
-     */
-    function sentinelReservedAmountByEpochOf(uint16 epoch, address sentinel) external returns (uint256);
 
     /*
      * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.

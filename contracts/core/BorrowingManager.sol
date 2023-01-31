@@ -40,8 +40,8 @@ contract BorrowingManager is
     uint16 public lendMaxEpochs;
 
     function initialize(
-        address _stakingManager,
         address _token,
+        address _stakingManager,
         address _epochsManager,
         uint16 _lendMaxEpochs
     ) public initializer {
@@ -62,11 +62,7 @@ contract BorrowingManager is
     }
 
     /// @inheritdoc IBorrowingManager
-    function borrow(
-        uint256 amount,
-        uint16 epoch,
-        address borrower
-    ) external onlyRole(Roles.BORROW_ROLE) returns (uint24) {
+    function borrow(uint256 amount, uint16 epoch, address borrower) external onlyRole(Roles.BORROW_ROLE) {
         if (amount == 0) revert Errors.InvalidAmount();
         uint24 truncatedAmount = Helpers.truncate(amount, 0);
 
@@ -80,12 +76,10 @@ contract BorrowingManager is
             revert Errors.AmountNotAvailableInEpoch(epoch);
         }
 
-        uint24 newBorrowerEpochBorrowedAmount = _borrowersEpochsBorrowedAmount[borrower][epoch] + truncatedAmount;
         _epochsTotalBorrowedAmount[epoch] += truncatedAmount;
-        _borrowersEpochsBorrowedAmount[borrower][epoch] = newBorrowerEpochBorrowedAmount;
+        _borrowersEpochsBorrowedAmount[borrower][epoch] += truncatedAmount;
 
         emit Borrowed(borrower, epoch, amount);
-        return newBorrowerEpochBorrowedAmount;
     }
 
     /// @inheritdoc IBorrowingManager
@@ -191,10 +185,8 @@ contract BorrowingManager is
     function lend(uint256 amount, uint64 lockTime, address receiver) external {
         address lender = _msgSender();
         IERC20Upgradeable(token).safeTransferFrom(lender, address(this), amount);
-
         IERC20Upgradeable(token).approve(stakingManager, amount);
         IStakingManager(stakingManager).stake(amount, lockTime, lender);
-
         _updateWeights(receiver, amount, lockTime);
     }
 

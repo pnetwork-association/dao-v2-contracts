@@ -56,7 +56,6 @@ interface IBorrowingManager {
      */
     event Released(address indexed borrower, uint256 indexed epoch, uint256 amount);
 
-
     /*
      * @notice Borrow a certain amount of tokens in a given epoch
      *
@@ -64,9 +63,8 @@ interface IBorrowingManager {
      * @param epoch
      * @param borrower
      *
-     * @return uint24 representing the current borrower's borrowed amount in the selected epoch.
      */
-    function borrow(uint256 amount, uint16 epoch, address borrower) external returns (uint24);
+    function borrow(uint256 amount, uint16 epoch, address borrower) external;
 
     /*
      * @notice Returns the borrowable amount for the given epoch

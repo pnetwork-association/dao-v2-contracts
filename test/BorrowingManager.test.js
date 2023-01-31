@@ -58,7 +58,7 @@ describe('BorrowingManager', () => {
       kind: 'uups'
     })
 
-    borrowingManager = await upgrades.deployProxy(BorrowingManager, [stakingManager.address, pnt.address, epochsManager.address, LEND_MAX_EPOCHS], {
+    borrowingManager = await upgrades.deployProxy(BorrowingManager, [pnt.address, stakingManager.address, epochsManager.address, LEND_MAX_EPOCHS], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -525,10 +525,9 @@ describe('BorrowingManager', () => {
     const borrowAmount1 = ethers.utils.parseEther('1000')
     for (let epoch = 1; epoch <= 3; epoch++) {
       await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address,epoch, borrowAmount1)
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount1)
     }
-
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
@@ -582,8 +581,8 @@ describe('BorrowingManager', () => {
     const borrowAmount1 = ethers.utils.parseEther('1000')
     for (let epoch = 1; epoch <= 3; epoch++) {
       await expect(borrowingManager.connect(user1).borrow(borrowAmount1, epoch, user1.address))
-      .to.emit(borrowingManager, 'Borrowed')
-      .withArgs(user1.address,epoch, borrowAmount1)
+        .to.emit(borrowingManager, 'Borrowed')
+        .withArgs(user1.address, epoch, borrowAmount1)
     }
 
     await time.increase(EPOCH_DURATION)
