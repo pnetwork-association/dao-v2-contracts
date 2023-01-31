@@ -285,35 +285,6 @@ contract BorrowingManager is
         return result;
     }
 
-    /*function _prepareLend(
-        address lender,
-        uint64 lockTime,
-        uint16 currentEpoch,
-        uint256 epochDuration,
-        uint256 startFirstEpochTimestamp
-    ) internal {
-        IStakingManager.Stake memory stake = IStakingManager(stakingManager).stakeOf(lender);
-        if (stake.amount == 0) return;
-
-        uint16 stakeEpoch = uint16((stake.startDate - startFirstEpochTimestamp) / epochDuration);
-        uint16 oldEndEpoch = (stakeEpoch +
-            uint16((stake.endDate - startFirstEpochTimestamp) / epochDuration) -
-            1);
-        uint16 newStartEpoch = currentEpoch + 1;
-        uint16 newEndEpoch = (currentEpoch + uint16(lockTime / epochDuration)) - 1;
-
-        uint24 truncatedLockAmount = Helpers.truncate(stake.amount, 0);
-        if (newStartEpoch <= oldEndEpoch && newEndEpoch >= oldEndEpoch) {
-            for (uint16 epoch = newStartEpoch; epoch <= oldEndEpoch; ) {
-                _epochsTotalLendedAmount[epoch] -= truncatedLockAmount;
-                _epochTotalWeight[epoch] -= _lendersEpochsWeight[lender][epoch];
-                unchecked {
-                    ++epoch;
-                }
-            }
-        }
-    }*/
-
     function _updateWeights(address lender, uint256 amount, uint64 lockTime) internal {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
