@@ -29,7 +29,7 @@ contract RegistrationManager is
     mapping(address => Registration) private _sentinelRegistrations;
     mapping(address => address) private _ownersSentinel;
 
-    mapping(uint256 => mapping(address => uint256)) private _sentinelsEpochsStakedAmount;
+    mapping(address => mapping(uint256 => uint256)) private _sentinelsEpochsStakedAmount;
     mapping(uint256 => uint256) private _sentinelsEpochsTotalStakedAmount;
 
     address public stakingManager;
@@ -136,7 +136,7 @@ contract RegistrationManager is
         uint16 endEpoch = startEpoch + numberOfEpochs - 2;
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            _sentinelsEpochsStakedAmount[epoch][sentinel] += amount;
+            _sentinelsEpochsStakedAmount[sentinel][epoch] += amount;
             _sentinelsEpochsTotalStakedAmount[epoch] += amount;
             unchecked {
                 ++epoch;
@@ -164,7 +164,7 @@ contract RegistrationManager is
         if (registrationEndEpoch < currentEpoch) revert Errors.SentinelNotReleasable(sentinel);
 
         for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
-            uint256 sentinelEpochStakingAmount = _sentinelsEpochsStakedAmount[epoch][sentinel];
+            uint256 sentinelEpochStakingAmount = _sentinelsEpochsStakedAmount[sentinel][epoch];
             if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
                 IBorrowingManager(borrowingManager).release(
                     sentinel,
@@ -174,8 +174,9 @@ contract RegistrationManager is
             }
 
             if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {
-                delete _sentinelsEpochsStakedAmount[epoch][sentinel];
+                delete _sentinelsEpochsStakedAmount[sentinel][epoch];
                 _sentinelsEpochsTotalStakedAmount[epoch] -= sentinelEpochStakingAmount;
+                // TODO: Should we slash the corresponding amount of tokens?
             }
             unchecked {
                 ++epoch;
@@ -197,7 +198,7 @@ contract RegistrationManager is
 
     /// @inheritdoc IRegistrationManager
     function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256) {
-        return _sentinelsEpochsStakedAmount[epoch][sentinel];
+        return _sentinelsEpochsStakedAmount[sentinel][epoch];
     }
 
     /// @inheritdoc IRegistrationManager
