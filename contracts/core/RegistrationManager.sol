@@ -120,6 +120,10 @@ contract RegistrationManager is
             revert Errors.InvalidRegistration();
         }
 
+        if (amount < Constants.STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION) {
+            revert Errors.InvalidAmount();
+        }
+
         IERC20Upgradeable(token).safeTransferFrom(owner, address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
         IStakingManager(stakingManager).stake(amount, lockTime, owner);
