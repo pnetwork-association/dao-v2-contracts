@@ -130,14 +130,12 @@ contract RegistrationManager is
 
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        uint16 currentRegistrationStartEpoch = registration.startEpoch;
-        uint16 currentRegistrationEndEpoch = registration.endEpoch;
 
-        uint16 startEpoch = currentEpoch >= currentRegistrationEndEpoch
-            ? currentEpoch + 1
-            : currentRegistrationEndEpoch + 1;
+        uint16 startEpoch = currentEpoch + 1;
         uint16 numberOfEpochs = uint16(lockTime / epochDuration);
-        uint16 endEpoch = startEpoch + numberOfEpochs - 2;
+        uint16 endEpoch = currentEpoch + numberOfEpochs - 1;
+        uint16 registrationStartEpoch = registration.startEpoch;
+        uint16 registrationEndEpoch = registration.endEpoch;
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             _sentinelsEpochsStakedAmount[sentinel][epoch] += amount;
@@ -147,11 +145,19 @@ contract RegistrationManager is
             }
         }
 
+        if (startEpoch > registrationEndEpoch) {
+            registrationStartEpoch = startEpoch;
+        }
+
+        if (endEpoch > registrationEndEpoch) {
+            registrationEndEpoch = endEpoch;
+        }
+
         _updateSentinelRegistration(
             sentinel,
             owner,
-            currentEpoch >= currentRegistrationEndEpoch ? startEpoch : currentRegistrationStartEpoch,
-            endEpoch,
+            registrationStartEpoch,
+            registrationEndEpoch,
             Constants.REGISTRATION_SENTINEL_STAKING
         );
     }

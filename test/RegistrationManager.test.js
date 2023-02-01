@@ -160,15 +160,15 @@ describe('RegistrationManager', () => {
     //
     //
     //   pntHolder1 - updateSentinelRegistrationByStaking at epoch 0
-    //                                                                           200k      200k
-    //   |----------|----------|----------|----------|----------|-----------|vvvvvvvvvv|vvvvvvvvvv|-----------|
-    //   0          1          2          3          4          5           6          7          8           9
+    //                   200k      200k
+    //   |----------|vvvvvvvvvv|vvvvvvvvvv|-----------|
+    //   0          1          2          3           4
     //
     //
     //   pntHolder1 - result
-    //                   200k       200k        200k      200k       200k        200k       200k
-    //   |----------|vvvvvvvvvv-|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|
-    //   0          1          2          3          4           5          6          7          8
+    //                   400k       400k        200k      200k       200k
+    //   |----------|vvvvvvvvvv-|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|
+    //   0          1          2          3          4           5          6
 
     const stakeAmount = ethers.utils.parseEther('200000')
     let lockTime = EPOCH_DURATION * 6
@@ -186,25 +186,36 @@ describe('RegistrationManager', () => {
     expect(registration.kind).to.be.eq(REGISTRATION_SENTINEL_STAKING)
     expect(await registrationManager.sentinelOf(pntHolder1.address)).to.be.eq(sentinel1.address)
 
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(1)
-
     lockTime = EPOCH_DURATION * 3
     await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
     await expect(registrationManager.connect(pntHolder1).updateSentinelRegistrationByStaking(stakeAmount, lockTime, signature))
       .to.emit(registrationManager, 'SentinelRegistrationUpdated')
-      .withArgs(pntHolder1.address, 1, 7, sentinel1.address, REGISTRATION_SENTINEL_STAKING)
+      .withArgs(pntHolder1.address, 1, 5, sentinel1.address, REGISTRATION_SENTINEL_STAKING)
 
     registration = await registrationManager.sentinelRegistration(sentinel1.address)
     expect(registration.owner).to.be.eq(pntHolder1.address)
     expect(registration.startEpoch).to.be.eq(1)
-    expect(registration.endEpoch).to.be.eq(7)
+    expect(registration.endEpoch).to.be.eq(5)
     expect(registration.kind).to.be.eq(REGISTRATION_SENTINEL_STAKING)
     expect(await registrationManager.sentinelOf(pntHolder1.address)).to.be.eq(sentinel1.address)
 
-    for (let epoch = 1; epoch <= 7; epoch++) {
-      expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, epoch)).to.be.eq(stakeAmount)
-    }
+    expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 1)).to.be.eq(stakeAmount.mul(2))
+    expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(stakeAmount.mul(2))
+    expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(stakeAmount)
+    expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(stakeAmount)
+    expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 5)).to.be.eq(stakeAmount)
+    expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 6)).to.be.eq(0)
+
+    await time.increase(EPOCH_DURATION * 5)
+    expect(await epochsManager.currentEpoch()).to.be.equal(5)
+    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount.mul(2))).to.be.revertedWithCustomError(
+      stakingManager,
+      'UnfinishedStakingPeriod'
+    )
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(6)
+    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount.mul(2))).to.not.be.reverted
   })
 
   it('should be able to updateSentinelRegistrationByStaking 2 times in order to renew his registration (2)', async () => {
@@ -245,6 +256,7 @@ describe('RegistrationManager', () => {
 
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
+    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount)).to.not.be.reverted
 
     lockTime = EPOCH_DURATION * 3
     await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
@@ -264,6 +276,14 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(0)
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 5)).to.be.eq(stakeAmount)
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 6)).to.be.eq(stakeAmount)
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(5)
+    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount)).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(7)
+    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount)).to.not.be.reverted
   })
 
   it('should be able to updateSentinelRegistrationByBorrowing in order to renew his registration (1)', async () => {
