@@ -18,7 +18,7 @@ const {
 } = require('./constants')
 
 let stakingManager, epochsManager, registrationManager, pnt, owner, pntHolder1, sentinel1, RegistrationManager, acl, daoRoot
-let BORROW_ROLE, INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE, INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE, RELEASE_SENTINEL_ROLE
+let BORROW_ROLE, RELEASE_SENTINEL_ROLE
 
 describe('RegistrationManager', () => {
   beforeEach(async () => {
@@ -78,13 +78,9 @@ describe('RegistrationManager', () => {
     // roles
     BORROW_ROLE = getRole('BORROW_ROLE')
     RELEASE_ROLE = getRole('RELEASE_ROLE')
-    INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE = getRole('INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE')
-    INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE = getRole('INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE')
     RELEASE_SENTINEL_ROLE = getRole('RELEASE_SENTINEL_ROLE')
 
     // grant roles
-    await borrowingManager.grantRole(INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE, owner.address)
-    await borrowingManager.grantRole(INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE, owner.address)
     await borrowingManager.grantRole(BORROW_ROLE, registrationManager.address)
     await borrowingManager.grantRole(RELEASE_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)

@@ -16,7 +16,7 @@ const {
 } = require('./constants')
 
 let daoRoot, acl, stakingManager, epochsManager, pnt, owner, pntHolder1, pntHolder2, user1, user2, BorrowingManager
-let BORROW_ROLE, INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE, INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE, DEPOSIT_INTEREST_ROLE
+let BORROW_ROLE, DEPOSIT_INTEREST_ROLE
 
 describe('BorrowingManager', () => {
   beforeEach(async () => {
@@ -66,13 +66,9 @@ describe('BorrowingManager', () => {
     // roles
     BORROW_ROLE = getRole('BORROW_ROLE')
     RELEASE_ROLE = getRole('RELEASE_ROLE')
-    INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE = getRole('INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE')
-    INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE = getRole('INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE')
     DEPOSIT_INTEREST_ROLE = getRole('DEPOSIT_INTEREST_ROLE')
 
     // grant roles
-    await borrowingManager.grantRole(INCREASE_BORROWABLE_AMOUNT_FOR_EPOCH_ROLE, owner.address)
-    await borrowingManager.grantRole(INCREASE_BORROWABLE_AMOUNT_BY_DURATION_ROLE, owner.address)
     await borrowingManager.grantRole(BORROW_ROLE, owner.address)
     await borrowingManager.grantRole(BORROW_ROLE, user1.address)
     await borrowingManager.grantRole(BORROW_ROLE, user2.address)
