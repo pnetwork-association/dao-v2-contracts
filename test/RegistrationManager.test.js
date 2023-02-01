@@ -725,4 +725,15 @@ describe('RegistrationManager', () => {
 
     await expect(registrationManager.releaseSentinel(sentinel1.address)).to.be.revertedWithCustomError(registrationManager, 'SentinelNotReleasable')
   })
+
+  it('should not be able to register a node by updateSentinelRegistrationByStaking with an amount less than 200k PNT', async () => {
+    const stakeAmount = ethers.utils.parseEther('199999')
+    const lockTime = EPOCH_DURATION * 2
+
+    const signature = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
+    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await expect(
+      registrationManager.connect(pntHolder1).updateSentinelRegistrationByStaking(stakeAmount, lockTime, signature)
+    ).to.be.revertedWithCustomError(registrationManager, 'InvalidAmount')
+  })
 })
