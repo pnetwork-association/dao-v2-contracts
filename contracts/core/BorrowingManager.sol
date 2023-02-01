@@ -94,9 +94,10 @@ contract BorrowingManager is
 
     /// @inheritdoc IBorrowingManager
     function claimableAssetAmountByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
-        if (_lendersEpochsWeight[lender].length == 0) return 0;
+        uint256 totalWeight = _epochTotalWeight[epoch];
+        if (_lendersEpochsWeight[lender].length == 0 || totalWeight == 0) return 0;
         uint256 percentage = (uint256(_lendersEpochsWeight[lender][epoch]) * Constants.DECIMALS_PRECISION) /
-            _epochTotalWeight[epoch];
+            totalWeight;
 
         return
             ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / Constants.DECIMALS_PRECISION) -
@@ -112,7 +113,7 @@ contract BorrowingManager is
     ) external view returns (uint256[] memory) {
         uint256[] memory result = new uint256[]((endEpoch - startEpoch + 1) * assets.length);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
-            for (uint i = 0; i < assets.length; i++) {
+            for (uint8 i = 0; i < assets.length; i++) {
                 result[((epoch - startEpoch) * assets.length) + i] = claimableAssetAmountByEpochOf(
                     lender,
                     assets[i],
@@ -145,11 +146,6 @@ contract BorrowingManager is
     /// @inheritdoc IBorrowingManager
     function claimInterestByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
         address lender = _msgSender();
-        uint256 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-
-        if (startEpoch > currentEpoch || endEpoch > currentEpoch) {
-            revert Errors.InvalidEpoch();
-        }
 
         uint256 cumulativeAmount = 0;
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
