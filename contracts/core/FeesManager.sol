@@ -56,34 +56,11 @@ contract FeesManager is
     }
 
     /// @inheritdoc IFeesManager
-    function claimFeeByEpoch(address asset, uint16 epoch) external {
-        address owner = _msgSender();
-
-        if (epoch >= IEpochsManager(epochsManager).currentEpoch()) {
-            revert Errors.NothingToClaim();
-        }
-
-        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
-        if (sentinel == address(0)) {
-            revert Errors.SentinelNotRegistered();
-        }
-
-        if (_ownersEpochsAssetsClaim[sentinel][asset][epoch]) {
-            revert Errors.AlreadyClaimed(asset, epoch);
-        }
-
-        uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
-        if (fee == 0) {
-            revert Errors.NothingToClaim();
-        }
-
-        _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
-        IERC20Upgradeable(asset).safeTransfer(owner, fee);
-        emit FeeClaimed(owner, sentinel, epoch, asset, fee);
-    }
-
-    /// @inheritdoc IFeesManager
     function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) public view returns (uint256) {
+        if (_ownersEpochsAssetsClaim[sentinel][asset][epoch]) {
+            return 0;
+        }
+
         IRegistrationManager.Registration memory registration = IRegistrationManager(registrationManager)
             .sentinelRegistration(sentinel);
 
@@ -97,6 +74,10 @@ contract FeesManager is
             uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
                 epoch
             );
+            if (totalStakedAmount == 0) {
+                return 0;
+            }
+
             fee =
                 (((stakedAmount * Constants.DECIMALS_PRECISION) / totalStakedAmount) * sentinelStakingAssetFee) /
                 Constants.DECIMALS_PRECISION;
@@ -110,6 +91,79 @@ contract FeesManager is
         }
 
         return fee;
+    }
+
+    /// @inheritdoc IFeesManager
+    function claimableFeesByEpochsRangeOf(
+        address sentinel,
+        address[] calldata assets,
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint256[] memory) {
+        uint256[] memory result = new uint256[]((endEpoch - startEpoch + 1) * assets.length);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
+            for (uint8 i = 0; i < assets.length; i++) {
+                result[((epoch - startEpoch) * assets.length) + i] = claimableFeeByEpochOf(sentinel, assets[i], epoch);
+            }
+        }
+        return result;
+    }
+
+    /// @inheritdoc IFeesManager
+    function claimFeeByEpoch(address asset, uint16 epoch) external {
+        address owner = _msgSender();
+
+        if (epoch >= IEpochsManager(epochsManager).currentEpoch()) {
+            revert Errors.InvalidEpoch();
+        }
+
+        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
+        if (sentinel == address(0)) {
+            revert Errors.SentinelNotRegistered();
+        }
+
+        uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
+        if (fee == 0) {
+            revert Errors.NothingToClaim();
+        }
+
+        _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
+        IERC20Upgradeable(asset).safeTransfer(owner, fee);
+        emit FeeClaimed(owner, sentinel, epoch, asset, fee);
+    }
+
+    /// @inheritdoc IFeesManager
+    function claimFeeByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
+        address owner = _msgSender();
+
+        if (endEpoch > IEpochsManager(epochsManager).currentEpoch()) {
+            revert Errors.InvalidEpoch();
+        }
+
+        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
+        if (sentinel == address(0)) {
+            revert Errors.SentinelNotRegistered();
+        }
+
+        uint256 cumulativeFee = 0;
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
+            if (fee > 0) {
+                _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
+                cumulativeFee += fee;
+                emit FeeClaimed(owner, sentinel, epoch, asset, fee);
+            }
+
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        if (cumulativeFee == 0) {
+            revert Errors.NothingToClaim();
+        }
+
+        IERC20Upgradeable(asset).safeTransfer(owner, cumulativeFee);
     }
 
     /// @inheritdoc IFeesManager

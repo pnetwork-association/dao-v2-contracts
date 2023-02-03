@@ -93,7 +93,7 @@ contract BorrowingManager is
     }
 
     /// @inheritdoc IBorrowingManager
-    function claimableAssetAmountByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
+    function claimableInterestByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
         uint256 totalWeight = _epochTotalWeight[epoch];
         if (_lendersEpochsWeight[lender].length == 0 || totalWeight == 0) return 0;
         uint256 percentage = (uint256(_lendersEpochsWeight[lender][epoch]) * Constants.DECIMALS_PRECISION) /
@@ -114,7 +114,7 @@ contract BorrowingManager is
         uint256[] memory result = new uint256[]((endEpoch - startEpoch + 1) * assets.length);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             for (uint8 i = 0; i < assets.length; i++) {
-                result[((epoch - startEpoch) * assets.length) + i] = claimableAssetAmountByEpochOf(
+                result[((epoch - startEpoch) * assets.length) + i] = claimableInterestByEpochOf(
                     lender,
                     assets[i],
                     epoch
@@ -132,38 +132,39 @@ contract BorrowingManager is
             revert Errors.InvalidEpoch();
         }
 
-        uint256 amount = claimableAssetAmountByEpochOf(lender, asset, epoch);
-        if (amount == 0) {
+        uint256 interest = claimableInterestByEpochOf(lender, asset, epoch);
+        if (interest == 0) {
             revert Errors.NothingToClaim();
         }
 
-        _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] += amount;
-        IERC20Upgradeable(asset).safeTransfer(lender, amount);
+        _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] += interest;
+        IERC20Upgradeable(asset).safeTransfer(lender, interest);
 
-        emit InterestClaimed(lender, asset, epoch, amount);
+        emit InterestClaimed(lender, asset, epoch, interest);
     }
 
     /// @inheritdoc IBorrowingManager
     function claimInterestByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
         address lender = _msgSender();
 
-        uint256 cumulativeAmount = 0;
+        if (endEpoch > IEpochsManager(epochsManager).currentEpoch()) {
+            revert Errors.InvalidEpoch();
+        }
+
+        uint256 cumulativeInterest = 0;
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            uint256 amount = claimableAssetAmountByEpochOf(lender, asset, epoch);
-            if (amount == 0) {
-                continue;
+            uint256 interest = claimableInterestByEpochOf(lender, asset, epoch);
+            if (interest > 0) {
+                _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] += interest;
+                cumulativeInterest += interest;
+                emit InterestClaimed(lender, asset, epoch, interest);
             }
-
-            _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] += amount;
-            cumulativeAmount += amount;
-            emit InterestClaimed(lender, asset, epoch, amount);
-
             unchecked {
                 ++epoch;
             }
         }
 
-        IERC20Upgradeable(asset).safeTransfer(lender, cumulativeAmount);
+        IERC20Upgradeable(asset).safeTransfer(lender, cumulativeInterest);
     }
 
     /// @inheritdoc IBorrowingManager

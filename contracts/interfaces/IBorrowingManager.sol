@@ -94,7 +94,7 @@ interface IBorrowingManager {
      *
      * @return uint256 an integer representing the lender's claimable value for a given asset in a specifich epoch..
      */
-    function claimableAssetAmountByEpochOf(address lender, address asset, uint16 epoch) external view returns (uint256);
+    function claimableInterestByEpochOf(address lender, address asset, uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the lender's claimable amount for a set of assets in an epochs range

@@ -29,7 +29,7 @@ const EPOCH_DURATION = 1314001 // 2 weeks
 const LEND_MAX_EPOCHS = 100
 const MINIMUM_BORROWING_FEE = 0.3 * 10 ** 6 // 30%
 
-describe('RegistrationManager', () => {
+describe('FeesManager', () => {
   beforeEach(async () => {
     await network.provider.request({
       method: 'hardhat_reset',
@@ -371,7 +371,7 @@ describe('RegistrationManager', () => {
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'AlreadyClaimed')
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'NothingToClaim')
   })
 
   it('should not be able to claim the fee in the current or the next epoch', async () => {
@@ -388,7 +388,77 @@ describe('RegistrationManager', () => {
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
     await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'NothingToClaim')
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 2)).to.be.revertedWithCustomError(feesManager, 'NothingToClaim')
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 2)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
+  })
+
+  it('should not be able to claim the fee twice in the same epoch by using the claim for many epochs (1)', async () => {
+    const stakeAmount = ethers.utils.parseEther('200000')
+    const lockTime = EPOCH_DURATION * 4
+
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(stakeAmount, lockTime, signature1)
+
+    await time.increase(EPOCH_DURATION)
+
+    const fee = ethers.utils.parseEther('100')
+    await pnt.connect(pntHolder1).approve(feesManager.address, fee)
+    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+      .to.emit(feesManager, 'FeeClaimed')
+      .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
+
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pnt.address, 1, 1)).to.be.revertedWithCustomError(
+      feesManager,
+      'NothingToClaim'
+    )
+  })
+
+  it('should not be able to claim the fee twice in the same epoch by using the claim for many epochs (2)', async () => {
+    const stakeAmount = ethers.utils.parseEther('200000')
+    const lockTime = EPOCH_DURATION * 4
+
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(stakeAmount, lockTime, signature1)
+
+    await time.increase(EPOCH_DURATION)
+
+    const fee = ethers.utils.parseEther('100')
+    await pnt.connect(pntHolder1).approve(feesManager.address, fee)
+    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+
+    await pnt.connect(pntHolder1).approve(feesManager.address, fee)
+    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(3)
+
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pnt.address, 1, 2))
+      .to.emit(feesManager, 'FeeClaimed')
+      .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
+      .and.to.emit(feesManager, 'FeeClaimed')
+      .withArgs(pntHolder2.address, sentinel1.address, 2, pnt.address, fee)
+
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pnt.address, 1, 2)).to.be.revertedWithCustomError(
+      feesManager,
+      'NothingToClaim'
+    )
+  })
+
+  it('should not be able to claim many epochs using an end epoch grater than the current one', async () => {
+    await time.increase(EPOCH_DURATION)
+    await expect(feesManager.connect(pntHolder1).claimFeeByEpochsRange(pnt.address, 1, 2)).to.be.revertedWithCustomError(
+      borrowingManager,
+      'InvalidEpoch'
+    )
   })
 })

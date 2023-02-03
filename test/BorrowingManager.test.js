@@ -1482,4 +1482,37 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.totalWeightByEpoch(11)).to.be.eq(20000)
     expect(await borrowingManager.totalWeightByEpoch(12)).to.be.eq(10000)
   })
+
+  it('should not be able to claim twice with by claiming an asset in many epochs', async () => {
+    const depositInterestAmount = ethers.utils.parseEther('10000')
+    const depositAmountPntHolder1 = ethers.utils.parseEther('50000')
+    let lockTime = EPOCH_DURATION * 3
+
+    await pnt.connect(pntHolder1).approve(borrowingManager.address, INFINITE)
+    await pnt.approve(borrowingManager.address, INFINITE)
+    await borrowingManager.connect(pntHolder1).lend(depositAmountPntHolder1, lockTime, pntHolder1.address)
+    await pnt.connect(pntHolder1).transfer(owner.address, depositInterestAmount.mul(5))
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(1)
+
+    await borrowingManager.depositInterest(pnt.address, 1, depositInterestAmount)
+    await time.increase(EPOCH_DURATION)
+    await borrowingManager.depositInterest(pnt.address, 2, depositInterestAmount)
+    await time.increase(EPOCH_DURATION)
+
+    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpochsRange(pnt.address, 1, 2))
+      .to.emit(borrowingManager, 'InterestClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 1, depositInterestAmount)
+      .and.to.emit(borrowingManager, 'InterestClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 2, depositInterestAmount)
+  })
+
+  it('should not be able to claim many epochs using an end epoch grater than the current one', async () => {
+    await time.increase(EPOCH_DURATION)
+    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpochsRange(pnt.address, 1, 2)).to.be.revertedWithCustomError(
+      borrowingManager,
+      'InvalidEpoch'
+    )
+  })
 })

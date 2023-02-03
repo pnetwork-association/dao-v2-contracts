@@ -45,14 +45,42 @@ interface IFeesManager {
     function claimFeeByEpoch(address asset, uint16 epoch) external;
 
     /*
+     * @notice Claim a fee for a given asset in an epochs range.
+     *
+     * @param asset
+     * @param startEpoch
+     * @param endEpoch
+     *
+     */
+    function claimFeeByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external;
+
+    /*
      * @notice Indicates the claimable asset fee amount in a specific epoch.
      *
+     * @paran sentinel
      * @param asset
      * @param epoch
      *
      * @return uint256 an integer representing the claimable asset fee amount in a specific epoch.
      */
     function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) external view returns (uint256);
+
+    /*
+     * @notice Indicates the claimable asset fee amount in an epochs range.
+     *
+     * @paran sentinel
+     * @param assets
+     * @param startEpoch
+     * @param endEpoch
+     *
+     * @return uint256 an integer representing the claimable asset fee amount in an epochs range.
+     */
+    function claimableFeesByEpochsRangeOf(
+        address sentinel,
+        address[] calldata assets,
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint256[] memory);
 
     /*
      * @notice Deposit an asset fee amount in the current epoch.
