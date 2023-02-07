@@ -179,12 +179,11 @@ contract BorrowingManager is
     }
 
     /// @inheritdoc IBorrowingManager
-    function lend(uint256 amount, uint64 lockTime, address receiver) external {
-        address lender = _msgSender();
-        IERC20Upgradeable(token).safeTransferFrom(lender, address(this), amount);
+    function lend(uint256 amount, uint64 lockTime, address lender) external {
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
         IStakingManager(stakingManager).stake(amount, lockTime, lender);
-        _updateWeights(receiver, amount, lockTime);
+        _updateWeights(lender, amount, lockTime);
     }
 
     /// @inheritdoc IBorrowingManager
