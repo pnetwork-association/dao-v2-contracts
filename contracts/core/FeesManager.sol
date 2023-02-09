@@ -84,7 +84,12 @@ contract FeesManager is
         }
         if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             uint256 sentinelsBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
+
             uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(epoch);
+            if (totalBorrowedAmount == 0) {
+                return 0;
+            }
+
             uint256 borrowedAmount = IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(sentinel, epoch);
             fee = ((((borrowedAmount * Constants.DECIMALS_PRECISION) / totalBorrowedAmount) *
                 sentinelsBorrowingAssetFee) / Constants.DECIMALS_PRECISION);
