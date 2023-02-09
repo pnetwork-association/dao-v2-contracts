@@ -6,7 +6,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
-import {Roles} from "../libraries/Roles.sol";
 
 contract EpochsManager is IEpochsManager, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     uint256 private _epochDuration;
