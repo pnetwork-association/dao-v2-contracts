@@ -27,7 +27,7 @@ contract BorrowingManager is
 
     mapping(address => uint24[]) private _borrowersEpochsBorrowedAmount;
     mapping(address => uint32[]) private _lendersEpochsWeight;
-    mapping(address => mapping(uint256 => mapping(address => uint256))) private _lendersEpochsAssetsInterestsClaim;
+    mapping(address => mapping(uint256 => mapping(address => bool))) private _lendersEpochsAssetsInterestsClaim;
     mapping(address => mapping(uint256 => uint256)) private _totalEpochsAssetsInterestAmount;
 
     uint24[] private _epochsTotalLendedAmount;
@@ -94,14 +94,15 @@ contract BorrowingManager is
 
     /// @inheritdoc IBorrowingManager
     function claimableInterestByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
+        if (_lendersEpochsAssetsInterestsClaim[lender][epoch][asset]) return 0;
+
         uint256 totalWeight = _epochTotalWeight[epoch];
         if (_lendersEpochsWeight[lender].length == 0 || totalWeight == 0) return 0;
         uint256 percentage = (uint256(_lendersEpochsWeight[lender][epoch]) * Constants.DECIMALS_PRECISION) /
             totalWeight;
 
         return
-            ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / Constants.DECIMALS_PRECISION) -
-            _lendersEpochsAssetsInterestsClaim[lender][epoch][asset];
+            ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / Constants.DECIMALS_PRECISION);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -128,7 +129,7 @@ contract BorrowingManager is
     function claimInterestByEpoch(address asset, uint16 epoch) external {
         address lender = _msgSender();
 
-        if (epoch > IEpochsManager(epochsManager).currentEpoch()) {
+        if (epoch >= IEpochsManager(epochsManager).currentEpoch()) {
             revert Errors.InvalidEpoch();
         }
 
@@ -137,7 +138,7 @@ contract BorrowingManager is
             revert Errors.NothingToClaim();
         }
 
-        _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] += interest;
+        _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] = true;
         IERC20Upgradeable(asset).safeTransfer(lender, interest);
 
         emit InterestClaimed(lender, asset, epoch, interest);
@@ -147,7 +148,7 @@ contract BorrowingManager is
     function claimInterestByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
         address lender = _msgSender();
 
-        if (endEpoch > IEpochsManager(epochsManager).currentEpoch()) {
+        if (endEpoch >= IEpochsManager(epochsManager).currentEpoch()) {
             revert Errors.InvalidEpoch();
         }
 
@@ -155,13 +156,17 @@ contract BorrowingManager is
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             uint256 interest = claimableInterestByEpochOf(lender, asset, epoch);
             if (interest > 0) {
-                _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] += interest;
+                _lendersEpochsAssetsInterestsClaim[lender][epoch][asset] = true;
                 cumulativeInterest += interest;
                 emit InterestClaimed(lender, asset, epoch, interest);
             }
             unchecked {
                 ++epoch;
             }
+        }
+
+        if (cumulativeInterest == 0) {
+            revert Errors.NothingToClaim();
         }
 
         IERC20Upgradeable(asset).safeTransfer(lender, cumulativeInterest);
