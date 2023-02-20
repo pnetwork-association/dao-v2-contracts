@@ -24,13 +24,15 @@ interface IRegistrationManager {
      * @param endEpoch The epoch at which the registration ends
      * @param sentinel The sentinel address
      * @param kind The type of registration
+     * @param amount The amount used to register a sentinel
      */
     event SentinelRegistrationUpdated(
         address indexed owner,
         uint16 indexed startEpoch,
         uint16 indexed endEpoch,
         address sentinel,
-        bytes1 kind
+        bytes1 kind,
+        uint256 amount
     );
 
     /**

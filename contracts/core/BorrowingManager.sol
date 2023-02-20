@@ -56,9 +56,9 @@ contract BorrowingManager is
         epochsManager = _epochsManager;
         lendMaxEpochs = _lendMaxEpochs;
 
-        _epochsTotalLendedAmount = new uint24[](100);
-        _epochsTotalBorrowedAmount = new uint24[](100);
-        _epochTotalWeight = new uint32[](100);
+        _epochsTotalLendedAmount = new uint24[](36);
+        _epochsTotalBorrowedAmount = new uint24[](36);
+        _epochTotalWeight = new uint32[](36);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -69,7 +69,7 @@ contract BorrowingManager is
         // TODO: is it possible to borrow in the current epoch?
 
         if (_borrowersEpochsBorrowedAmount[borrower].length == 0) {
-            _borrowersEpochsBorrowedAmount[borrower] = new uint24[](30);
+            _borrowersEpochsBorrowedAmount[borrower] = new uint24[](36);
         }
 
         if (_epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch] < truncatedAmount) {

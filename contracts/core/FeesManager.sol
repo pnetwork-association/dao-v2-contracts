@@ -176,9 +176,7 @@ contract FeesManager is
         IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
 
-        uint256 totalBorrowedAmount = uint256(
-            IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(currentEpoch)
-        ) * 10 ** 18;
+        uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(currentEpoch);
         uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
             currentEpoch
         );

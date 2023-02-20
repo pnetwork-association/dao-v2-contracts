@@ -16,6 +16,7 @@ import {IRegistrationManager} from "../interfaces/IRegistrationManager.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries//Constants.sol";
+import {Helpers} from "../libraries/Helpers.sol";
 
 contract RegistrationManager is
     IRegistrationManager,
@@ -29,8 +30,8 @@ contract RegistrationManager is
     mapping(address => Registration) private _sentinelRegistrations;
     mapping(address => address) private _ownersSentinel;
 
-    mapping(address => mapping(uint256 => uint256)) private _sentinelsEpochsStakedAmount;
-    mapping(uint256 => uint256) private _sentinelsEpochsTotalStakedAmount;
+    uint24[] private _sentinelsEpochsTotalStakedAmount;
+    mapping(address => uint24[]) private _sentinelsEpochsStakedAmount;
 
     address public stakingManager;
     address public token;
@@ -53,6 +54,8 @@ contract RegistrationManager is
         token = _token;
         epochsManager = _epochsManager;
         borrowingManager = _borrowingManager;
+
+        _sentinelsEpochsTotalStakedAmount = new uint24[](36);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -104,6 +107,7 @@ contract RegistrationManager is
         _updateSentinelRegistration(
             sentinel,
             owner,
+            Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
             currentEpoch >= currentRegistrationEndEpoch ? startEpoch : currentRegistrationStartEpoch,
             endEpoch,
             Constants.REGISTRATION_SENTINEL_BORROWING
@@ -128,18 +132,20 @@ contract RegistrationManager is
         IERC20Upgradeable(token).approve(stakingManager, amount);
         IStakingManager(stakingManager).stake(amount, lockTime, owner);
 
-        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-
         uint16 startEpoch = currentEpoch + 1;
-        uint16 numberOfEpochs = uint16(lockTime / epochDuration);
-        uint16 endEpoch = currentEpoch + numberOfEpochs - 1;
+        uint16 endEpoch = currentEpoch + uint16(lockTime / IEpochsManager(epochsManager).epochDuration()) - 1;
         uint16 registrationStartEpoch = registration.startEpoch;
         uint16 registrationEndEpoch = registration.endEpoch;
 
+        if (_sentinelsEpochsStakedAmount[sentinel].length == 0) {
+            _sentinelsEpochsStakedAmount[sentinel] = new uint24[](36);
+        }
+
+        uint24 truncatedAmount = Helpers.truncate(amount, 0);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            _sentinelsEpochsStakedAmount[sentinel][epoch] += amount;
-            _sentinelsEpochsTotalStakedAmount[epoch] += amount;
+            _sentinelsEpochsStakedAmount[sentinel][epoch] += truncatedAmount;
+            _sentinelsEpochsTotalStakedAmount[epoch] += truncatedAmount;
             unchecked {
                 ++epoch;
             }
@@ -156,6 +162,7 @@ contract RegistrationManager is
         _updateSentinelRegistration(
             sentinel,
             owner,
+            amount,
             registrationStartEpoch,
             registrationEndEpoch,
             Constants.REGISTRATION_SENTINEL_STAKING
@@ -174,7 +181,6 @@ contract RegistrationManager is
         if (registrationEndEpoch < currentEpoch) revert Errors.SentinelNotReleasable(sentinel);
 
         for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
-            uint256 sentinelEpochStakingAmount = _sentinelsEpochsStakedAmount[sentinel][epoch];
             if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
                 IBorrowingManager(borrowingManager).release(
                     sentinel,
@@ -184,10 +190,12 @@ contract RegistrationManager is
             }
 
             if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {
+                uint24 sentinelEpochStakingAmount = _sentinelsEpochsStakedAmount[sentinel][epoch];
                 delete _sentinelsEpochsStakedAmount[sentinel][epoch];
                 _sentinelsEpochsTotalStakedAmount[epoch] -= sentinelEpochStakingAmount;
                 // TODO: Should we slash the corresponding amount of tokens?
             }
+
             unchecked {
                 ++epoch;
             }
@@ -208,7 +216,7 @@ contract RegistrationManager is
 
     /// @inheritdoc IRegistrationManager
     function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256) {
-        return _sentinelsEpochsStakedAmount[sentinel][epoch];
+        return _sentinelsEpochsStakedAmount[sentinel].length > 0 ?  _sentinelsEpochsStakedAmount[sentinel][epoch] : 0;
     }
 
     /// @inheritdoc IRegistrationManager
@@ -231,13 +239,14 @@ contract RegistrationManager is
     function _updateSentinelRegistration(
         address sentinel,
         address owner,
+        uint256 amount,
         uint16 startEpoch,
         uint16 endEpoch,
         bytes1 kind
     ) internal {
         _ownersSentinel[owner] = sentinel;
         _sentinelRegistrations[sentinel] = Registration(owner, startEpoch, endEpoch, kind);
-        emit SentinelRegistrationUpdated(owner, startEpoch, endEpoch, sentinel, kind);
+        emit SentinelRegistrationUpdated(owner, startEpoch, endEpoch, sentinel, kind, amount);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
