@@ -101,8 +101,7 @@ contract BorrowingManager is
         uint256 percentage = (uint256(_lendersEpochsWeight[lender][epoch]) * Constants.DECIMALS_PRECISION) /
             totalWeight;
 
-        return
-            ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / Constants.DECIMALS_PRECISION);
+        return ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / Constants.DECIMALS_PRECISION);
     }
 
     /// @inheritdoc IBorrowingManager

@@ -216,7 +216,7 @@ contract RegistrationManager is
 
     /// @inheritdoc IRegistrationManager
     function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256) {
-        return _sentinelsEpochsStakedAmount[sentinel].length > 0 ?  _sentinelsEpochsStakedAmount[sentinel][epoch] : 0;
+        return _sentinelsEpochsStakedAmount[sentinel].length > 0 ? _sentinelsEpochsStakedAmount[sentinel][epoch] : 0;
     }
 
     /// @inheritdoc IRegistrationManager
