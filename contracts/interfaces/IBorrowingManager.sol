@@ -148,11 +148,11 @@ interface IBorrowingManager {
      * how many tokens can be borrowed.
      *
      * @param amount
-     * @param lockTime
+     * @param duration
      * @param receiver
      *
      */
-    function lend(uint256 amount, uint64 lockTime, address receiver) external;
+    function lend(uint256 amount, uint64 duration, address receiver) external;
 
     /*
      * @notice Returns the borrowed amount for a given epoch.

@@ -183,11 +183,11 @@ contract BorrowingManager is
     }
 
     /// @inheritdoc IBorrowingManager
-    function lend(uint256 amount, uint64 lockTime, address lender) external {
+    function lend(uint256 amount, uint64 duration, address lender) external {
         IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(amount, lockTime, lender);
-        _updateWeights(lender, amount, lockTime);
+        IStakingManager(stakingManager).stake(amount, duration, lender);
+        _updateWeights(lender, amount, duration);
     }
 
     /// @inheritdoc IBorrowingManager
@@ -285,12 +285,12 @@ contract BorrowingManager is
         return result;
     }
 
-    function _updateWeights(address lender, uint256 amount, uint64 lockTime) internal {
+    function _updateWeights(address lender, uint256 amount, uint64 duration) internal {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
 
         uint16 startEpoch = currentEpoch + 1;
-        uint16 numberOfEpochs = uint16(lockTime / epochDuration);
+        uint16 numberOfEpochs = uint16(duration / epochDuration);
         uint16 endEpoch = uint16(currentEpoch + numberOfEpochs - 1);
 
         if (endEpoch - startEpoch > lendMaxEpochs) {
