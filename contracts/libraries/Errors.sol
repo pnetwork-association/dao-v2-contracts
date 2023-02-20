@@ -14,4 +14,5 @@ library Errors {
     error InvalidDuration();
     error UnfinishedStakingPeriod();
     error NothingAtStake();
+    error InvalidOriginatingAddress(address originatingAddress);
 }

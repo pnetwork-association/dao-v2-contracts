@@ -82,7 +82,7 @@ contract StakingManager is
         st.endDate = newEndDate >= currentEndDate ? newEndDate : currentEndDate;
         st.startDate = blockTimestamp;
 
-        ITokenManager(tokenManager).mint(receiver, amount);
+        // ITokenManager(tokenManager).mint(receiver, amount);
 
         emit Staked(receiver, amount, duration);
     }
@@ -115,7 +115,7 @@ contract StakingManager is
             st.amount = newStakeAmount;
         }
 
-        ITokenManager(tokenManager).burn(owner, amount);
+        // ITokenManager(tokenManager).burn(owner, amount);
         IERC20Upgradeable(token).safeTransfer(owner, amount);
 
         emit Unstaked(owner, amount);
