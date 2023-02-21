@@ -10,9 +10,9 @@ import {IERC777RecipientUpgradeable} from "@openzeppelin/contracts-upgradeable/t
 import {IERC1820Registry} from "@openzeppelin/contracts/interfaces/IERC1820Registry.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
 import {IForwarderNative} from "../interfaces/IForwarderNative.sol";
 import {Roles} from "../libraries/Roles.sol";
-import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 
 contract ForwarderNative is
