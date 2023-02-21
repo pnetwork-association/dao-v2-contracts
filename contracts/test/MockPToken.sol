@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
-
 
 contract MockPToken is ERC777 {
     address public pNetwork;
@@ -52,11 +53,7 @@ contract MockPToken is ERC777 {
         emit Redeem(account, amount, underlyingAssetRecipient);
     }
 
-    function redeem(
-        uint256 amount,
-        bytes memory data,
-        string memory underlyingAssetRecipient
-    ) public {
+    function redeem(uint256 amount, bytes memory data, string memory underlyingAssetRecipient) public {
         _burn(_msgSender(), amount, data, "");
         emit Redeem(msg.sender, amount, underlyingAssetRecipient);
     }
