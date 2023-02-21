@@ -143,16 +143,16 @@ interface IBorrowingManager {
     function depositInterest(address asset, uint16 epoch, uint256 amount) external;
 
     /*
-     * @notice Lend in behalf of receiver a certain amount of tokens locked for a given period of time. The lended
+     * @notice Lend in behalf of lender a certain amount of tokens locked for a given period of time. The lended
      * tokens are forwarded within the StakingManager. This fx is just a proxy fx to the StakingManager.stake that counts
      * how many tokens can be borrowed.
      *
      * @param amount
      * @param duration
-     * @param receiver
+     * @param lender
      *
      */
-    function lend(uint256 amount, uint64 duration, address receiver) external;
+    function lend(uint256 amount, uint64 duration, address lender) external;
 
     /*
      * @notice Returns the borrowed amount for a given epoch.
