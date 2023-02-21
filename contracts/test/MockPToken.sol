@@ -14,7 +14,7 @@ contract MockPToken is ERC777 {
         string memory tokenSymbol,
         address[] memory defaultOperators,
         address _pnetwork
-    ) public ERC777(tokenName, tokenSymbol, defaultOperators) {
+    ) ERC777(tokenName, tokenSymbol, defaultOperators) {
         pNetwork = _pnetwork;
     }
 
