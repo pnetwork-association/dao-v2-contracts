@@ -10,18 +10,32 @@ import {IERC1820Registry} from "@openzeppelin/contracts/interfaces/IERC1820Regis
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {IForwarderHost} from "../interfaces/IForwarderHost.sol";
 import {IStakingManager} from "../interfaces/IStakingManager.sol";
+import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
+import {IRegistrationManager} from "../interfaces/IRegistrationManager.sol";
 import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 import {Errors} from "../libraries/Errors.sol";
 
-import "hardhat/console.sol";
-
-contract ForwarderHost is IForwarderHost, IERC777RecipientUpgradeable, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract ForwarderHost is
+    IForwarderHost,
+    IERC777RecipientUpgradeable,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
     address public pToken;
     address public forwarderNative;
     address public stakingManager;
+    address public borrowingManager;
+    address public registrationManager;
 
-    function initialize(address _pToken, address _forwarderNative, address _stakingManager) public initializer {
+    function initialize(
+        address _pToken,
+        address _forwarderNative,
+        address _stakingManager,
+        address _borrowingManager,
+        address _registrationManager
+    ) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
 
@@ -34,6 +48,8 @@ contract ForwarderHost is IForwarderHost, IERC777RecipientUpgradeable, Initializ
         pToken = _pToken;
         forwarderNative = _forwarderNative;
         stakingManager = _stakingManager;
+        borrowingManager = _borrowingManager;
+        registrationManager = _registrationManager;
     }
 
     function tokensReceived(
@@ -45,12 +61,15 @@ contract ForwarderHost is IForwarderHost, IERC777RecipientUpgradeable, Initializ
         bytes calldata /*_operatorData*/
     ) external override {
         if (_from == address(0) && _msgSender() == pToken) {
-            (, bytes memory userData, , address originatingAddress) = abi.decode(_userData, (bytes1, bytes, bytes4, address));
+            (, bytes memory userData, , address originatingAddress) = abi.decode(
+                _userData,
+                (bytes1, bytes, bytes4, address)
+            );
 
             if (originatingAddress != forwarderNative) {
                 revert Errors.InvalidOriginatingAddress(originatingAddress);
             }
-            
+
             bytes4 fxSignature = abi.decode(userData, (bytes4));
 
             // bytes4(keccak256("stake(uint256,uint64,address)")
@@ -59,10 +78,30 @@ contract ForwarderHost is IForwarderHost, IERC777RecipientUpgradeable, Initializ
                 IERC20Upgradeable(pToken).approve(stakingManager, _amount);
                 IStakingManager(stakingManager).stake(_amount, duration, receiver);
             }
-            
+
+            // bytes4(keccak256("lend(uint256,uint64,address)")
+            if (fxSignature == 0xbb7de928) {
+                (, uint64 duration, address receiver) = abi.decode(userData, (bytes4, uint64, address));
+                IERC20Upgradeable(pToken).approve(borrowingManager, _amount);
+                IBorrowingManager(borrowingManager).lend(_amount, duration, receiver);
+            }
+
+            // bytes4(updateSentinelRegistrationByStaking(uint256,uint64,bytes,address))
+            if (fxSignature == 0x7389fbc0) {
+                (, uint64 duration, bytes memory signature, address owner) = abi.decode(
+                    userData,
+                    (bytes4, uint64, bytes, address)
+                );
+                IERC20Upgradeable(pToken).approve(registrationManager, _amount);
+                IRegistrationManager(registrationManager).updateSentinelRegistrationByStaking(
+                    _amount,
+                    duration,
+                    signature,
+                    owner
+                );
+            }
         }
     }
-
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }

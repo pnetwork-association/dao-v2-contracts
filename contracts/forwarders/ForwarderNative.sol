@@ -15,7 +15,14 @@ import {Roles} from "../libraries/Roles.sol";
 import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 
-contract ForwarderNative is IForwarderNative, IERC777RecipientUpgradeable, Initializable, UUPSUpgradeable, OwnableUpgradeable, AccessControlEnumerableUpgradeable {
+contract ForwarderNative is
+    IForwarderNative,
+    IERC777RecipientUpgradeable,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    AccessControlEnumerableUpgradeable
+{
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     address public vault;
@@ -53,15 +60,58 @@ contract ForwarderNative is IForwarderNative, IERC777RecipientUpgradeable, Initi
         }*/
     }
 
+    /// @inheritdoc IForwarderNative
+    function lend(uint256 amount, uint64 duration, address lender) external {
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+        IERC20Upgradeable(token).approve(vault, amount);
+        IErc20Vault(vault).pegIn(
+            amount,
+            token,
+            Helpers.toAsciiString(forwarderHost),
+            abi.encode(bytes4(keccak256("lend(uint256,uint64,address)")), duration, lender),
+            0x0075dd4c
+        );
+    }
+
+    /// @inheritdoc IForwarderNative
     function setForwarderHost(address _forwarderHost) external onlyRole(Roles.SET_FORWARDER_HOST_ROLE) {
         forwarderHost = _forwarderHost;
     }
 
+    /// @inheritdoc IForwarderNative
     function stake(uint256 amount, uint64 duration, address receiver) external {
-        bytes memory data = abi.encode(bytes4(keccak256("stake(uint256,uint64,address)")), duration, receiver);
         IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(vault, amount);
-        IErc20Vault(vault).pegIn(amount, token, Helpers.toAsciiString(forwarderHost), data, 0x0075dd4c);
+        IErc20Vault(vault).pegIn(
+            amount,
+            token,
+            Helpers.toAsciiString(forwarderHost),
+            abi.encode(bytes4(keccak256("stake(uint256,uint64,address)")), duration, receiver),
+            0x0075dd4c
+        );
+    }
+
+    /// @inheritdoc IForwarderNative
+    function updateSentinelRegistrationByStaking(
+        uint256 amount,
+        uint64 duration,
+        bytes calldata signature,
+        address owner
+    ) external {
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+        IERC20Upgradeable(token).approve(vault, amount);
+        IErc20Vault(vault).pegIn(
+            amount,
+            token,
+            Helpers.toAsciiString(forwarderHost),
+            abi.encode(
+                bytes4(keccak256("updateSentinelRegistrationByStaking(uint256,uint64,bytes,address)")),
+                duration,
+                signature,
+                owner
+            ),
+            0x0075dd4c
+        );
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
