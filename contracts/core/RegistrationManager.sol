@@ -115,9 +115,10 @@ contract RegistrationManager is
     }
 
     /// @inheritdoc IRegistrationManager
-    function updateSentinelRegistrationByStaking(uint256 amount, uint64 lockTime, bytes calldata signature) external {
-        address owner = _msgSender();
+    function updateSentinelRegistrationByStaking(uint256 amount, uint64 duration, bytes calldata signature, address owner) external {
         address sentinel = getSentinelAddressFromSignature(owner, signature);
+
+        // TODO: What does it happen if an user updateSentinelRegistrationByStaking in behalf of someone else using a wrong signature?
 
         Registration storage registration = _sentinelRegistrations[sentinel];
         if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
@@ -128,13 +129,13 @@ contract RegistrationManager is
             revert Errors.InvalidAmount();
         }
 
-        IERC20Upgradeable(token).safeTransferFrom(owner, address(this), amount);
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(amount, lockTime, owner);
+        IStakingManager(stakingManager).stake(amount, duration, owner);
 
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         uint16 startEpoch = currentEpoch + 1;
-        uint16 endEpoch = currentEpoch + uint16(lockTime / IEpochsManager(epochsManager).epochDuration()) - 1;
+        uint16 endEpoch = currentEpoch + uint16(duration / IEpochsManager(epochsManager).epochDuration()) - 1;
         uint16 registrationStartEpoch = registration.startEpoch;
         uint16 registrationEndEpoch = registration.endEpoch;
 

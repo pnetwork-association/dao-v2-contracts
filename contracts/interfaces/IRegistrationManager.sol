@@ -118,12 +118,13 @@ interface IRegistrationManager {
     ) external view returns (uint256[] memory);
 
     /*
-     * @notice Registers/Renew a sentine for a given number of epochs
+     * @notice Registers/Renew a sentinel for a given duration in behalf of owner
      *
      * @param amount
-     * @param numberOfEpochs
+     * @param duration
      * @param signature
+     * @param owner
      *
      */
-    function updateSentinelRegistrationByStaking(uint256 amount, uint64 lockTime, bytes calldata signature) external;
+    function updateSentinelRegistrationByStaking(uint256 amount, uint64 duration, bytes calldata signature, address owner) external;
 }
