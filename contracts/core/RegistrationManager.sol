@@ -115,7 +115,12 @@ contract RegistrationManager is
     }
 
     /// @inheritdoc IRegistrationManager
-    function updateSentinelRegistrationByStaking(uint256 amount, uint64 duration, bytes calldata signature, address owner) external {
+    function updateSentinelRegistrationByStaking(
+        uint256 amount,
+        uint64 duration,
+        bytes calldata signature,
+        address owner
+    ) external {
         address sentinel = getSentinelAddressFromSignature(owner, signature);
 
         // TODO: What does it happen if an user updateSentinelRegistrationByStaking in behalf of someone else using a wrong signature?

@@ -126,5 +126,10 @@ interface IRegistrationManager {
      * @param owner
      *
      */
-    function updateSentinelRegistrationByStaking(uint256 amount, uint64 duration, bytes calldata signature, address owner) external;
+    function updateSentinelRegistrationByStaking(
+        uint256 amount,
+        uint64 duration,
+        bytes calldata signature,
+        address owner
+    ) external;
 }
