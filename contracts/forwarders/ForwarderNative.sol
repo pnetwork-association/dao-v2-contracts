@@ -14,6 +14,7 @@ import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
 import {IForwarderNative} from "../interfaces/IForwarderNative.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Helpers} from "../libraries/Helpers.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 contract ForwarderNative is
     IForwarderNative,
@@ -50,14 +51,28 @@ contract ForwarderNative is
         address /*_operator*/,
         address _from,
         address /*_to,*/,
-        uint256 /*_amount*/,
+        uint256 _amount,
         bytes calldata _userData,
         bytes calldata /*_operatorData*/
     ) external override {
-        /*if (_msgSender() == erc777 && _from == vault) {
-            (, bytes memory userData, , address originatingAddress) = abi.decode(_userData, (bytes1, bytes, bytes4, address));
-            require(originatingAddress == basicERC1155Host, "BasicERC1155Native: Invalid originating address");
-        }*/
+        if (_msgSender() == token && _from == vault) {
+            (, bytes memory userData, , address originatingAddress) = abi.decode(
+                _userData,
+                (bytes1, bytes, bytes4, address)
+            );
+
+            if (originatingAddress != forwarderHost) {
+                revert Errors.InvalidOriginatingAddress(originatingAddress);
+            }
+
+            bytes4 fxSignature = abi.decode(userData, (bytes4));
+
+            // bytes4(keccak256("unstake(uint256,address)")
+            if (fxSignature == 0x8381e182) {
+                (, address receiver) = abi.decode(userData, (bytes4, address));
+                IERC20Upgradeable(token).safeTransfer(receiver, _amount);
+            }
+        }
     }
 
     /// @inheritdoc IForwarderNative

@@ -8,11 +8,12 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {IERC777RecipientUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import {IERC1820Registry} from "@openzeppelin/contracts/interfaces/IERC1820Registry.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
+import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IForwarderHost} from "../interfaces/IForwarderHost.sol";
 import {IStakingManager} from "../interfaces/IStakingManager.sol";
 import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
 import {IRegistrationManager} from "../interfaces/IRegistrationManager.sol";
-import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
+import {IPToken} from "../interfaces/external/IPToken.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 import {Errors} from "../libraries/Errors.sol";
 
@@ -23,6 +24,8 @@ contract ForwarderHost is
     UUPSUpgradeable,
     OwnableUpgradeable
 {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+
     address public pToken;
     address public forwarderNative;
     address public stakingManager;
@@ -101,6 +104,17 @@ contract ForwarderHost is
                 );
             }
         }
+    }
+
+    /// @inheritdoc IForwarderHost
+    function unstake(uint256 amount, address receiver) external {
+        IERC20Upgradeable(pToken).safeTransferFrom(_msgSender(), address(this), amount);
+        IPToken(pToken).redeem(
+            amount,
+            abi.encode(bytes4(keccak256("unstake(uint256,address)")), receiver),
+            Helpers.toAsciiString(forwarderNative),
+            0x005fe7f9
+        );
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

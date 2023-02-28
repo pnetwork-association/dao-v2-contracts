@@ -6,16 +6,25 @@ import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 
 contract MockPToken is ERC777 {
     address public pNetwork;
+    bytes4 public ORIGIN_CHAIN_ID;
 
-    event Redeem(address indexed redeemer, uint256 value, string underlyingAssetRecipient);
+    event Redeem(
+        address indexed redeemer,
+        uint256 value,
+        string underlyingAssetRecipient,
+        bytes4 originChainId,
+        bytes4 destinationChainId
+    );
 
     constructor(
         string memory tokenName,
         string memory tokenSymbol,
         address[] memory defaultOperators,
-        address _pnetwork
+        address _pnetwork,
+        bytes4 originChainId
     ) ERC777(tokenName, tokenSymbol, defaultOperators) {
         pNetwork = _pnetwork;
+        ORIGIN_CHAIN_ID = originChainId;
     }
 
     function changePNetwork(address newPNetwork) external {
@@ -36,8 +45,12 @@ contract MockPToken is ERC777 {
         return true;
     }
 
-    function redeem(uint256 amount, string calldata underlyingAssetRecipient) external returns (bool) {
-        redeem(amount, "", underlyingAssetRecipient);
+    function redeem(
+        uint256 amount,
+        string calldata underlyingAssetRecipient,
+        bytes4 destinationChainId
+    ) external returns (bool) {
+        redeem(amount, "", underlyingAssetRecipient, destinationChainId);
         return true;
     }
 
@@ -46,16 +59,22 @@ contract MockPToken is ERC777 {
         uint256 amount,
         bytes calldata data,
         bytes calldata operatorData,
-        string calldata underlyingAssetRecipient
+        string calldata underlyingAssetRecipient,
+        bytes4 destinationChainId
     ) external {
         require(isOperatorFor(_msgSender(), account), "ERC777: caller is not an operator for holder");
         _burn(account, amount, data, operatorData);
-        emit Redeem(account, amount, underlyingAssetRecipient);
+        emit Redeem(account, amount, underlyingAssetRecipient, ORIGIN_CHAIN_ID, destinationChainId);
     }
 
-    function redeem(uint256 amount, bytes memory data, string memory underlyingAssetRecipient) public {
+    function redeem(
+        uint256 amount,
+        bytes memory data,
+        string memory underlyingAssetRecipient,
+        bytes4 destinationChainId
+    ) public {
         _burn(_msgSender(), amount, data, "");
-        emit Redeem(msg.sender, amount, underlyingAssetRecipient);
+        emit Redeem(msg.sender, amount, underlyingAssetRecipient, ORIGIN_CHAIN_ID, destinationChainId);
     }
 
     function owner() internal view returns (address) {
