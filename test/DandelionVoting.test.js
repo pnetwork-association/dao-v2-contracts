@@ -1,7 +1,7 @@
 // This is just a test that uses old contracts since using aragon stuff it's a pain and we want
 // to simulate easily in a forked environment what could happen if we wanted to implements some
 // changes required for the pNetwork DAO V2
-/*
+
 const { expect } = require('chai')
 const { ethers, config } = require('hardhat')
 const { getRole } = require('./utils')
@@ -117,8 +117,8 @@ describe('DandelionVoting', () => {
     })
   })
 
-  /*it('should be able to give to the users that have more than 200k the permission of opening votes', async () => {
-    let voteId = 21
+  it('should be able to give to the users that have more than 200k the permission of opening votes', async () => {
+    let voteId = 22
     // give the permission to a random user in order to simulating
     // the fact that this user would have more than 200k pnt
     // since at the moment the DandelionVoting contract logic is not updated yet
@@ -134,9 +134,7 @@ describe('DandelionVoting', () => {
       calldata: ACL.interface.encodeFunctionData('grantPermission', [user2.address, voting.address, CREATE_VOTES_ROLE])
     }
     const script = encodeCallScript([action])
-    await expect(voting.connect(user1).newVote(script, 'metadata', false))
-      .to.emit(voting, 'StartVote')
-      .withArgs(voteId, user1.address, 'metadata')
+    await expect(voting.connect(user1).newVote(script, 'metadata', false)).to.emit(voting, 'StartVote').withArgs(voteId, user1.address, 'metadata')
 
     await voting.connect(daoPntHolder1).vote(voteId, true)
     await voting.connect(daoPntHolder2).vote(voteId, true)
@@ -148,11 +146,39 @@ describe('DandelionVoting', () => {
     await voting.executeVote(voteId)
 
     voteId = 22
-    await expect(voting.connect(user2).newVote([], 'metadata', false))
-      .to.emit(voting, 'StartVote')
-      .withArgs(voteId, user2.address, 'metadata')
+    await expect(voting.connect(user2).newVote([], 'metadata', false)).to.emit(voting, 'StartVote').withArgs(voteId, user2.address, 'metadata')
 
     await expect(voting.connect(user3).newVote([], 'metadata', false)).to.be.revertedWith('APP_AUTH_FAILED')
   })
+
+  it('should be able to open a vote that withdraw 930k PNT from the vault', async () => {
+    const voteId = 23
+    const amount = ethers.utils.parseEther('930000')
+
+    const action = {
+      to: financeVault.address,
+      calldata: Vault.interface.encodeFunctionData('transfer', [ethpnt.address, ASSOCIATION_ADDRESS, amount])
+    }
+    const script = encodeCallScript([action])
+
+    console.log(script)
+
+    await expect(voting.connect(association).newVote(script, 'metadata', false))
+      .to.emit(voting, 'StartVote')
+      .withArgs(voteId, association.address, 'metadata')
+
+    await voting.connect(daoPntHolder1).vote(voteId, true)
+    await voting.connect(daoPntHolder2).vote(voteId, true)
+    await voting.connect(daoPntHolder3).vote(voteId, true)
+    await voting.connect(daoPntHolder4).vote(voteId, true)
+
+    const balancePre = await ethpnt.balanceOf(association.address)
+
+    const vote = await voting.getVote(voteId)
+    await mineUpTo(vote.executionBlock.toNumber() + 1)
+    await expect(voting.executeVote(voteId)).to.emit(financeVault, 'VaultTransfer').withArgs(ethpnt.address, association.address, amount)
+
+    const balancePost = await ethpnt.balanceOf(association.address)
+    expect(balancePost).to.be.eq(balancePre.add(amount))
+  })
 })
-*/
