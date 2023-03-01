@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.17;
 
@@ -6,11 +8,11 @@ contract MockPTokensVault {
     function pegIn(
         uint256 _tokenAmount,
         address _tokenAddress,
-        string calldata _destinationAddress,
-        bytes calldata _userData
+        string memory _destinationAddress,
+        bytes memory _userData,
+        bytes4 _destinationChainId
     ) external returns (bool) {}
 
-    // NOTE: in the reality should be called only by pNetwork
     function pegOut(
         address _tokenRecipient,
         address _tokenAddress,

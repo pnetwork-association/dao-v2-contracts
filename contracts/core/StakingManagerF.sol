@@ -8,15 +8,16 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {IStakingManagerF} from "../interfaces/IStakingManagerF.sol";
-import {IForwarderHost} from "../interfaces/IForwarderHost.sol";
+import {IStakingManager} from "../interfaces/IStakingManager.sol";
 import {ITokenManager} from "../interfaces/external/ITokenManager.sol";
+import {IPToken} from "../interfaces/external/IPToken.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 import {Roles} from "../libraries/Roles.sol";
+import {Helpers} from "../libraries/Helpers.sol";
 
 contract StakingManagerF is
-    IStakingManagerF,
+    IStakingManager,
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable,
@@ -26,22 +27,23 @@ contract StakingManagerF is
 
     mapping(address => Stake) private _stakes;
 
-    address public token;
+    address public pToken;
+    address public nativeToken;
     address public tokenManager;
-    address public forwarderHost;
 
-    function initialize(address _token, address _tokenManager) public initializer {
+    function initialize(address _pToken, address _nativeToken, address _tokenManager) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
-        token = _token;
+        pToken = _pToken;
+        nativeToken = _nativeToken;
         tokenManager = _tokenManager;
     }
 
-    /// @inheritdoc IStakingManagerF
+    /// @inheritdoc IStakingManager
     function increaseDuration(uint64 duration) external {
         address owner = _msgSender();
 
@@ -64,12 +66,7 @@ contract StakingManagerF is
         emit DurationIncreased(owner, duration);
     }
 
-    /// @inheritdoc IStakingManagerF
-    function setForwarderHost(address _forwarderHost) external onlyRole(Roles.SET_FORWARDER_HOST_ROLE) {
-        forwarderHost = _forwarderHost;
-    }
-
-    /// @inheritdoc IStakingManagerF
+    /// @inheritdoc IStakingManager
     function stake(uint256 amount, uint64 duration, address receiver) external {
         if (duration < Constants.MIN_STAKE_DURATION) {
             revert Errors.InvalidDuration();
@@ -79,7 +76,7 @@ contract StakingManagerF is
             revert Errors.InvalidAmount();
         }
 
-        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+        IERC20Upgradeable(pToken).safeTransferFrom(_msgSender(), address(this), amount);
 
         Stake storage st = _stakes[receiver];
         uint64 blockTimestamp = uint64(block.timestamp);
@@ -95,12 +92,12 @@ contract StakingManagerF is
         emit Staked(receiver, amount, duration);
     }
 
-    /// @inheritdoc IStakingManagerF
+    /// @inheritdoc IStakingManager
     function stakeOf(address owner) external view returns (Stake memory) {
         return _stakes[owner];
     }
 
-    /// @inheritdoc IStakingManagerF
+    /// @inheritdoc IStakingManager
     function unstake(uint256 amount) external {
         address owner = _msgSender();
         Stake storage st = _stakes[owner];
@@ -124,9 +121,8 @@ contract StakingManagerF is
         }
 
         ITokenManager(tokenManager).burn(owner, amount);
-        IERC20Upgradeable(token).approve(forwarderHost, amount);
-        IForwarderHost(forwarderHost).unstake(amount, owner);
-
+        bytes memory data = abi.encode([nativeToken], [abi.encodeCall(IERC20Upgradeable.transfer, (owner, amount))]);
+        IPToken(pToken).redeem(amount, data, Helpers.toAsciiString(owner), 0x005fe7f9);
         emit Unstaked(owner, amount);
     }
 

@@ -15,4 +15,5 @@ library Errors {
     error UnfinishedStakingPeriod();
     error NothingAtStake();
     error InvalidOriginatingAddress(address originatingAddress);
+    error CallFailed(address target, bytes data);
 }

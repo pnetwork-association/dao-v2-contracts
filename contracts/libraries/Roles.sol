@@ -9,5 +9,5 @@ library Roles {
     bytes32 public constant RELEASE_ROLE = keccak256("RELEASE_ROLE");
     bytes32 public constant RELEASE_SENTINEL_ROLE = keccak256("RELEASE_SENTINEL_ROLE");
     bytes32 public constant DEPOSIT_INTEREST_ROLE = keccak256("DEPOSIT_INTEREST_ROLE");
-    bytes32 public constant SET_FORWARDER_HOST_ROLE = keccak256("SET_FORWARDER_HOST_ROLE");
+    bytes32 public constant SET_ORIGINATING_ADDRESS_ROLE = keccak256("SET_ORIGINATING_ADDRESS_ROLE");
 }
