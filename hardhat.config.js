@@ -25,22 +25,39 @@ module.exports = {
     hardhat: {
       chainId: 1,
       forking: {
-        url: `${getEnvironmentVariable('ETH_MAINNET_NODE')}`,
+        url: `${getEnvironmentVariable('MAINNET_NODE')}`,
         accounts: [getEnvironmentVariable('PK')]
       }
     },
     local: {
       url: 'http://localhost:8545'
+    },
+    polygon: {
+      url: getEnvironmentVariable('MAINNET_NODE'),
+      accounts: [getEnvironmentVariable('PK')],
+      gasPrice: 20e9
+    },
+    polygon: {
+      url: getEnvironmentVariable('POLYGON_NODE'),
+      accounts: [getEnvironmentVariable('PK')],
+      gasPrice: 400e9
     }
-    /*polygon: {
-      url: getEnvironmentVariable('POLYGON_MAINNET_NODE'),
-      accounts: [getEnvironmentVariable('POLYGON_MAINNET_PRIVATE_KEY')],
-      gasPrice: 7e9,
-      gas: 200e9,
-    },*/
   },
   etherscan: {
-    apiKey: getEnvironmentVariable('ETHERSCAN_API_KEY')
+    apiKey: {
+      mainnet: getEnvironmentVariable('ETHERSCAN_API_KEY'),
+      polygon: getEnvironmentVariable('POLYGONSCAN_API_KEY')
+    },
+    customChains: [
+      {
+        network: 'polygon',
+        chainId: 137,
+        urls: {
+          apiURL: 'https://api.polygonscan.com/api',
+          browserURL: 'https://polygonscan.com'
+        }
+      }
+    ]
   },
   gasReporter: {
     enabled: true

@@ -20,10 +20,11 @@ const {
 
 const PNETWORK_CHAIN_IDS = {
   polygonMainnet: '0x0075dd4c',
-  ethereumMainnet: '0x005fe7f9'
+  ethereumMainnet: '0x005fe7f9',
+  interim: '0xffffffff'
 }
 
-let forwarderNative, forwarderHost, stakingManager, owner, pToken, pnetwork, sentinel1, root
+let forwarderNative, forwarderHost, stakingManager, owner, pToken, pnetwork, sentinel1, root, router
 
 describe('Forwarders', () => {
   beforeEach(async () => {
@@ -40,6 +41,7 @@ describe('Forwarders', () => {
     const signers = await ethers.getSigners()
     owner = signers[0]
     sentinel1 = signers[1]
+    router = signers[2]
     pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     root = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
@@ -87,12 +89,6 @@ describe('Forwarders', () => {
       kind: 'uups'
     })
 
-    await forwarderNative.grantRole(getRole('SET_ORIGINATING_ADDRESS_ROLE'), owner.address)
-    await forwarderNative.setOriginatingAddress(forwarderHost.address)
-
-    await forwarderHost.grantRole(getRole('SET_ORIGINATING_ADDRESS_ROLE'), owner.address)
-    await forwarderHost.setOriginatingAddress(forwarderNative.address)
-
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
@@ -129,8 +125,8 @@ describe('Forwarders', () => {
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
     const enclavePeginMetadata = encode(
-      ['bytes1', 'bytes', 'bytes4', 'address'],
-      ['0x01', peginData, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderNative.address]
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
     )
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, enclavePeginMetadata, '0x'))
@@ -161,8 +157,8 @@ describe('Forwarders', () => {
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
     const enclavePeginMetadata = encode(
-      ['bytes1', 'bytes', 'bytes4', 'address'],
-      ['0x01', peginData, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderNative.address]
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
     )
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, enclavePeginMetadata, '0x'))
@@ -196,8 +192,8 @@ describe('Forwarders', () => {
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
     const enclavePeginMetadata = encode(
-      ['bytes1', 'bytes', 'bytes4', 'address'],
-      ['0x01', peginData, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderNative.address]
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
     )
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, enclavePeginMetadata, '0x'))
@@ -229,8 +225,8 @@ describe('Forwarders', () => {
     await vault.connect(pntHolder1).pegIn(amount, pnt.address, forwarderHost.address, peginData, PNETWORK_CHAIN_IDS.polygonMainnet)
 
     const enclavePeginMetadata = encode(
-      ['bytes1', 'bytes', 'bytes4', 'address'],
-      ['0x01', peginData, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderNative.address]
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
     )
     await pToken.connect(pnetwork).mint(forwarderHost.address, amount, enclavePeginMetadata, '0x')
 
@@ -246,8 +242,8 @@ describe('Forwarders', () => {
       [[pnt.address], [erc20Interface.encodeFunctionData('transfer', [pntHolder1.address, amount])]]
     )
     const enclavePegoutMetadata = encode(
-      ['bytes1', 'bytes', 'bytes4', 'address'],
-      ['0x01', pegoutData, PNETWORK_CHAIN_IDS.ethereumMainnet, forwarderHost.address]
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      ['0x02', pegoutData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.ethereumMainnet, forwarderNative.address, '0x', '0x']
     )
     await expect(vault.connect(pnetwork).pegOut(forwarderNative.address, pnt.address, amount, enclavePegoutMetadata))
       .to.emit(pnt, 'Transfer')
