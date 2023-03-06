@@ -66,10 +66,7 @@ const main = async () => {
   )
 
   console.log('Forwarder ...')
-  const forwarder = await upgrades.deployProxy(Forwarder, [PNT_ON_POLYGON_ADDRESS, ZERO_ADDRESS], {
-    initializer: 'initialize',
-    kind: 'uups'
-  })
+  const forwarder = await Forwarder.deploy(PNT_ON_POLYGON_ADDRESS, ZERO_ADDRESS)
 
   console.log('Setting ACL permissions ...')
   await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
