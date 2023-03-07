@@ -68,11 +68,13 @@ interface IStakingManager {
 
     /*
      * @notice Unstake an certain amount of governance token in exchange of the same amount of staked tokens.
+     *         If the specified chainId is different than the chain where the DAO is deployed, the function will trigger a pToken redeem.
      *
      * @param amount
+     * @param chainId
      *
      */
-    function unstake(uint256 amount) external;
+    function unstake(uint256 amount, bytes4 chainId) external;
 
     /*
      * @notice Unstake an certain amount of governance token in exchange of the same amount of staked tokens and send them to 'receiver'.

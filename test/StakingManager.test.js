@@ -9,7 +9,8 @@ const {
   MIN_LOCK_DURATION,
   PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
-  TOKEN_MANAGER_ADDRESS
+  TOKEN_MANAGER_ADDRESS,
+  PNETWORK_CHAIN_IDS
 } = require('./constants')
 
 let pntHolder1, root, stakingManager, StakingManager, fakeForwarder
@@ -35,8 +36,18 @@ describe('StakingManager', () => {
       kind: 'uups'
     })
 
+    await owner.sendTransaction({
+      to: root.address,
+      value: ethers.utils.parseEther('10')
+    })
+
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+
+    await owner.sendTransaction({
+      to: pntHolder1.address,
+      value: ethers.utils.parseEther('10')
+    })
   })
 
   it('should be able to stake the first time', async () => {
@@ -168,7 +179,7 @@ describe('StakingManager', () => {
     const daoPnBalancePre = await daoPnt.balanceOf(pntHolder1.address)
     const pnBalancePre = await pnt.balanceOf(pntHolder1.address)
 
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](stakeAmount))
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, stakeAmount)
 
@@ -200,7 +211,7 @@ describe('StakingManager', () => {
     const daoPnBalancePre = await daoPnt.balanceOf(pntHolder1.address)
     const pnBalancePre = await pnt.balanceOf(pntHolder1.address)
 
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](unstakeAmount))
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](unstakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, unstakeAmount)
 
@@ -224,10 +235,9 @@ describe('StakingManager', () => {
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration)
 
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](stakeAmount)).to.be.revertedWithCustomError(
-      stakingManager,
-      'UnfinishedStakingPeriod'
-    )
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
   })
 
   it('should not be able to unstake more than what you staked', async () => {
@@ -241,10 +251,9 @@ describe('StakingManager', () => {
 
     await time.increase(duration + 1)
 
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](stakeAmount.add(1))).to.be.revertedWithCustomError(
-      stakingManager,
-      'InvalidAmount'
-    )
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.add(1), PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
   })
 
   it('should be able to increase the duration if the staking period is not finished yet', async () => {

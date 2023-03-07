@@ -98,21 +98,16 @@ contract StakingManager is
     }
 
     /// @inheritdoc IStakingManager
-    function unstake(uint256 amount) external {
+    function unstake(uint256 amount, bytes4 chainId) external {
         address msgSender = _msgSender();
         _unstake(msgSender, amount);
-        IERC20Upgradeable(token).safeTransfer(msgSender, amount);
+        _finalizeUnstake(msgSender, amount, chainId);
     }
 
     /// @inheritdoc IStakingManager
     function unstake(address owner, uint256 amount, bytes4 chainId) external onlyForwarder {
         _unstake(owner, amount);
-        
-        if (chainId == 0x0075dd4c) {
-            IERC20Upgradeable(token).safeTransfer(owner, amount);
-        } else {
-            IPToken(token).redeem(amount, "", Helpers.addressToAsciiString(owner), chainId);
-        }
+        _finalizeUnstake(owner, amount, chainId);
     }
 
     function _unstake(address owner, uint256 amount) internal {
@@ -138,6 +133,14 @@ contract StakingManager is
 
         ITokenManager(tokenManager).burn(owner, amount);
         emit Unstaked(owner, amount);
+    }
+
+    function _finalizeUnstake(address receiver, uint256 amount, bytes4 chainId) internal {
+        if (chainId == 0x0075dd4c) {
+            IERC20Upgradeable(token).safeTransfer(receiver, amount);
+        } else {
+            IPToken(token).redeem(amount, "", Helpers.addressToAsciiString(receiver), chainId);
+        }
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
