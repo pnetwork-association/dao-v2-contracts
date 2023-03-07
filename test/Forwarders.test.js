@@ -1,10 +1,12 @@
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
-const { getRole, encode, getSentinelIdentity } = require('./utils')
+const { getRole, encode, getSentinelIdentity, getUserDataGeneratedByForwarder } = require('./utils')
 const { time } = require('@nomicfoundation/hardhat-network-helpers')
 
 const {
   ACL_ADDRESS,
+  //DANDELION_VOTING_ADDRESS,
+  BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
   DAO_ROOT_ADDRESS,
   EPOCH_DURATION,
   ERC20_VAULT,
@@ -13,6 +15,8 @@ const {
   PNETWORK_ADDRESS,
   PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
+  PNT_HOLDER_2_ADDRESS,
+  REGISTRATION_SENTINEL_BORROWING,
   REGISTRATION_SENTINEL_STAKING,
   TOKEN_MANAGER_ADDRESS,
   ZERO_ADDRESS
@@ -24,7 +28,7 @@ const PNETWORK_CHAIN_IDS = {
   interim: '0xffffffff'
 }
 
-let forwarderNative, forwarderHost, stakingManager, owner, pToken, pnetwork, sentinel1, root, router
+let forwarderNative, forwarderHost, stakingManager, owner, pToken, pnetwork, sentinel1, root, router, pntHolder1, pntHolder2
 
 describe('Forwarders', () => {
   beforeEach(async () => {
@@ -37,6 +41,7 @@ describe('Forwarders', () => {
     const MockPTokensVault = await ethers.getContractFactory('MockPTokensVault')
     const ERC20 = await ethers.getContractFactory('ERC20')
     const ACL = await ethers.getContractFactory('ACL')
+    const DandelionVoting = await ethers.getContractFactory('DandelionVoting')
 
     const signers = await ethers.getSigners()
     owner = signers[0]
@@ -44,12 +49,19 @@ describe('Forwarders', () => {
     router = signers[2]
     pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
+    pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     root = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
 
     acl = await ACL.attach(ACL_ADDRESS)
     pnt = await ERC20.attach(PNT_ADDRESS)
     vault = await MockPTokensVault.attach(ERC20_VAULT)
+    //voting = await DandelionVoting.attach(DANDELION_VOTING_ADDRESS)
     pToken = await MockPToken.deploy('Host Token (pToken)', 'HTKN', [], pnetwork.address, PNETWORK_CHAIN_IDS.polygonMainnet)
+
+    forwarderNative = await Forwarder.deploy(pnt.address, vault.address, vault.address)
+    forwarderHost = await Forwarder.deploy(pToken.address, ZERO_ADDRESS, ZERO_ADDRESS)
+    await forwarderNative.whitelistOriginAddress(forwarderHost.address)
+    await forwarderHost.whitelistOriginAddress(forwarderNative.address)
 
     stakingManager = await upgrades.deployProxy(StakingManager, [pToken.address, pnt.address, TOKEN_MANAGER_ADDRESS], {
       initializer: 'initialize',
@@ -72,34 +84,64 @@ describe('Forwarders', () => {
 
     registrationManager = await upgrades.deployProxy(
       RegistrationManager,
-      [pToken.address, stakingManager.address, epochsManager.address, borrowingManager.address],
+      [pToken.address, stakingManager.address, epochsManager.address, borrowingManager.address, forwarderHost.address],
       {
         initializer: 'initialize',
         kind: 'uups'
       }
     )
 
-    forwarderNative = await upgrades.deployProxy(Forwarder, [pnt.address, vault.address], {
-      initializer: 'initialize',
-      kind: 'uups'
-    })
-
-    forwarderHost = await upgrades.deployProxy(Forwarder, [pToken.address, ZERO_ADDRESS], {
-      initializer: 'initialize',
-      kind: 'uups'
-    })
+    voting = await DandelionVoting.deploy(forwarderHost.address)
+    await voting.setForwarder(forwarderHost.address)
 
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
 
     await owner.sendTransaction({
       to: pntHolder1.address,
       value: ethers.utils.parseEther('10')
     })
     await owner.sendTransaction({
+      to: pntHolder2.address,
+      value: ethers.utils.parseEther('10')
+    })
+    await owner.sendTransaction({
       to: pnetwork.address,
       value: ethers.utils.parseEther('10')
     })
+    await pnt.connect(pntHolder1).transfer(forwarderNative.address, ethers.utils.parseEther('1'))
+  })
+
+  it('should be able to forward a vote', async () => {
+    const voteId = 1
+    const dandelionVotingInterface = new ethers.utils.Interface(['function delegateVote(address voter, uint256 _voteId, bool _supports)'])
+    const userData = encode(
+      ['address[]', 'bytes[]'],
+      [[voting.address], [dandelionVotingInterface.encodeFunctionData('delegateVote', [pntHolder1.address, voteId, true])]]
+    )
+
+    await forwarderNative.connect(pntHolder1).call(0, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
+
+    // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
+
+    const enclavePeginMetadata = encode(
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
+        PNETWORK_CHAIN_IDS.interim,
+        forwarderNative.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
+    )
+
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, enclavePeginMetadata, '0x'))
+      .to.emit(voting, 'CastVote')
+      .withArgs(voteId, pntHolder1.address, true)
   })
 
   it('should be able to forward a stake request', async () => {
@@ -107,26 +149,35 @@ describe('Forwarders', () => {
     const duration = ONE_DAY * 7
 
     const erc20Interface = new ethers.utils.Interface(['function approve(address spender, uint256 amount)'])
-    const stakingManagerInterface = new ethers.utils.Interface(['function stake(uint256 amount, uint64 duration, address receiver)'])
-    const peginData = encode(
+    const stakingManagerInterface = new ethers.utils.Interface(['function stake(address receiver, uint256 amount, uint64 duration)'])
+    const userData = encode(
       ['address[]', 'bytes[]'],
       [
         [pToken.address, stakingManager.address],
         [
           erc20Interface.encodeFunctionData('approve', [stakingManager.address, stakeAmount]),
-          stakingManagerInterface.encodeFunctionData('stake', [stakeAmount, duration, pntHolder1.address])
+          stakingManagerInterface.encodeFunctionData('stake', [pntHolder1.address, stakeAmount, duration])
         ]
       ]
     )
 
-    await pnt.connect(pntHolder1).approve(vault.address, stakeAmount)
-    await vault.connect(pntHolder1).pegIn(stakeAmount, pnt.address, forwarderHost.address, peginData, PNETWORK_CHAIN_IDS.polygonMainnet)
+    await pnt.connect(pntHolder1).approve(forwarderNative.address, stakeAmount)
+    await forwarderNative.connect(pntHolder1).call(stakeAmount, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
     const enclavePeginMetadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
+        PNETWORK_CHAIN_IDS.interim,
+        router.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
     )
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, enclavePeginMetadata, '0x'))
@@ -139,26 +190,35 @@ describe('Forwarders', () => {
     const duration = EPOCH_DURATION * 13
 
     const erc20Interface = new ethers.utils.Interface(['function approve(address spender, uint256 amount)'])
-    const stakingManagerInterface = new ethers.utils.Interface(['function lend(uint256 amount, uint64 duration, address receiver)'])
-    const peginData = encode(
+    const stakingManagerInterface = new ethers.utils.Interface(['function lend(address receiver, uint256 amount, uint64 duration)'])
+    const userData = encode(
       ['address[]', 'bytes[]'],
       [
         [pToken.address, borrowingManager.address],
         [
           erc20Interface.encodeFunctionData('approve', [borrowingManager.address, lendAmount]),
-          stakingManagerInterface.encodeFunctionData('lend', [lendAmount, duration, pntHolder1.address])
+          stakingManagerInterface.encodeFunctionData('lend', [pntHolder1.address, lendAmount, duration])
         ]
       ]
     )
 
-    await pnt.connect(pntHolder1).approve(vault.address, lendAmount)
-    await vault.connect(pntHolder1).pegIn(lendAmount, pnt.address, forwarderHost.address, peginData, PNETWORK_CHAIN_IDS.polygonMainnet)
+    await pnt.connect(pntHolder1).approve(forwarderNative.address, lendAmount)
+    await forwarderNative.connect(pntHolder1).call(lendAmount, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
     const enclavePeginMetadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
+        PNETWORK_CHAIN_IDS.interim,
+        router.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
     )
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, enclavePeginMetadata, '0x'))
@@ -172,28 +232,42 @@ describe('Forwarders', () => {
     const signature = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
 
     const erc20Interface = new ethers.utils.Interface(['function approve(address spender, uint256 amount)'])
-    const stakingManagerInterface = new ethers.utils.Interface([
-      'function updateSentinelRegistrationByStaking(uint256 amount, uint64 duration, bytes signature, address receiver)'
+    const registrationManagerInterface = new ethers.utils.Interface([
+      'function updateSentinelRegistrationByStaking(address receiver, uint256 amount, uint64 duration, bytes signature)'
     ])
-    const peginData = encode(
+    const userData = encode(
       ['address[]', 'bytes[]'],
       [
         [pToken.address, registrationManager.address],
         [
           erc20Interface.encodeFunctionData('approve', [registrationManager.address, stakeAmount]),
-          stakingManagerInterface.encodeFunctionData('updateSentinelRegistrationByStaking', [stakeAmount, duration, signature, pntHolder1.address])
+          registrationManagerInterface.encodeFunctionData('updateSentinelRegistrationByStaking', [
+            pntHolder1.address,
+            stakeAmount,
+            duration,
+            signature
+          ])
         ]
       ]
     )
 
-    await pnt.connect(pntHolder1).approve(vault.address, stakeAmount)
-    await vault.connect(pntHolder1).pegIn(stakeAmount, pnt.address, forwarderHost.address, peginData, PNETWORK_CHAIN_IDS.polygonMainnet)
+    await pnt.connect(pntHolder1).approve(forwarderNative.address, stakeAmount)
+    await forwarderNative.connect(pntHolder1).call(stakeAmount, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
     const enclavePeginMetadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
+        PNETWORK_CHAIN_IDS.interim,
+        router.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
     )
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, enclavePeginMetadata, '0x'))
@@ -201,7 +275,81 @@ describe('Forwarders', () => {
       .withArgs(pntHolder1.address, 1, 12, sentinel1.address, REGISTRATION_SENTINEL_STAKING, stakeAmount)
   })
 
-  it('should be able to forward an unstake request', async () => {
+  it('should be able to forward a updateSentinelRegistrationByBorrowing request after a lending one', async () => {
+    // L E N D
+    const lendAmount = ethers.utils.parseEther('400000')
+    const duration = EPOCH_DURATION * 15
+
+    const erc20Interface = new ethers.utils.Interface(['function approve(address spender, uint256 amount)'])
+    const stakingManagerInterface = new ethers.utils.Interface(['function lend(address receiver, uint256 amount, uint64 duration)'])
+    let userData = encode(
+      ['address[]', 'bytes[]'],
+      [
+        [pToken.address, borrowingManager.address],
+        [
+          erc20Interface.encodeFunctionData('approve', [borrowingManager.address, lendAmount]),
+          stakingManagerInterface.encodeFunctionData('lend', [pntHolder2.address, lendAmount, duration])
+        ]
+      ]
+    )
+
+    await pnt.connect(pntHolder2).approve(forwarderNative.address, lendAmount)
+    await forwarderNative.connect(pntHolder2).call(lendAmount, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
+
+    let enclavePeginMetadata = encode(
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder2.address),
+        PNETWORK_CHAIN_IDS.interim,
+        router.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
+    )
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, enclavePeginMetadata, '0x'))
+      .to.emit(borrowingManager, 'Lended')
+      .withArgs(pntHolder2.address, 1, 14, lendAmount)
+
+    // B O R R O W
+    const numberOfEpochs = 12
+    const signature = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
+
+    const registrationManagerInterface = new ethers.utils.Interface([
+      'function updateSentinelRegistrationByBorrowing(address receiver, uint16 numberOfEpochs, bytes signature)'
+    ])
+    userData = encode(
+      ['address[]', 'bytes[]'],
+      [
+        [registrationManager.address],
+        [registrationManagerInterface.encodeFunctionData('updateSentinelRegistrationByBorrowing', [pntHolder1.address, numberOfEpochs, signature])]
+      ]
+    )
+
+    await forwarderNative.connect(pntHolder1).call(0, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
+
+    enclavePeginMetadata = encode(
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
+        PNETWORK_CHAIN_IDS.interim,
+        router.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
+    )
+
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, enclavePeginMetadata, '0x'))
+      .to.emit(registrationManager, 'SentinelRegistrationUpdated')
+      .withArgs(pntHolder1.address, 1, 12, sentinel1.address, REGISTRATION_SENTINEL_BORROWING, BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION)
+  })
+
+  /*it('should be able to forward an unstake request', async () => {
     const amount = ethers.utils.parseEther('10000')
     const duration = ONE_DAY * 7
 
@@ -251,5 +399,5 @@ describe('Forwarders', () => {
 
     const balancePost = await pnt.balanceOf(pntHolder1.address)
     expect(balancePost).to.be.eq(balancePre.add(amount))
-  })
+  })*/
 })

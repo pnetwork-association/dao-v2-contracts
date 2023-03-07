@@ -2,23 +2,31 @@
 
 pragma solidity 0.8.17;
 
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {IERC777RecipientUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {IERC777Recipient} from "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import {IERC1820Registry} from "@openzeppelin/contracts/interfaces/IERC1820Registry.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IForwarder} from "../interfaces/IForwarder.sol";
+import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
+import {Helpers} from "../libraries/Helpers.sol";
+import {BytesLib} from "../libraries/BytesLib.sol";
 
 error CallFailed(address target, bytes data);
-error InvalidUserData(bytes userData);
+error InvalidCallParams(address[] targets, bytes[] data, address caller);
+error InvalidOriginAddress(address originAddress);
+error InvalidCaller(address caller);
 
-contract Forwarder is IERC777RecipientUpgradeable, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
+    using SafeERC20 for IERC20;
+
     address public sender;
     address public token;
+    address public vault;
+    mapping(address => bool) private _whitelistedOriginAddresses;
 
-    function initialize(address _token, address _sender) public initializer {
-        __Ownable_init();
-        __UUPSUpgradeable_init();
-
+    constructor(address _token, address _sender, address _vault) {
         IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
             address(this),
             keccak256("ERC777TokensRecipient"),
@@ -27,6 +35,7 @@ contract Forwarder is IERC777RecipientUpgradeable, Initializable, UUPSUpgradeabl
 
         sender = _sender;
         token = _token;
+        vault = _vault; // set it to 0 on an host chain
     }
 
     function tokensReceived(
@@ -38,15 +47,38 @@ contract Forwarder is IERC777RecipientUpgradeable, Initializable, UUPSUpgradeabl
         bytes calldata /*_operatorData*/
     ) external override {
         if (_msgSender() == token && _from == sender) {
-            (, bytes memory userData, , , , , , ) = abi.decode(_userData, (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes));
+            (, bytes memory userData, , , , , , ) = abi.decode(
+                _userData,
+                (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
+            );
 
-            (address[] memory targets, bytes[] memory data) = abi.decode(userData, (address[], bytes[]));
+            (bytes memory callsAndTargets, address originAddress, address caller) = abi.decode(
+                userData,
+                (bytes, address, address)
+            );
+
+            if (!_whitelistedOriginAddresses[originAddress]) {
+                revert InvalidOriginAddress(originAddress);
+            }
+
+            (address[] memory targets, bytes[] memory data) = abi.decode(callsAndTargets, (address[], bytes[]));
 
             if (targets.length != data.length) {
-                revert InvalidUserData(userData);
+                revert InvalidCallParams(targets, data, caller);
             }
 
             for (uint256 i = 0; i < targets.length; ) {
+                // NOTE: avoid to check the caller if function is approve
+                if (bytes4(data[i]) != 0x095ea7b3) {
+                    bytes memory addrSlot = BytesLib.slice(data[i], 4, 36);
+                    address expectedCaller = address(BytesLib.toAddress(addrSlot, 32 - 20));
+
+                    // NOTE: needed to for example avoid someone to vote for someone else
+                    if (expectedCaller != caller) {
+                        revert InvalidCaller(expectedCaller);
+                    }
+                }
+
                 (bool success, ) = targets[i].call(data[i]);
                 if (!success) {
                     revert CallFailed(targets[i], data[i]);
@@ -59,5 +91,31 @@ contract Forwarder is IERC777RecipientUpgradeable, Initializable, UUPSUpgradeabl
         }
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    /// @inheritdoc IForwarder
+    function call(uint256 amount, address to, bytes calldata data, bytes4 chainId) external {
+        address msgSender = _msgSender();
+        if (amount > 0) {
+            IERC20(token).safeTransferFrom(msgSender, address(this), amount);
+        }
+
+        bytes memory effectiveUserData = abi.encode(data, address(this), msgSender);
+
+        if (vault != address(0)) {
+            uint256 effectiveAmount = amount == 0 ? 1 : amount;
+            IERC20(token).approve(vault, effectiveAmount);
+            IErc20Vault(vault).pegIn(
+                effectiveAmount,
+                token,
+                Helpers.addressToAsciiString(to),
+                effectiveUserData,
+                chainId
+            );
+        } else {
+            //pegout
+        }
+    }
+
+    function whitelistOriginAddress(address originAddress) external onlyOwner {
+        _whitelistedOriginAddresses[originAddress] = true;
+    }
 }
