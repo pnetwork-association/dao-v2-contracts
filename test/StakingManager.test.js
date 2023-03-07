@@ -97,7 +97,7 @@ describe('StakingManager', () => {
     await expect(stake.endDate).to.be.eq(expectedEndDate)
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration2, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration2))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration2)
     expectedStartDate = await time.latest()
@@ -142,7 +142,7 @@ describe('StakingManager', () => {
     await expect(stake.endDate).to.be.eq(expectedEndDate)
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration2, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration2))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration2)
     expectedStartDate = await time.latest()
