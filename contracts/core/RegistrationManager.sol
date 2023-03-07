@@ -83,7 +83,7 @@ contract RegistrationManager is
         address owner,
         uint16 numberOfEpochs,
         bytes calldata signature
-    ) external onlyFromForwarder {
+    ) external onlyForwarder {
         _updateSentinelRegistrationByBorrowing(owner, numberOfEpochs, signature);
     }
 

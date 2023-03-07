@@ -76,7 +76,7 @@ interface IStakingManager {
 
     /*
      * @notice Unstake an certain amount of governance token in exchange of the same amount of staked tokens and send them to 'receiver'.
-     *         This function is used togheter with onlyFromForwarder. If the specified chainId is different than the chain where the
+     *         This function is used togheter with onlyForwarder. If the specified chainId is different than the chain where the
      *         DAO is deployed, the function will trigger a pToken redeem.
      *
      * @param owner

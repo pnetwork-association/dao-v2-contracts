@@ -10,7 +10,7 @@ pragma solidity 0.8.17;
  */
 interface IForwarderRecipientUpgradeable {
     /*
-     * @notice Returns the forwarder address. This is the address that is allowed to invoke the call if the 'onlyFromForwarder' modifier is used.
+     * @notice Returns the forwarder address. This is the address that is allowed to invoke the call if the 'onlyForwarder' modifier is used.
      *
      * @return forwarder address.
      */

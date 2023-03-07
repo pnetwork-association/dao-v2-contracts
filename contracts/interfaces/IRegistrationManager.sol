@@ -72,7 +72,7 @@ interface IRegistrationManager {
 
     /*
      * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
-     *         This function is used togheter with onlyFromForwarder.
+     *         This function is used togheter with onlyForwarder.
      *
      * @params owner
      * @param numberOfEpochs

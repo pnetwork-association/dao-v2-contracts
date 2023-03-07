@@ -19,7 +19,7 @@ abstract contract ForwarderRecipientUpgradeable is
 
     bytes32 public constant SET_FORWARDER_ROLE = keccak256("SET_FORWARDER_ROLE");
 
-    modifier onlyFromForwarder() {
+    modifier onlyForwarder() {
         address msgSender = _msgSender();
         if (forwarder() != msgSender) {
             revert InvalidForwarder(msgSender);

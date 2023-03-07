@@ -105,7 +105,7 @@ contract StakingManager is
     }
 
     /// @inheritdoc IStakingManager
-    function unstake(address owner, uint256 amount, bytes4 chainId) external onlyFromForwarder {
+    function unstake(address owner, uint256 amount, bytes4 chainId) external onlyForwarder {
         _unstake(owner, amount);
         
         if (chainId == 0x0075dd4c) {
