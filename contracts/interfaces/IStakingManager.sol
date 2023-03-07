@@ -35,7 +35,7 @@ interface IStakingManager {
     /**
      * @dev Emitted when an user unstakes some tokens
      *
-     * @param owner The owner
+     * @param owner The Onwer
      * @param amount The unstaked amount
      */
     event Unstaked(address indexed owner, uint256 amount);
@@ -73,4 +73,16 @@ interface IStakingManager {
      *
      */
     function unstake(uint256 amount) external;
+
+    /*
+     * @notice Unstake an certain amount of governance token in exchange of the same amount of staked tokens and send them to 'receiver'.
+     *         This function is used togheter with onlyFromForwarder. If the specified chainId is different than the chain where the
+     *         DAO is deployed, the function will trigger a pToken redeem.
+     *
+     * @param owner
+     * @param amount
+     * @param chainId
+     *
+     */
+    function unstake(address owner, uint256 amount, bytes4 chainId) external;
 }

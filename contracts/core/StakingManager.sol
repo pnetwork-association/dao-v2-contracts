@@ -11,6 +11,8 @@ import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IStakingManager} from "../interfaces/IStakingManager.sol";
 import {ITokenManager} from "../interfaces/external/ITokenManager.sol";
+import {IPToken} from "../interfaces/external/IPToken.sol";
+import {Helpers} from "../libraries/Helpers.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 
@@ -85,7 +87,7 @@ contract StakingManager is
         st.endDate = newEndDate >= currentEndDate ? newEndDate : currentEndDate;
         st.startDate = blockTimestamp;
 
-        // ITokenManager(tokenManager).mint(receiver, amount);
+        ITokenManager(tokenManager).mint(receiver, amount);
 
         emit Staked(receiver, amount, duration);
     }
@@ -97,7 +99,23 @@ contract StakingManager is
 
     /// @inheritdoc IStakingManager
     function unstake(uint256 amount) external {
-        address owner = _msgSender();
+        address msgSender = _msgSender();
+        _unstake(msgSender, amount);
+        IERC20Upgradeable(token).safeTransfer(msgSender, amount);
+    }
+
+    /// @inheritdoc IStakingManager
+    function unstake(address owner, uint256 amount, bytes4 chainId) external onlyFromForwarder {
+        _unstake(owner, amount);
+        
+        if (chainId == 0x0075dd4c) {
+            IERC20Upgradeable(token).safeTransfer(owner, amount);
+        } else {
+            IPToken(token).redeem(amount, "", Helpers.addressToAsciiString(owner), chainId);
+        }
+    }
+
+    function _unstake(address owner, uint256 amount) internal {
         Stake storage st = _stakes[owner];
         uint256 stAmount = st.amount;
 
@@ -118,9 +136,7 @@ contract StakingManager is
             st.amount = newStakeAmount;
         }
 
-        // ITokenManager(tokenManager).burn(owner, amount);
-        IERC20Upgradeable(token).safeTransfer(owner, amount);
-
+        ITokenManager(tokenManager).burn(owner, amount);
         emit Unstaked(owner, amount);
     }
 

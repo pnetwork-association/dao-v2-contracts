@@ -12,7 +12,7 @@ const {
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
 
-let pntHolder1, root, stakingManager, StakingManager
+let pntHolder1, root, stakingManager, StakingManager, fakeForwarder
 
 describe('StakingManager', () => {
   beforeEach(async () => {
@@ -22,6 +22,7 @@ describe('StakingManager', () => {
 
     const signers = await ethers.getSigners()
     owner = signers[0]
+    fakeForwarder = signers[1]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     root = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
 
@@ -29,7 +30,7 @@ describe('StakingManager', () => {
     pnt = await ERC20.attach(PNT_ADDRESS)
     daoPnt = await ERC20.attach(DAO_PNT_ADDRESS)
 
-    stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS], {
+    stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -45,7 +46,7 @@ describe('StakingManager', () => {
     const pnBalancePre = await pnt.balanceOf(pntHolder1.address)
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration)
     const expectedStartDate = await time.latest()
@@ -84,7 +85,7 @@ describe('StakingManager', () => {
     const duration2 = MIN_LOCK_DURATION
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration1, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration1))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration1)
     let expectedStartDate = await time.latest()
@@ -129,7 +130,7 @@ describe('StakingManager', () => {
     const duration2 = MIN_LOCK_DURATION * 2
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration1, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration1))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration1)
     let expectedStartDate = await time.latest()
@@ -158,7 +159,7 @@ describe('StakingManager', () => {
     const duration = MIN_LOCK_DURATION * 4
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration)
 
@@ -167,7 +168,7 @@ describe('StakingManager', () => {
     const daoPnBalancePre = await daoPnt.balanceOf(pntHolder1.address)
     const pnBalancePre = await pnt.balanceOf(pntHolder1.address)
 
-    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount))
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](stakeAmount))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, stakeAmount)
 
@@ -188,7 +189,7 @@ describe('StakingManager', () => {
     const duration = MIN_LOCK_DURATION * 4
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration)
     const expectedStartDate = await time.latest()
@@ -199,7 +200,7 @@ describe('StakingManager', () => {
     const daoPnBalancePre = await daoPnt.balanceOf(pntHolder1.address)
     const pnBalancePre = await pnt.balanceOf(pntHolder1.address)
 
-    await expect(stakingManager.connect(pntHolder1).unstake(unstakeAmount))
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](unstakeAmount))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, unstakeAmount)
 
@@ -219,11 +220,14 @@ describe('StakingManager', () => {
     const duration = MIN_LOCK_DURATION * 4
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration)
 
-    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount)).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](stakeAmount)).to.be.revertedWithCustomError(
+      stakingManager,
+      'UnfinishedStakingPeriod'
+    )
   })
 
   it('should not be able to unstake more than what you staked', async () => {
@@ -231,13 +235,16 @@ describe('StakingManager', () => {
     const duration = MIN_LOCK_DURATION * 4
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration)
 
     await time.increase(duration + 1)
 
-    await expect(stakingManager.connect(pntHolder1).unstake(stakeAmount.add(1))).to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256)'](stakeAmount.add(1))).to.be.revertedWithCustomError(
+      stakingManager,
+      'InvalidAmount'
+    )
   })
 
   it('should be able to increase the duration if the staking period is not finished yet', async () => {
@@ -246,7 +253,7 @@ describe('StakingManager', () => {
     const duration2 = MIN_LOCK_DURATION * 5
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration1, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration1))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration1)
     const expectedStartDate = await time.latest()
@@ -268,7 +275,7 @@ describe('StakingManager', () => {
     const duration2 = MIN_LOCK_DURATION * 5
 
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).stake(stakeAmount, duration1, pntHolder1.address))
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration1))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration1)
 

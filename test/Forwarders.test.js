@@ -458,4 +458,10 @@ describe('Forwarders', () => {
     const balancePost = await pnt.balanceOf(pntHolder1.address)
     expect(balancePost).to.be.eq(balancePre.add(amount))
   })
+
+  it('should not be able to updateSentinelRegistrationByBorrowing for a third party', async () => {
+    await expect(
+      registrationManager['updateSentinelRegistrationByBorrowing(address,uint16,bytes)'](pntHolder2.address, 2, '0x')
+    ).to.be.revertedWithCustomError(registrationManager, 'InvalidForwarder')
+  })
 })
