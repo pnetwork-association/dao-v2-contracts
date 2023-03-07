@@ -33,7 +33,7 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-standard": "^4.0.0",
     "ethers": "^5.7.2",
-    "hardhat": "2.12.2",
+    "hardhat": "2.13.0",
     "hardhat-gas-reporter": "1.0.9",
     "hardhat-spdx-license-identifier": "^2.1.0",
     "prettier": "^2.2.1",
