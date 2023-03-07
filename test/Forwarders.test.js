@@ -12,6 +12,7 @@ const {
   LEND_MAX_EPOCHS,
   ONE_DAY,
   PNETWORK_ADDRESS,
+  PNETWORK_CHAIN_IDS,
   PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
@@ -20,12 +21,6 @@ const {
   TOKEN_MANAGER_ADDRESS,
   ZERO_ADDRESS
 } = require('./constants')
-
-const PNETWORK_CHAIN_IDS = {
-  polygonMainnet: '0x0075dd4c',
-  ethereumMainnet: '0x005fe7f9',
-  interim: '0xffffffff'
-}
 
 let forwarderNative,
   forwarderHost,
@@ -183,7 +178,7 @@ describe('Forwarders', () => {
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
 
-    const enclavePeginMetadata = encode(
+    const metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
@@ -197,7 +192,7 @@ describe('Forwarders', () => {
       ]
     )
 
-    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, enclavePeginMetadata, '0x'))
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, metadata, '0x'))
       .to.emit(voting, 'CastVote')
       .withArgs(voteId, pntHolder1.address, true)
   })
@@ -224,7 +219,7 @@ describe('Forwarders', () => {
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
-    const enclavePeginMetadata = encode(
+    const metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
@@ -238,7 +233,7 @@ describe('Forwarders', () => {
       ]
     )
 
-    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, enclavePeginMetadata, '0x'))
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, metadata, '0x'))
       .to.emit(stakingManager, 'Staked')
       .withArgs(pntHolder1.address, stakeAmount, duration)
   })
@@ -265,7 +260,7 @@ describe('Forwarders', () => {
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
-    const enclavePeginMetadata = encode(
+    const metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
@@ -279,7 +274,7 @@ describe('Forwarders', () => {
       ]
     )
 
-    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, enclavePeginMetadata, '0x'))
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, metadata, '0x'))
       .to.emit(borrowingManager, 'Lended')
       .withArgs(pntHolder1.address, 1, 12, lendAmount)
   })
@@ -314,7 +309,7 @@ describe('Forwarders', () => {
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
-    const enclavePeginMetadata = encode(
+    const metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
@@ -328,7 +323,7 @@ describe('Forwarders', () => {
       ]
     )
 
-    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, enclavePeginMetadata, '0x'))
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, stakeAmount, metadata, '0x'))
       .to.emit(registrationManager, 'SentinelRegistrationUpdated')
       .withArgs(pntHolder1.address, 1, 12, sentinel1.address, REGISTRATION_SENTINEL_STAKING, stakeAmount)
   })
@@ -354,7 +349,7 @@ describe('Forwarders', () => {
     await pnt.connect(pntHolder2).approve(forwarderNative.address, lendAmount)
     await forwarderNative.connect(pntHolder2).call(lendAmount, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
 
-    let enclavePeginMetadata = encode(
+    let metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
@@ -367,7 +362,7 @@ describe('Forwarders', () => {
         '0x'
       ]
     )
-    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, enclavePeginMetadata, '0x'))
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, metadata, '0x'))
       .to.emit(borrowingManager, 'Lended')
       .withArgs(pntHolder2.address, 1, 14, lendAmount)
 
@@ -388,7 +383,7 @@ describe('Forwarders', () => {
 
     await forwarderNative.connect(pntHolder1).call(0, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
 
-    enclavePeginMetadata = encode(
+    metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
@@ -402,61 +397,80 @@ describe('Forwarders', () => {
       ]
     )
 
-    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, enclavePeginMetadata, '0x'))
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, metadata, '0x'))
       .to.emit(registrationManager, 'SentinelRegistrationUpdated')
       .withArgs(pntHolder1.address, 1, 12, sentinel1.address, REGISTRATION_SENTINEL_BORROWING, BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION)
   })
 
   it('should be able to forward an unstake request', async () => {
+    // S T A K E
     const amount = ethers.utils.parseEther('10000')
     const duration = ONE_DAY * 7
 
-    const erc20Interface = new ethers.utils.Interface([
-      'function approve(address spender, uint256 amount)',
-      'function transfer(address recipient, uint256 amount)'
+    const erc20Interface = new ethers.utils.Interface(['function approve(address spender, uint256 amount)'])
+    const stakingManagerInterface = new ethers.utils.Interface([
+      'function stake(address receiver, uint256 amount, uint64 duration)',
+      'function unstake(address owner, uint256 amount, bytes4 chainId)'
     ])
-    const stakingManagerInterface = new ethers.utils.Interface(['function stake(uint256 amount, uint64 duration, address receiver)'])
-    const peginData = encode(
+    let userData = encode(
       ['address[]', 'bytes[]'],
       [
         [pToken.address, stakingManager.address],
         [
           erc20Interface.encodeFunctionData('approve', [stakingManager.address, amount]),
-          stakingManagerInterface.encodeFunctionData('stake', [amount, duration, pntHolder1.address])
+          stakingManagerInterface.encodeFunctionData('stake', [pntHolder1.address, amount, duration])
         ]
       ]
     )
 
-    await pnt.connect(pntHolder1).approve(vault.address, amount)
-    await vault.connect(pntHolder1).pegIn(amount, pnt.address, forwarderHost.address, peginData, PNETWORK_CHAIN_IDS.polygonMainnet)
+    await pnt.connect(pntHolder1).approve(forwarderNative.address, amount)
+    await forwarderNative.connect(pntHolder1).call(amount, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
 
-    const enclavePeginMetadata = encode(
+    let metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-      ['0x02', peginData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.polygonMainnet, forwarderHost.address, '0x', '0x']
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
+        PNETWORK_CHAIN_IDS.interim,
+        router.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
     )
-    await pToken.connect(pnetwork).mint(forwarderHost.address, amount, enclavePeginMetadata, '0x')
+    await pToken.connect(pnetwork).mint(forwarderHost.address, amount, metadata, '0x')
 
+    // U N S T A K E (from eth to polygon and tokens should come back to ethereum)
     await time.increase(duration + 1)
-    await stakingManager.connect(pntHolder1).unstake(amount)
 
-    const balancePre = await pnt.balanceOf(pntHolder1.address)
-
-    // NOTE: at this point let's suppose that a pNetwork node processes the pegout...
-
-    const pegoutData = encode(
+    userData = encode(
       ['address[]', 'bytes[]'],
-      [[pnt.address], [erc20Interface.encodeFunctionData('transfer', [pntHolder1.address, amount])]]
+      [
+        [stakingManager.address],
+        [stakingManagerInterface.encodeFunctionData('unstake', [pntHolder1.address, amount, PNETWORK_CHAIN_IDS.ethereumMainnet])]
+      ]
     )
-    const enclavePegoutMetadata = encode(
-      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-      ['0x02', pegoutData, PNETWORK_CHAIN_IDS.interim, router.address, PNETWORK_CHAIN_IDS.ethereumMainnet, forwarderNative.address, '0x', '0x']
-    )
-    await expect(vault.connect(pnetwork).pegOut(forwarderNative.address, pnt.address, amount, enclavePegoutMetadata))
-      .to.emit(pnt, 'Transfer')
-      .withArgs(forwarderNative.address, pntHolder1.address, amount)
 
-    const balancePost = await pnt.balanceOf(pntHolder1.address)
-    expect(balancePost).to.be.eq(balancePre.add(amount))
+    await forwarderNative.connect(pntHolder1).call(0, forwarderHost.address, userData, PNETWORK_CHAIN_IDS.polygonMainnet)
+
+    metadata = encode(
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
+        PNETWORK_CHAIN_IDS.interim,
+        router.address,
+        PNETWORK_CHAIN_IDS.polygonMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
+    )
+
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, amount, metadata, '0x'))
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(pntHolder1.address, amount)
   })
 
   it('should not be able to updateSentinelRegistrationByBorrowing for a third party', async () => {

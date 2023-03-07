@@ -60,7 +60,7 @@ interface IStakingManager {
     /*
      * @notice Returns the owner's stake data
      *
-     * @param aowner
+     * @param owner
      *
      * @return the Stake struct representing the owner's stake data.
      */
