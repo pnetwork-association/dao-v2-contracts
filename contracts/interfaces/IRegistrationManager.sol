@@ -72,6 +72,21 @@ interface IRegistrationManager {
 
     /*
      * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
+     *         This function is used togheter with onlyFromForwarder.
+     *
+     * @params owner
+     * @param numberOfEpochs
+     * @param signature
+     *
+     */
+    function updateSentinelRegistrationByBorrowing(
+        address owner,
+        uint16 numberOfEpochs,
+        bytes calldata signature
+    ) external;
+
+    /*
+     * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
      *
      * @param numberOfEpochs
      * @param signature
@@ -127,9 +142,9 @@ interface IRegistrationManager {
      *
      */
     function updateSentinelRegistrationByStaking(
+        address owner,
         uint256 amount,
         uint64 duration,
-        bytes calldata signature,
-        address owner
+        bytes calldata signature
     ) external;
 }

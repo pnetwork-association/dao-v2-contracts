@@ -5,10 +5,16 @@ pragma solidity 0.8.17;
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import {ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import {IForwarderRecipientUpgradeable} from "../interfaces/IForwarderRecipientUpgradeable.sol";
 
 error InvalidForwarder(address caller);
 
-abstract contract ForwarderRecipientUpgradeable is Initializable, ContextUpgradeable, AccessControlEnumerableUpgradeable {
+abstract contract ForwarderRecipientUpgradeable is
+    IForwarderRecipientUpgradeable,
+    Initializable,
+    ContextUpgradeable,
+    AccessControlEnumerableUpgradeable
+{
     address private _forwarder;
 
     bytes32 public constant SET_FORWARDER_ROLE = keccak256("SET_FORWARDER_ROLE");
@@ -29,10 +35,12 @@ abstract contract ForwarderRecipientUpgradeable is Initializable, ContextUpgrade
         _forwarder = forwarder_;
     }
 
+    /// @inheritdoc IForwarderRecipientUpgradeable
     function forwarder() public view virtual returns (address) {
         return _forwarder;
     }
 
+    /// @inheritdoc IForwarderRecipientUpgradeable
     function setForwarder(address forwarder_) public virtual onlyRole(SET_FORWARDER_ROLE) {
         _forwarder = forwarder_;
     }

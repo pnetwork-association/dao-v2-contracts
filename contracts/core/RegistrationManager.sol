@@ -9,6 +9,7 @@ import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgrad
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
 import {IStakingManager} from "../interfaces/IStakingManager.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
 import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
@@ -23,7 +24,8 @@ contract RegistrationManager is
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable,
-    AccessControlEnumerableUpgradeable
+    AccessControlEnumerableUpgradeable,
+    ForwarderRecipientUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -42,11 +44,13 @@ contract RegistrationManager is
         address _token,
         address _stakingManager,
         address _epochsManager,
-        address _borrowingManager
+        address _borrowingManager,
+        address _forwarder
     ) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
+        __ForwarderRecipientUpgradeable_init(_forwarder);
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
@@ -75,51 +79,25 @@ contract RegistrationManager is
     }
 
     /// @inheritdoc IRegistrationManager
+    function updateSentinelRegistrationByBorrowing(
+        address owner,
+        uint16 numberOfEpochs,
+        bytes calldata signature
+    ) external onlyFromForwarder {
+        _updateSentinelRegistrationByBorrowing(owner, numberOfEpochs, signature);
+    }
+
+    /// @inheritdoc IRegistrationManager
     function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external {
-        address owner = _msgSender();
-        address sentinel = getSentinelAddressFromSignature(owner, signature);
-
-        Registration storage registration = _sentinelRegistrations[sentinel];
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
-            revert Errors.InvalidRegistration();
-        }
-
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        uint16 currentRegistrationStartEpoch = registration.startEpoch;
-        uint16 currentRegistrationEndEpoch = registration.endEpoch;
-
-        uint16 startEpoch = currentEpoch >= currentRegistrationEndEpoch
-            ? currentEpoch + 1
-            : currentRegistrationEndEpoch + 1;
-        uint16 endEpoch = startEpoch + numberOfEpochs - 1;
-
-        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            IBorrowingManager(borrowingManager).borrow(
-                Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
-                epoch,
-                sentinel
-            );
-            unchecked {
-                ++epoch;
-            }
-        }
-
-        _updateSentinelRegistration(
-            sentinel,
-            owner,
-            Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
-            currentEpoch >= currentRegistrationEndEpoch ? startEpoch : currentRegistrationStartEpoch,
-            endEpoch,
-            Constants.REGISTRATION_SENTINEL_BORROWING
-        );
+        _updateSentinelRegistrationByBorrowing(_msgSender(), numberOfEpochs, signature);
     }
 
     /// @inheritdoc IRegistrationManager
     function updateSentinelRegistrationByStaking(
+        address owner,
         uint256 amount,
         uint64 duration,
-        bytes calldata signature,
-        address owner
+        bytes calldata signature
     ) external {
         address sentinel = getSentinelAddressFromSignature(owner, signature);
 
@@ -136,7 +114,7 @@ contract RegistrationManager is
 
         IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(amount, duration, owner);
+        IStakingManager(stakingManager).stake(owner, amount, duration);
 
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         uint16 startEpoch = currentEpoch + 1;
@@ -240,6 +218,48 @@ contract RegistrationManager is
             result[epoch - startEpoch] = _sentinelsEpochsTotalStakedAmount[epoch];
         }
         return result;
+    }
+
+    function _updateSentinelRegistrationByBorrowing(
+        address owner,
+        uint16 numberOfEpochs,
+        bytes calldata signature
+    ) internal {
+        address sentinel = getSentinelAddressFromSignature(owner, signature);
+
+        Registration storage registration = _sentinelRegistrations[sentinel];
+        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
+            revert Errors.InvalidRegistration();
+        }
+
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint16 currentRegistrationStartEpoch = registration.startEpoch;
+        uint16 currentRegistrationEndEpoch = registration.endEpoch;
+
+        uint16 startEpoch = currentEpoch >= currentRegistrationEndEpoch
+            ? currentEpoch + 1
+            : currentRegistrationEndEpoch + 1;
+        uint16 endEpoch = startEpoch + numberOfEpochs - 1;
+
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            IBorrowingManager(borrowingManager).borrow(
+                Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
+                epoch,
+                sentinel
+            );
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        _updateSentinelRegistration(
+            sentinel,
+            owner,
+            Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
+            currentEpoch >= currentRegistrationEndEpoch ? startEpoch : currentRegistrationStartEpoch,
+            endEpoch,
+            Constants.REGISTRATION_SENTINEL_BORROWING
+        );
     }
 
     function _updateSentinelRegistration(

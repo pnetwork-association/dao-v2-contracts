@@ -147,12 +147,12 @@ interface IBorrowingManager {
      * tokens are forwarded within the StakingManager. This fx is just a proxy fx to the StakingManager.stake that counts
      * how many tokens can be borrowed.
      *
+     * @param lender
      * @param amount
      * @param duration
-     * @param lender
      *
      */
-    function lend(uint256 amount, uint64 duration, address lender) external;
+    function lend(address lender, uint256 amount, uint64 duration) external;
 
     /*
      * @notice Returns the borrowed amount for a given epoch.

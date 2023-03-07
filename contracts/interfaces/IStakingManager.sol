@@ -51,11 +51,11 @@ interface IStakingManager {
      * @notice Stake an certain amount of tokens locked for a period of time in behalf of receiver.
      * in exchange of the governance token.
      *
+     * @param receiver
      * @param amount
      * @param duration
-     * @param receiver
      */
-    function stake(uint256 amount, uint64 duration, address receiver) external;
+    function stake(address receiver, uint256 amount, uint64 duration) external;
 
     /*
      * @notice Returns the owner's stake data

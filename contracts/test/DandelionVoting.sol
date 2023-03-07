@@ -2,11 +2,22 @@
 
 pragma solidity 0.8.17;
 
-// Be sure to use this contract in a forked environment where the real implementation is already deployed
 contract DandelionVoting {
     event StartVote(uint256 indexed voteId, address indexed creator, string metadata);
 
     uint64 public durationBlocks;
+    address public forwarder;
+
+    event CastVote(uint256 indexed voteId, address indexed voter, bool support);
+
+    modifier onlyForwarded() {
+        require(msg.sender == forwarder, "Invalid forwarder");
+        _;
+    }
+
+    constructor(address _forwarder) {
+        forwarder = _forwarder;
+    }
 
     function newVote(
         bytes calldata _executionScript,
@@ -15,6 +26,10 @@ contract DandelionVoting {
     ) external returns (uint256 voteId) {}
 
     function vote(uint256 _voteId, bool _supports) external {}
+
+    function delegateVote(address _voter, uint256 _voteId, bool _supports) external onlyForwarded {
+        emit CastVote(_voteId, _voter, _supports);
+    }
 
     function executeVote(uint256 _voteId) external {}
 
@@ -43,4 +58,8 @@ contract DandelionVoting {
     function setPermissionManager(address _newManager, address _app, bytes32 _role) external {}
 
     function canVote(uint256 _voteId, address _voter) public view returns (bool) {}
+
+    function setForwarder(address _forwarder) external {
+        forwarder = _forwarder;
+    }
 }

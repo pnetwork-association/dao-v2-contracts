@@ -5,7 +5,6 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 
 const {
   ACL_ADDRESS,
-  //DANDELION_VOTING_ADDRESS,
   BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
   DAO_ROOT_ADDRESS,
   EPOCH_DURATION,
@@ -28,12 +27,26 @@ const PNETWORK_CHAIN_IDS = {
   interim: '0xffffffff'
 }
 
-let forwarderNative, forwarderHost, stakingManager, owner, pToken, pnetwork, sentinel1, root, router, pntHolder1, pntHolder2
+let forwarderNative,
+  forwarderHost,
+  stakingManager,
+  borrowingManager,
+  registrationManager,
+  owner,
+  pToken,
+  pnetwork,
+  sentinel1,
+  root,
+  router,
+  pntHolder1,
+  pntHolder2,
+  fakeForwarder,
+  forwarderRecipientUpgradeableTestData
 
 describe('Forwarders', () => {
   beforeEach(async () => {
     const Forwarder = await ethers.getContractFactory('Forwarder')
-    const StakingManager = await ethers.getContractFactory('StakingManagerF')
+    const StakingManager = await ethers.getContractFactory('StakingManager')
     const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
     const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
@@ -47,6 +60,7 @@ describe('Forwarders', () => {
     owner = signers[0]
     sentinel1 = signers[1]
     router = signers[2]
+    fakeForwarder = signers[3]
     pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
@@ -55,7 +69,6 @@ describe('Forwarders', () => {
     acl = await ACL.attach(ACL_ADDRESS)
     pnt = await ERC20.attach(PNT_ADDRESS)
     vault = await MockPTokensVault.attach(ERC20_VAULT)
-    //voting = await DandelionVoting.attach(DANDELION_VOTING_ADDRESS)
     pToken = await MockPToken.deploy('Host Token (pToken)', 'HTKN', [], pnetwork.address, PNETWORK_CHAIN_IDS.polygonMainnet)
 
     forwarderNative = await Forwarder.deploy(pnt.address, vault.address, vault.address)
@@ -63,7 +76,7 @@ describe('Forwarders', () => {
     await forwarderNative.whitelistOriginAddress(forwarderHost.address)
     await forwarderHost.whitelistOriginAddress(forwarderNative.address)
 
-    stakingManager = await upgrades.deployProxy(StakingManager, [pToken.address, pnt.address, TOKEN_MANAGER_ADDRESS], {
+    stakingManager = await upgrades.deployProxy(StakingManager, [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -75,7 +88,7 @@ describe('Forwarders', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pToken.address, stakingManager.address, epochsManager.address, LEND_MAX_EPOCHS],
+      [pToken.address, stakingManager.address, epochsManager.address, forwarderHost.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -111,6 +124,51 @@ describe('Forwarders', () => {
       value: ethers.utils.parseEther('10')
     })
     await pnt.connect(pntHolder1).transfer(forwarderNative.address, ethers.utils.parseEther('1'))
+
+    forwarderRecipientUpgradeableTestData = [
+      {
+        artifact: StakingManager,
+        contract: stakingManager
+      },
+      {
+        artifact: BorrowingManager,
+        contract: borrowingManager
+      },
+      {
+        artifact: RegistrationManager,
+        contract: registrationManager
+      }
+    ]
+  })
+
+  describe('ForwarderRecipientUpgradeable', () => {
+    it('should not be able to change the forwarder without the correspondig role', async () => {
+      for (const { contract } of forwarderRecipientUpgradeableTestData) {
+        const expectedError = `AccessControl: account ${pntHolder1.address.toLowerCase()} is missing role ${getRole('SET_FORWARDER_ROLE')}`
+        await expect(contract.connect(pntHolder1).setForwarder(fakeForwarder.address)).to.be.revertedWith(expectedError)
+      }
+    })
+
+    it('should be able to change the forwarder', async () => {
+      for (const { contract } of forwarderRecipientUpgradeableTestData) {
+        await contract.grantRole(getRole('SET_FORWARDER_ROLE'), pntHolder1.address)
+        await contract.connect(pntHolder1).setForwarder(fakeForwarder.address)
+        expect(await contract.forwarder()).to.be.eq(fakeForwarder.address)
+      }
+    })
+
+    it('should be able to change the forwarder after a contract upgrade', async () => {
+      for (const { artifact, contract } of forwarderRecipientUpgradeableTestData) {
+        await contract.grantRole(getRole('SET_FORWARDER_ROLE'), pntHolder1.address)
+        await contract.connect(pntHolder1).setForwarder(fakeForwarder.address)
+        expect(await contract.forwarder()).to.be.eq(fakeForwarder.address)
+        await upgrades.upgradeProxy(contract.address, artifact, {
+          kind: 'uups'
+        })
+        await contract.connect(pntHolder1).setForwarder(forwarderHost.address)
+        expect(await contract.forwarder()).to.be.eq(forwarderHost.address)
+      }
+    })
   })
 
   it('should be able to forward a vote', async () => {
@@ -349,7 +407,7 @@ describe('Forwarders', () => {
       .withArgs(pntHolder1.address, 1, 12, sentinel1.address, REGISTRATION_SENTINEL_BORROWING, BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION)
   })
 
-  /*it('should be able to forward an unstake request', async () => {
+  it('should be able to forward an unstake request', async () => {
     const amount = ethers.utils.parseEther('10000')
     const duration = ONE_DAY * 7
 
@@ -399,5 +457,5 @@ describe('Forwarders', () => {
 
     const balancePost = await pnt.balanceOf(pntHolder1.address)
     expect(balancePost).to.be.eq(balancePre.add(amount))
-  })*/
+  })
 })

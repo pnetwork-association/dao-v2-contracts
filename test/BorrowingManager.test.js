@@ -49,7 +49,7 @@ describe('BorrowingManager', () => {
     pnt = await ERC20.attach(PNT_ADDRESS)
     acl = await ACL.attach(ACL_ADDRESS)
 
-    stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS], {
+    stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -1413,16 +1413,5 @@ describe('BorrowingManager', () => {
       borrowingManager,
       'InvalidEpoch'
     )
-  })
-
-  it('should not be able to change the forwarder without the correspondig role', async () => {
-    const expectedError = `AccessControl: account ${pntHolder1.address.toLowerCase()} is missing role ${getRole('SET_FORWARDER_ROLE')}`
-    await expect(borrowingManager.connect(pntHolder1).setForwarder(fakeForwarder.address)).to.be.revertedWith(expectedError)
-  })
-
-  it('should be able to change the forwarder', async () => {
-    await borrowingManager.grantRole(getRole('SET_FORWARDER_ROLE'), pntHolder1.address)
-    await borrowingManager.connect(pntHolder1).setForwarder(pntHolder2.address)
-    expect(await borrowingManager.forwarder()).to.be.eq(pntHolder2.address)
   })
 })

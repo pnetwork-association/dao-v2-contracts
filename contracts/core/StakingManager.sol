@@ -6,6 +6,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IStakingManager} from "../interfaces/IStakingManager.sol";
@@ -18,7 +19,8 @@ contract StakingManager is
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable,
-    AccessControlEnumerableUpgradeable
+    AccessControlEnumerableUpgradeable,
+    ForwarderRecipientUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -27,10 +29,11 @@ contract StakingManager is
     address public token;
     address public tokenManager;
 
-    function initialize(address _token, address _tokenManager) public initializer {
+    function initialize(address _token, address _tokenManager, address _forwarder) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
+        __ForwarderRecipientUpgradeable_init(_forwarder);
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
@@ -62,7 +65,7 @@ contract StakingManager is
     }
 
     /// @inheritdoc IStakingManager
-    function stake(uint256 amount, uint64 duration, address receiver) external {
+    function stake(address receiver, uint256 amount, uint64 duration) external {
         if (duration < Constants.MIN_STAKE_DURATION) {
             revert Errors.InvalidDuration();
         }
