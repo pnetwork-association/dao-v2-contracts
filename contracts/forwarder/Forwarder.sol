@@ -10,6 +10,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IForwarder} from "../interfaces/IForwarder.sol";
 import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
+import {IPToken} from "../interfaces/external/IPToken.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 import {BytesLib} from "../libraries/BytesLib.sol";
 
@@ -102,7 +103,7 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
 
         if (vault != address(0)) {
             uint256 effectiveAmount = amount == 0 ? 1 : amount;
-            IERC20(token).approve(vault, effectiveAmount);
+            IERC20(token).safeApprove(vault, effectiveAmount);
             IErc20Vault(vault).pegIn(
                 effectiveAmount,
                 token,
@@ -111,7 +112,7 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
                 chainId
             );
         } else {
-            //pegout
+            IPToken(token).redeem(amount, effectiveUserData, Helpers.addressToAsciiString(to), chainId);
         }
     }
 

@@ -32,7 +32,7 @@ module.exports = {
     local: {
       url: 'http://localhost:8545'
     },
-    polygon: {
+    mainnet: {
       url: getEnvironmentVariable('MAINNET_NODE'),
       accounts: [getEnvironmentVariable('PK')],
       gasPrice: 20e9
@@ -41,6 +41,11 @@ module.exports = {
       url: getEnvironmentVariable('POLYGON_NODE'),
       accounts: [getEnvironmentVariable('PK')],
       gasPrice: 400e9
+    },
+    bsc: {
+      url: getEnvironmentVariable('BSC_NODE'),
+      accounts: [getEnvironmentVariable('PK')],
+      gasPrice: 5e9
     }
   },
   etherscan: {
