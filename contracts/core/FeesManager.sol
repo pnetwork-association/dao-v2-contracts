@@ -33,10 +33,8 @@ contract FeesManager is
     address public epochsManager;
     address public borrowingManager;
     address public registrationManager;
-    address public stakingManager;
 
     function initialize(
-        address _stakingManager,
         address _epochsManager,
         address _borrowingManager,
         address _registrationManager,
@@ -50,7 +48,6 @@ contract FeesManager is
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
-        stakingManager = _stakingManager;
         epochsManager = _epochsManager;
         borrowingManager = _borrowingManager;
         registrationManager = _registrationManager;

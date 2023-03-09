@@ -16,7 +16,8 @@ const {
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
 
-let stakingManager,
+let stakingManagerBM,
+stakingManagerRM,
   epochsManager,
   registrationManager,
   feesManager,
@@ -51,7 +52,7 @@ describe('FeesManager', () => {
     const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
-    const StakingManager = await ethers.getContractFactory('StakingManager')
+    const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const ERC20 = await ethers.getContractFactory('ERC20')
     const ACL = await ethers.getContractFactory('ACL')
 
@@ -71,7 +72,12 @@ describe('FeesManager', () => {
     pbtc = await ERC20.attach(PBTC_ADDRESS)
     acl = await ACL.attach(ACL_ADDRESS)
 
-    stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
+    stakingManagerBM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
+      initializer: 'initialize',
+      kind: 'uups'
+    })
+
+    stakingManagerRM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -83,7 +89,7 @@ describe('FeesManager', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pnt.address, stakingManager.address, epochsManager.address, fakeForwarder.address, LEND_MAX_EPOCHS],
+      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -92,7 +98,7 @@ describe('FeesManager', () => {
 
     registrationManager = await upgrades.deployProxy(
       RegistrationManager,
-      [pnt.address, stakingManager.address, epochsManager.address, borrowingManager.address, fakeForwarder.address],
+      [pnt.address, stakingManagerRM.address, epochsManager.address, borrowingManager.address, fakeForwarder.address],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -102,7 +108,6 @@ describe('FeesManager', () => {
     feesManager = await upgrades.deployProxy(
       FeesManager,
       [
-        stakingManager.address,
         epochsManager.address,
         borrowingManager.address,
         registrationManager.address,
@@ -120,14 +125,23 @@ describe('FeesManager', () => {
     RELEASE_ROLE = getRole('RELEASE_ROLE')
     RELEASE_SENTINEL_ROLE = getRole('RELEASE_SENTINEL_ROLE')
     DEPOSIT_INTEREST_ROLE = getRole('DEPOSIT_INTEREST_ROLE')
+    STAKE_ROLE = getRole('STAKE_ROLE')
+    INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
 
     // grant roles
     await borrowingManager.grantRole(BORROW_ROLE, registrationManager.address)
     await borrowingManager.grantRole(RELEASE_ROLE, registrationManager.address)
     await borrowingManager.grantRole(DEPOSIT_INTEREST_ROLE, feesManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
-    await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await stakingManagerBM.grantRole(STAKE_ROLE, borrowingManager.address)
+    await stakingManagerBM.grantRole(INCREASE_DURATION_ROLE, borrowingManager.address)
+    await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.address)
+    await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
+    await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
+    await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
     await owner.sendTransaction({
       to: pntHolder1.address,
