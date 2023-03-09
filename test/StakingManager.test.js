@@ -305,4 +305,37 @@ describe('StakingManager', () => {
     const duration = MIN_LOCK_DURATION * 5
     await expect(stakingManager.connect(pntHolder1).increaseDuration(duration)).to.be.revertedWithCustomError(stakingManager, 'NothingAtStake')
   })
+
+  it('should be able to unstake after a contract upgrade', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+    const duration = MIN_LOCK_DURATION * 4
+
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await expect(stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration))
+      .to.emit(stakingManager, 'Staked')
+      .withArgs(pntHolder1.address, stakeAmount, duration)
+
+    await time.increase(duration + 1)
+
+    const daoPnBalancePre = await daoPnt.balanceOf(pntHolder1.address)
+    const pnBalancePre = await pnt.balanceOf(pntHolder1.address)
+
+    await upgrades.upgradeProxy(stakingManager.address, StakingManager, {
+      kind: 'uups'
+    })
+
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet))
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(pntHolder1.address, stakeAmount)
+
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
+    await expect(stake.amount).to.be.eq(0)
+    await expect(stake.startDate).to.be.eq(0)
+    await expect(stake.endDate).to.be.eq(0)
+
+    const daoPnBalancePost = await daoPnt.balanceOf(pntHolder1.address)
+    const pnBalancePost = await pnt.balanceOf(pntHolder1.address)
+    await expect(daoPnBalancePost).to.be.eq(daoPnBalancePre.sub(stakeAmount))
+    await expect(pnBalancePost).to.be.eq(pnBalancePre.add(stakeAmount))
+  })
 })

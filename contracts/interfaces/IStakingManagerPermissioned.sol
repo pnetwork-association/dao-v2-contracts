@@ -4,18 +4,21 @@ pragma solidity 0.8.17;
 import {IBaseStakingManager} from "./IBaseStakingManager.sol";
 
 /**
- * @title IStakingManager
+ * @title IStakingManagerPermissioned
  * @author pNetwork
  *
- * @notice
+ * @notice This contract can ONLY be used togheter with BorrowingManager and RegistrationManager
+ *         in order to keep separated the amount staked from the lending, from the sentinels registration
+ *         and for voting.
  */
-interface IStakingManager is IBaseStakingManager {
+interface IStakingManagerPermissioned is IBaseStakingManager {
     /*
      * @notice Increase the duration of a stake.
      *
      * @param duration
+     * @param owner
      */
-    function increaseDuration(uint64 duration) external;
+    function increaseDuration(address owner, uint64 duration) external;
 
     /*
      * @notice Stake an certain amount of tokens locked for a period of time in behalf of receiver.

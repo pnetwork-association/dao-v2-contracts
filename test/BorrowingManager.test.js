@@ -9,6 +9,7 @@ const {
   INFINITE,
   LEND_MAX_EPOCHS,
   ONE_DAY,
+  PNETWORK_CHAIN_IDS,
   PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
@@ -33,7 +34,7 @@ describe('BorrowingManager', () => {
 
     BorrowingManager = await ethers.getContractFactory('BorrowingManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
-    const StakingManager = await ethers.getContractFactory('StakingManager')
+    const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const ERC20 = await ethers.getContractFactory('ERC20')
     const ACL = await ethers.getContractFactory('ACL')
 
@@ -72,6 +73,8 @@ describe('BorrowingManager', () => {
     BORROW_ROLE = getRole('BORROW_ROLE')
     RELEASE_ROLE = getRole('RELEASE_ROLE')
     DEPOSIT_INTEREST_ROLE = getRole('DEPOSIT_INTEREST_ROLE')
+    STAKE_ROLE = getRole('STAKE_ROLE')
+    INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
 
     // grant roles
     await borrowingManager.grantRole(BORROW_ROLE, owner.address)
@@ -79,6 +82,8 @@ describe('BorrowingManager', () => {
     await borrowingManager.grantRole(BORROW_ROLE, user2.address)
     await borrowingManager.grantRole(RELEASE_ROLE, owner.address)
     await borrowingManager.grantRole(DEPOSIT_INTEREST_ROLE, owner.address)
+    await stakingManager.grantRole(STAKE_ROLE, borrowingManager.address)
+    await stakingManager.grantRole(INCREASE_DURATION_ROLE, borrowingManager.address)
     await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
@@ -168,7 +173,6 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(0)
 
     await expect(borrowingManager.borrow(amount, 1, owner.address)).to.emit(borrowingManager, 'Borrowed').withArgs(owner.address, 1, amount)
-
     expect(await borrowingManager.borrowedAmountByEpochOf(owner.address, 1)).to.be.eq(truncateWithPrecision(amount))
   })
 
@@ -487,11 +491,11 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(5)).to.be.eq(0)
 
     // prettier-ignore
-    await expect(stakingManager.connect(pntHolder1).unstake(depositAmountPntHolder1)).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](depositAmountPntHolder1, PNETWORK_CHAIN_IDS.polygonMainnet)).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     await time.increase(ONE_DAY + 1)
     const pntHolder1BalancePre = await pnt.balanceOf(pntHolder1.address)
-    await stakingManager.connect(pntHolder1).unstake(depositAmountPntHolder1)
+    await stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](depositAmountPntHolder1, PNETWORK_CHAIN_IDS.polygonMainnet)
     const pntHolder1BalancePost = await pnt.balanceOf(pntHolder1.address)
     expect(pntHolder1BalancePost).to.be.equal(pntHolder1BalancePre.add(depositAmountPntHolder1))
   })
