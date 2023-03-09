@@ -49,7 +49,6 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
 
     function _increaseDuration(address owner, uint64 duration) internal {
         Stake storage st = _stakes[owner];
-        uint64 startDate = st.startDate;
         uint64 endDate = st.endDate;
         uint64 blockTimestamp = uint64(block.timestamp);
 
@@ -61,7 +60,7 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
             st.startDate = blockTimestamp;
             st.endDate = blockTimestamp + duration;
         } else {
-            st.endDate = startDate + (endDate - startDate) + duration;
+            st.endDate = endDate + duration;
         }
 
         emit DurationIncreased(owner, duration);

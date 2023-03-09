@@ -13,10 +13,9 @@ interface IBorrowingManager {
      * @dev Emitted when an user increases his lend position by increasing his lock time within the Staking Manager.
      *
      * @param lender The lender
-     * @param startEpoch The start epoch
-     * @param endEpoch The end epoch
+     * @param endEpoch The new end epoch
      */
-    event DurationIncreased(address indexed lender, uint16 startEpoch, uint16 endEpoch);
+    event DurationIncreased(address indexed lender, uint16 endEpoch);
 
     /**
      * @dev Emitted when the lended amount for a certain epoch increase.
@@ -150,6 +149,23 @@ interface IBorrowingManager {
      *
      */
     function depositInterest(address asset, uint16 epoch, uint256 amount) external;
+
+    /*
+     * @notice Increase the duration of a lending position by increasing the lock time of the staked tokens.
+     *
+     * @param duration
+     *
+     */
+    function increaseDuration(uint64 duration) external;
+
+    /*
+     * @notice Increase the duration of a lending position by increasing the lock time of the staked tokens.
+     *         This function is used togheter with onlyForwarder in order to enable cross chain duration increasing
+     *
+     * @param duration
+     *
+     */
+    function increaseDuration(address lender, uint64 duration) external;
 
     /*
      * @notice Lend in behalf of lender a certain amount of tokens locked for a given period of time. The lended

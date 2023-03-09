@@ -1418,4 +1418,265 @@ describe('BorrowingManager', () => {
       'InvalidEpoch'
     )
   })
+
+  it('should be able to increase the lend duration by 3 epochs and should not be able to unstake before the ending epoch', async () => {
+    //   |----------|----------|----xxxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //
+    //   increaseDuration at epoch 3 of 3 epochs -> 6 + 3 -> [6,9]
+    //
+    //   |----------|----------|----------|ooooIDoooo|oooooooooo|oooooooooo|oooooooooo|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|
+    //   0          1          2          3          4          5          6          7          8          9          10         11
+    //
+    //
+    //
+    //   increaseLendDuration at epoch 3 of 3 epochs -> reset of epoch 4,5 and 6 and adds new ones [7,10]
+    //
+    //   |----------|----------|----------|----------|rrrrrrrrrr|rrrrrrrrrr|rrrrrrrrrr|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|
+    //   0          1          2          3          4          5          6          7          8          9          10         11
+
+    const amount = ethers.utils.parseEther('1000')
+    let duration = EPOCH_DURATION * 5
+
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+
+    await pnt.connect(pntHolder1).approve(borrowingManager.address, amount)
+    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, amount, duration)
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(3)
+    duration = EPOCH_DURATION * 4
+    await expect(borrowingManager.connect(pntHolder1)['increaseDuration(uint64)'](duration))
+      .to.emit(borrowingManager, 'DurationIncreased')
+      .withArgs(pntHolder1.address, 10)
+
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 3)).to.be.eq(1000 * 4)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 4)).to.be.eq(1000 * 7)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 5)).to.be.eq(1000 * 6)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 6)).to.be.eq(1000 * 5)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 7)).to.be.eq(1000 * 4)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 8)).to.be.eq(1000 * 3)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 9)).to.be.eq(1000 * 2)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 10)).to.be.eq(1000 * 1)
+
+    expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(0)
+    expect(await borrowingManager.borrowableAmountByEpoch(3)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(4)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(7)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(8)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(10)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(11)).to.be.eq(truncateWithPrecision(0))
+
+    expect(await borrowingManager.totalLendedAmountByEpoch(2)).to.be.eq(0)
+    expect(await borrowingManager.totalLendedAmountByEpoch(3)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(4)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(6)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(7)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(8)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(10)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(11)).to.be.eq(0)
+
+    await time.increase(EPOCH_DURATION * 6)
+    expect(await epochsManager.currentEpoch()).to.be.equal(9)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(10)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    await time.increase(EPOCH_DURATION - ONE_DAY)
+    expect(await epochsManager.currentEpoch()).to.be.equal(10)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
+    await time.increaseTo(stake.endDate)
+    expect(await epochsManager.currentEpoch()).to.be.equal(11)
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet))
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(pntHolder1.address, amount)
+  })
+
+  it('should be able to increase the lend duration by 3 epochs and should not be able to unstake before the ending epoch', async () => {
+    //   |----------|----------|----xxxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //
+    //   increaseDuration at epoch 4 of 3 epochs -> 6 + 3 -> [6,9]
+    //
+    //   |----------|----------|----------|oooooooooo|ooooIDoooo|oooooooooo|ooooovvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|
+    //   0          1          2          3          4          5          6          7          8          9          10
+    //
+    //
+    //
+    //   increaseLendDuration at epoch 4 of epochs -> reset of epoch 5 and adds new ones [6,9]
+    //
+    //   |----------|----------|----------|----------|----------|rrrrrrrrrr|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|
+    //   0          1          2          3          4          5          6          7          8          9          10
+
+    const amount = ethers.utils.parseEther('1000')
+    let duration = EPOCH_DURATION * 4
+
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+
+    await pnt.connect(pntHolder1).approve(borrowingManager.address, amount)
+    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, amount, duration)
+
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 3)).to.be.eq(1000 * 3)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 4)).to.be.eq(1000 * 2)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 5)).to.be.eq(1000 * 1)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 6)).to.be.eq(0)
+
+    expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(0)
+    expect(await borrowingManager.borrowableAmountByEpoch(3)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(4)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(0)
+
+    expect(await borrowingManager.totalLendedAmountByEpoch(2)).to.be.eq(0)
+    expect(await borrowingManager.totalLendedAmountByEpoch(3)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(4)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(6)).to.be.eq(0)
+
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(4)
+    duration = EPOCH_DURATION * 4
+    await expect(borrowingManager.connect(pntHolder1)['increaseDuration(uint64)'](duration))
+      .to.emit(borrowingManager, 'DurationIncreased')
+      .withArgs(pntHolder1.address, 9)
+
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 3)).to.be.eq(1000 * 3)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 4)).to.be.eq(1000 * 2)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 5)).to.be.eq(1000 * 5)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 6)).to.be.eq(1000 * 4)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 7)).to.be.eq(1000 * 3)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 8)).to.be.eq(1000 * 2)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 9)).to.be.eq(1000 * 1)
+
+    expect(await borrowingManager.borrowableAmountByEpoch(2)).to.be.eq(0)
+    expect(await borrowingManager.borrowableAmountByEpoch(3)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(4)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(6)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(7)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(8)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(10)).to.be.eq(0)
+
+    expect(await borrowingManager.totalLendedAmountByEpoch(2)).to.be.eq(0)
+    expect(await borrowingManager.totalLendedAmountByEpoch(3)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(4)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(6)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(7)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(8)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(10)).to.be.eq(0)
+
+    await time.increase(EPOCH_DURATION * 4)
+    expect(await epochsManager.currentEpoch()).to.be.equal(8)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(9)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    await time.increase(EPOCH_DURATION - ONE_DAY)
+    expect(await epochsManager.currentEpoch()).to.be.equal(9)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
+    await time.increaseTo(stake.endDate)
+    expect(await epochsManager.currentEpoch()).to.be.equal(10)
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet))
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(pntHolder1.address, amount)
+  })
+
+  it('should be able to increase the lend duration by 3 epochs even if the tokens are unstakable and the lending period is finished', async () => {
+    //   |----------|----------|----xxxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //
+    //   increaseDuration at epoch 7 of 3 epochs -> 7 + 3 -> [8,10]
+    //
+    //   |----------|----------|----------|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----IDxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|-----------|
+    //   0          1          2          3          4          5          6          7          8          9          10         11         12          13
+    //
+    //
+    //
+    //   increaseLendDuration at epoch 4 of epochs -> [8,10]
+    //
+    //   |----------|----------|----------|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|
+    //   0          1          2          3          4          5          6          7          8          9          10         11         12
+
+    const amount = ethers.utils.parseEther('1000')
+    const duration = EPOCH_DURATION * 4
+
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+
+    await pnt.connect(pntHolder1).approve(borrowingManager.address, amount)
+    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, amount, duration)
+
+    await time.increase(EPOCH_DURATION * 5)
+    expect(await epochsManager.currentEpoch()).to.be.equal(7)
+    await expect(borrowingManager.connect(pntHolder1)['increaseDuration(uint64)'](duration))
+      .to.emit(borrowingManager, 'DurationIncreased')
+      .withArgs(pntHolder1.address, 10)
+
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 8)).to.be.eq(1000 * 3)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 9)).to.be.eq(1000 * 2)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 10)).to.be.eq(1000 * 1)
+    expect(await borrowingManager.weightByEpochOf(pntHolder1.address, 11)).to.be.eq(0)
+
+    expect(await borrowingManager.borrowableAmountByEpoch(8)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(10)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.borrowableAmountByEpoch(11)).to.be.eq(0)
+
+    expect(await borrowingManager.totalLendedAmountByEpoch(8)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(10)).to.be.eq(truncateWithPrecision(amount))
+    expect(await borrowingManager.totalLendedAmountByEpoch(11)).to.be.eq(0)
+
+    await time.increase(EPOCH_DURATION * 3)
+    expect(await epochsManager.currentEpoch()).to.be.equal(10)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    await time.increase(EPOCH_DURATION - ONE_DAY)
+    expect(await epochsManager.currentEpoch()).to.be.equal(10)
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
+    await time.increaseTo(stake.endDate)
+    expect(await epochsManager.currentEpoch()).to.be.equal(11)
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet))
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(pntHolder1.address, amount)
+  })
 })
