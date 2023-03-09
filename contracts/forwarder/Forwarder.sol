@@ -100,9 +100,9 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
         }
 
         bytes memory effectiveUserData = abi.encode(data, address(this), msgSender);
+        uint256 effectiveAmount = amount == 0 ? 1 : amount;
 
         if (vault != address(0)) {
-            uint256 effectiveAmount = amount == 0 ? 1 : amount;
             IERC20(token).safeApprove(vault, effectiveAmount);
             IErc20Vault(vault).pegIn(
                 effectiveAmount,
@@ -112,7 +112,7 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
                 chainId
             );
         } else {
-            IPToken(token).redeem(amount, effectiveUserData, Helpers.addressToAsciiString(to), chainId);
+            IPToken(token).redeem(effectiveAmount, effectiveUserData, Helpers.addressToAsciiString(to), chainId);
         }
     }
 

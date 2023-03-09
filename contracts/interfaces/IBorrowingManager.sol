@@ -10,6 +10,15 @@ pragma solidity 0.8.17;
  */
 interface IBorrowingManager {
     /**
+     * @dev Emitted when an user increases his lend position by increasing his lock time within the Staking Manager.
+     *
+     * @param lender The lender
+     * @param startEpoch The start epoch
+     * @param endEpoch The end epoch
+     */
+    event DurationIncreased(address indexed lender, uint16 startEpoch, uint16 endEpoch);
+
+    /**
      * @dev Emitted when the lended amount for a certain epoch increase.
      *
      * @param lender The lender
