@@ -42,6 +42,7 @@ describe('Forwarders', () => {
   beforeEach(async () => {
     const Forwarder = await ethers.getContractFactory('Forwarder')
     const StakingManager = await ethers.getContractFactory('StakingManager')
+    const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
     const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
     const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
@@ -76,6 +77,16 @@ describe('Forwarders', () => {
       kind: 'uups'
     })
 
+    stakingManagerBM = await upgrades.deployProxy(StakingManagerPermissioned, [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address], {
+      initializer: 'initialize',
+      kind: 'uups'
+    })
+
+    stakingManagerRM = await upgrades.deployProxy(StakingManagerPermissioned, [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address], {
+      initializer: 'initialize',
+      kind: 'uups'
+    })
+
     epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION], {
       initializer: 'initialize',
       kind: 'uups'
@@ -83,7 +94,7 @@ describe('Forwarders', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pToken.address, stakingManager.address, epochsManager.address, forwarderHost.address, LEND_MAX_EPOCHS],
+      [pToken.address, stakingManagerBM.address, epochsManager.address, forwarderHost.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -92,7 +103,7 @@ describe('Forwarders', () => {
 
     registrationManager = await upgrades.deployProxy(
       RegistrationManager,
-      [pToken.address, stakingManager.address, epochsManager.address, borrowingManager.address, forwarderHost.address],
+      [pToken.address, stakingManagerRM.address, epochsManager.address, borrowingManager.address, forwarderHost.address],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -104,7 +115,16 @@ describe('Forwarders', () => {
 
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(root).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(root).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(root).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(root).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
     await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
+    await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), borrowingManager.address)
+    await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), borrowingManager.address)
+    await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
+    await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
+    await registrationManager.grantRole(getRole('RELEASE_SENTINEL_ROLE'), owner.address)
 
     await owner.sendTransaction({
       to: pntHolder1.address,
