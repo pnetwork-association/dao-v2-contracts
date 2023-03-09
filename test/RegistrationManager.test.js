@@ -19,7 +19,18 @@ const {
   ZERO_ADDRESS
 } = require('./constants')
 
-let stakingManager, epochsManager, registrationManager, pnt, owner, pntHolder1, sentinel1, RegistrationManager, acl, daoRoot, fakeForwarder
+let stakingManagerRM,
+  stakingManagerBM,
+  epochsManager,
+  registrationManager,
+  pnt,
+  owner,
+  pntHolder1,
+  sentinel1,
+  RegistrationManager,
+  acl,
+  daoRoot,
+  fakeForwarder
 let BORROW_ROLE, RELEASE_SENTINEL_ROLE
 
 describe('RegistrationManager', () => {
@@ -38,7 +49,7 @@ describe('RegistrationManager', () => {
     RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
-    const StakingManager = await ethers.getContractFactory('StakingManager')
+    const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const ERC20 = await ethers.getContractFactory('ERC20')
     const ACL = await ethers.getContractFactory('ACL')
 
@@ -54,7 +65,12 @@ describe('RegistrationManager', () => {
     pnt = await ERC20.attach(PNT_ADDRESS)
     acl = await ACL.attach(ACL_ADDRESS)
 
-    stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
+    stakingManagerBM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
+      initializer: 'initialize',
+      kind: 'uups'
+    })
+
+    stakingManagerRM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -66,7 +82,7 @@ describe('RegistrationManager', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pnt.address, stakingManager.address, epochsManager.address, fakeForwarder.address, LEND_MAX_EPOCHS],
+      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -75,7 +91,7 @@ describe('RegistrationManager', () => {
 
     registrationManager = await upgrades.deployProxy(
       RegistrationManager,
-      [pnt.address, stakingManager.address, epochsManager.address, borrowingManager.address, fakeForwarder.address],
+      [pnt.address, stakingManagerRM.address, epochsManager.address, borrowingManager.address, fakeForwarder.address],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -86,13 +102,21 @@ describe('RegistrationManager', () => {
     BORROW_ROLE = getRole('BORROW_ROLE')
     RELEASE_ROLE = getRole('RELEASE_ROLE')
     RELEASE_SENTINEL_ROLE = getRole('RELEASE_SENTINEL_ROLE')
+    STAKE_ROLE = getRole('STAKE_ROLE')
+    INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
 
     // grant roles
     await borrowingManager.grantRole(BORROW_ROLE, registrationManager.address)
     await borrowingManager.grantRole(RELEASE_ROLE, registrationManager.address)
+    await stakingManagerBM.grantRole(STAKE_ROLE, borrowingManager.address)
+    await stakingManagerBM.grantRole(INCREASE_DURATION_ROLE, borrowingManager.address)
+    await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.address)
+    await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
-    await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
   })
 
   it('should be able to updateSentinelRegistrationByStaking for 4 epochs starting from epoch 1', async () => {
@@ -238,12 +262,12 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 5)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_CHAIN_IDS.polygonMainnet)
-    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(6)
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_CHAIN_IDS.polygonMainnet)).to.not.be
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_CHAIN_IDS.polygonMainnet)).to.not.be
       .reverted
   })
 
@@ -285,7 +309,7 @@ describe('RegistrationManager', () => {
 
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet)).to.not.be.reverted
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet)).to.not.be.reverted
 
     duration = EPOCH_DURATION * 3
     await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
@@ -309,12 +333,12 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet)
-    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(7)
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet)).to.not.be.reverted
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_CHAIN_IDS.polygonMainnet)).to.not.be.reverted
   })
 
   it('should be able to updateSentinelRegistrationByBorrowing in order to renew his registration (1)', async () => {
