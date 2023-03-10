@@ -15,8 +15,8 @@ interface IStakingManagerPermissioned is IBaseStakingManager {
     /*
      * @notice Increase the duration of a stake.
      *
-     * @param duration
      * @param owner
+     * @param duration
      */
     function increaseDuration(address owner, uint64 duration) external;
 

@@ -9,7 +9,7 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
-import {IStakingManager} from "../interfaces/IStakingManager.sol";
+import {IStakingManagerPermissioned} from "../interfaces/IStakingManagerPermissioned.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
 import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
 import {IRegistrationManager} from "../interfaces/IRegistrationManager.sol";
@@ -67,6 +67,16 @@ contract RegistrationManager is
     }
 
     /// @inheritdoc IRegistrationManager
+    function increaseSentinelRegistrationDuration(uint64 duration) external {
+        _increaseSentinelRegistrationDuration(_msgSender(), duration);
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function increaseSentinelRegistrationDuration(address owner, uint64 duration) external onlyForwarder {
+        _increaseSentinelRegistrationDuration(owner, duration);
+    }
+
+    /// @inheritdoc IRegistrationManager
     function sentinelRegistration(address sentinel) external view returns (Registration memory) {
         return _sentinelRegistrations[sentinel];
     }
@@ -112,7 +122,7 @@ contract RegistrationManager is
 
         IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(owner, amount, duration);
+        IStakingManagerPermissioned(stakingManager).stake(owner, amount, duration);
 
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         uint16 startEpoch = currentEpoch + 1;
@@ -216,6 +226,41 @@ contract RegistrationManager is
             result[epoch - startEpoch] = _sentinelsEpochsTotalStakedAmount[epoch];
         }
         return result;
+    }
+
+    function _increaseSentinelRegistrationDuration(address owner, uint64 duration) internal {
+        address sentinel = _ownersSentinel[owner];
+        Registration storage registration = _sentinelRegistrations[sentinel];
+        if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+            revert Errors.InvalidRegistration();
+        }
+
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
+
+        IStakingManagerPermissioned(stakingManager).increaseDuration(owner, duration);
+        IStakingManagerPermissioned.Stake memory stake = IStakingManagerPermissioned(stakingManager).stakeOf(owner);
+
+        uint64 blockTimestamp = uint64(block.timestamp);
+        uint16 startEpoch = currentEpoch + 1;
+        // if startDate hasn't just been reset(increasing duration where block.timestamp < oldEndDate) it means that we have to count the epoch next to the current endEpoch one
+        uint16 numberOfEpochs = uint16((stake.endDate - blockTimestamp) / epochDuration) -
+            (stake.startDate == blockTimestamp ? 1 : 0);
+        uint16 endEpoch = uint16(startEpoch + numberOfEpochs - 1);
+        uint24 truncatedAmount = Helpers.truncate(stake.amount, 0);
+
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            if (_sentinelsEpochsStakedAmount[sentinel][epoch] == 0) {
+                _sentinelsEpochsStakedAmount[sentinel][epoch] += truncatedAmount;
+                _sentinelsEpochsTotalStakedAmount[epoch] += truncatedAmount;
+            }
+
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        emit DurationIncreased(sentinel, endEpoch);
     }
 
     function _updateSentinelRegistrationByBorrowing(
