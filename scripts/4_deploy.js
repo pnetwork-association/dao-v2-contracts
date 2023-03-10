@@ -8,7 +8,6 @@ const {
   FORWARDER_ON_POLYGON,
   LEND_MAX_EPOCHS,
   MINIMUM_BORROWING_FEE,
-  PNT_ON_ETH_ADDRESS,
   PNT_ON_POLYGON_ADDRESS,
   TOKEN_MANAGER_ADDRESS
 } = require('./config')
@@ -18,6 +17,7 @@ const main = async () => {
 
   const ACL = await ethers.getContractFactory('ACL')
   const StakingManager = await ethers.getContractFactory('StakingManager')
+  const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
   const EpochsManager = await ethers.getContractFactory('EpochsManager')
   const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
   const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
@@ -28,8 +28,24 @@ const main = async () => {
   const forwarder = await Forwarder.attach(FORWARDER_ON_POLYGON)
 
   console.info('StakingManager ...')
-  const stakingManager = await upgrades.deployProxy(
-    StakingManager,
+  const stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
+    initializer: 'initialize',
+    kind: 'uups'
+  })
+
+  console.info('StakingManager BM ...')
+  const stakingManagerBM = await upgrades.deployProxy(
+    StakingManagerPermissioned,
+    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address],
+    {
+      initializer: 'initialize',
+      kind: 'uups'
+    }
+  )
+
+  console.info('StakingManager RM ...')
+  const stakingManagerRM = await upgrades.deployProxy(
+    StakingManagerPermissioned,
     [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address],
     {
       initializer: 'initialize',
@@ -46,7 +62,7 @@ const main = async () => {
   console.info('BorrowingManager ...')
   const borrowingManager = await upgrades.deployProxy(
     BorrowingManager,
-    [PNT_ON_POLYGON_ADDRESS, stakingManager.address, epochsManager.address, forwarder.address, LEND_MAX_EPOCHS],
+    [PNT_ON_POLYGON_ADDRESS, stakingManagerBM.address, epochsManager.address, forwarder.address, LEND_MAX_EPOCHS],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -56,7 +72,7 @@ const main = async () => {
   console.info('RegistrationManager ...')
   const registrationManager = await upgrades.deployProxy(
     RegistrationManager,
-    [PNT_ON_POLYGON_ADDRESS, stakingManager.address, epochsManager.address, borrowingManager.address, forwarder.address],
+    [PNT_ON_POLYGON_ADDRESS, stakingManagerRM.address, epochsManager.address, borrowingManager.address, forwarder.address],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -66,14 +82,7 @@ const main = async () => {
   console.info('FeesManager ...')
   const feesManager = await upgrades.deployProxy(
     FeesManager,
-    [
-      stakingManager.address,
-      epochsManager.address,
-      borrowingManager.address,
-      registrationManager.address,
-      forwarder.address,
-      MINIMUM_BORROWING_FEE
-    ],
+    [epochsManager.address, borrowingManager.address, registrationManager.address, forwarder.address, MINIMUM_BORROWING_FEE],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -85,6 +94,14 @@ const main = async () => {
   // await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
   await acl.grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
   await acl.grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+  await acl.grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+  await acl.grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+  await acl.grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+  await acl.grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+  await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), borrowingManager.address)
+  await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), borrowingManager.address)
+  await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
+  await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
 
   console.log('Assigning roles and whitelisting origin addresses ...')
   await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
@@ -97,10 +114,12 @@ const main = async () => {
   console.log(
     JSON.stringify({
       stakingManager: stakingManager.address,
+      stakingManagerBM: stakingManagerBM.address,
+      stakingManagerRM: stakingManagerRM.address,
       borrowingManager: borrowingManager.address,
       epochsManager: epochsManager.address,
       registrationManager: registrationManager.address,
-      feesManager: feesManager.address,
+      feesManager: feesManager.address
     })
   )
 }
