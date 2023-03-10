@@ -260,6 +260,11 @@ contract RegistrationManager is
             }
         }
 
+        if (stake.startDate == blockTimestamp) {
+            registration.startEpoch = startEpoch;
+        }
+        registration.endEpoch = endEpoch;
+
         emit DurationIncreased(sentinel, endEpoch);
     }
 

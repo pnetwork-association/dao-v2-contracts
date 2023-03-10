@@ -849,6 +849,11 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(6)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(7)).to.be.eq(0)
 
+    let registration = await registrationManager.sentinelRegistration(sentinel1.address)
+    expect(registration.owner).to.be.eq(pntHolder1.address)
+    expect(registration.startEpoch).to.be.eq(3)
+    expect(registration.endEpoch).to.be.eq(6)
+
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
     duration = EPOCH_DURATION * 4
@@ -875,6 +880,11 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(10)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(11)).to.be.eq(0)
+
+    registration = await registrationManager.sentinelRegistration(sentinel1.address)
+    expect(registration.owner).to.be.eq(pntHolder1.address)
+    expect(registration.startEpoch).to.be.eq(3)
+    expect(registration.endEpoch).to.be.eq(10)
 
     await time.increase(EPOCH_DURATION * 6)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
@@ -942,6 +952,11 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(5)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(6)).to.be.eq(0)
 
+    let registration = await registrationManager.sentinelRegistration(sentinel1.address)
+    expect(registration.owner).to.be.eq(pntHolder1.address)
+    expect(registration.startEpoch).to.be.eq(3)
+    expect(registration.endEpoch).to.be.eq(5)
+
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
     duration = EPOCH_DURATION * 4
@@ -966,6 +981,11 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(8)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(10)).to.be.eq(0)
+
+    registration = await registrationManager.sentinelRegistration(sentinel1.address)
+    expect(registration.owner).to.be.eq(pntHolder1.address)
+    expect(registration.startEpoch).to.be.eq(3)
+    expect(registration.endEpoch).to.be.eq(9)
 
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(8)
@@ -1021,6 +1041,11 @@ describe('RegistrationManager', () => {
     await pnt.connect(pntHolder1).approve(registrationManager.address, amount)
     await registrationManager.connect(pntHolder1).updateSentinelRegistrationByStaking(pntHolder1.address, amount, duration, signature)
 
+    let registration = await registrationManager.sentinelRegistration(sentinel1.address)
+    expect(registration.owner).to.be.eq(pntHolder1.address)
+    expect(registration.startEpoch).to.be.eq(3)
+    expect(registration.endEpoch).to.be.eq(5)
+
     await time.increase(EPOCH_DURATION * 5)
     expect(await epochsManager.currentEpoch()).to.be.equal(7)
     await expect(registrationManager.connect(pntHolder1)['increaseSentinelRegistrationDuration(uint64)'](duration))
@@ -1036,6 +1061,11 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(9)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(10)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(11)).to.be.eq(0)
+
+    registration = await registrationManager.sentinelRegistration(sentinel1.address)
+    expect(registration.owner).to.be.eq(pntHolder1.address)
+    expect(registration.startEpoch).to.be.eq(8)
+    expect(registration.endEpoch).to.be.eq(10)
 
     await time.increase(EPOCH_DURATION * 3)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
