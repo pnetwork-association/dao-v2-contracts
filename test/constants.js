@@ -8,6 +8,10 @@ const constants = {
   ERC20_VAULT: '0xe396757EC7E6aC7C8E5ABE7285dde47b98F22db8',
   INFINITE: '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
   LEND_MAX_EPOCHS: 24,
+  LZ_CHAIN_IDS: {
+    ethereumMainnet: 101,
+    polygonMainnet: 109
+  },
   MIN_LOCK_DURATION: 604800,
   MINIMUM_BORROWING_FEE: 0.3 * 10 ** 6,
   // 30%
