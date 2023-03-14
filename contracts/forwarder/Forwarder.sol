@@ -20,13 +20,15 @@ error InvalidCallParams(address[] targets, bytes[] data, address caller);
 error InvalidOriginAddress(address originAddress);
 error InvalidCaller(address caller);
 
-contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
+contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable, NonblockingLzApp {
     using SafeERC20 for IERC20;
 
     address public sender;
     address public token;
     address public vault;
     mapping(address => bool) private _whitelistedOriginAddresses;
+    mapping(bytes32 => uint8) private _requestsConfirmations;
+    mapping(address => uint24) private _nonces;
 
     constructor(address _token, address _sender, address _vault, address _lzEndpoint) NonblockingLzApp(_lzEndpoint) {
         IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
@@ -49,14 +51,14 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
         bytes calldata /*_operatorData*/
     ) external override {
         if (_msgSender() == token && _from == sender) {
-            (, bytes memory userData, , , , , , ) = abi.decode(
+            (, bytes memory payload, , , , , , ) = abi.decode(
                 _userData,
                 (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
             );
 
-            (bytes memory callsAndTargets, address originAddress, address caller) = abi.decode(
-                userData,
-                (bytes, address, address)
+            (,, bytes memory callsAndTargets, address originAddress, address caller) = abi.decode(
+                payload,
+                (address, uint24, bytes, address, address)
             );
 
             if (!_whitelistedOriginAddresses[originAddress]) {
@@ -93,16 +95,27 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
         }
     }
 
-        
     /// @inheritdoc IForwarder
-    function call(uint256 amount, address to, bytes calldata data, bytes4 chainId) external {
+    function call(
+        uint256 amount,
+        address to,
+        bytes calldata data,
+        bytes4 pNetworkChainId,
+        uint16 lzChainId,
+        uint gasForDestinationLzReceive
+    ) external payable {
         address msgSender = _msgSender();
         if (amount > 0) {
             IERC20(token).safeTransferFrom(msgSender, address(this), amount);
         }
 
-        bytes memory effectiveUserData = abi.encode(data, address(this), msgSender);
+        uint24 nonce = _nonces[msgSender];
+        bytes memory payload = abi.encode(msgSender, nonce, data, address(this), msgSender);
         uint256 effectiveAmount = amount == 0 ? 1 : amount;
+
+        unchecked {
+            ++_nonces[msgSender];
+        }
 
         if (vault != address(0)) {
             IERC20(token).safeApprove(vault, effectiveAmount);
@@ -110,18 +123,55 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
                 effectiveAmount,
                 token,
                 Helpers.addressToAsciiString(to),
-                effectiveUserData,
-                chainId
+                payload,
+                pNetworkChainId
             );
         } else {
-            IPToken(token).redeem(effectiveAmount, effectiveUserData, Helpers.addressToAsciiString(to), chainId);
+            IPToken(token).redeem(
+                effectiveAmount,
+                payload,
+                Helpers.addressToAsciiString(to),
+                pNetworkChainId
+            );
         }
+
+        _lzSend( // {value: messageFee} will be paid out of this contract!
+            lzChainId, // destination chainId
+            payload, // abi.encode()'ed bytes
+            payable(this), // (msg.sender will be this contract) refund address (LayerZero will refund any extra gas back to caller of send()
+            address(0x0), // future param, unused for this example
+            abi.encodePacked(uint16(1), gasForDestinationLzReceive), // v1 adapterParams, specify custom destination gas qty
+            msg.value
+        );
     }
 
     function whitelistOriginAddress(address originAddress) external onlyOwner {
         _whitelistedOriginAddresses[originAddress] = true;
     }
 
-    function _nonblockingLzReceive(uint16, bytes memory, uint64, bytes memory) internal override {}
+    function _nonblockingLzReceive(
+        uint16 _srcChainId,
+        bytes memory _srcAddress,
+        uint64 /*_nonce*/,
+        bytes memory _payload
+    ) internal override {
+        address originAddress;
+        assembly {
+            originAddress := mload(add(_srcAddress, 20))
+        }
 
+        if (!_whitelistedOriginAddresses[originAddress]) {
+            revert InvalidOriginAddress(originAddress);
+        }
+
+        bytes32 requestId = keccak256(_payload);
+        unchecked {
+            ++_requestsConfirmations[requestId];
+        }
+
+        // TODO: continue
+       
+    }
+
+    receive() external payable {}
 }
