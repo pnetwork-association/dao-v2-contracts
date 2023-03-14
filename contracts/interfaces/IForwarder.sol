@@ -10,13 +10,23 @@ pragma solidity 0.8.17;
  */
 interface IForwarder {
     /*
-     * @notice Send a crosschain message
+     * @notice Send a crosschain message using pNetwork and Layer 0. The usage of 2 protocols is needed in order to ensure that pNetwork DAO works even if
+     *         the bridge are down
      *
      * @param amount
      * @param to
      * @param data
-     * @param chainId
+     * @param pNetworkChainId
+     * @param lzChainId
+     * @param gasForDestinationLzReceive
      *
      */
-    function call(uint256 amount, address to, bytes calldata data, bytes4 chainId) external;
+    function call(
+        uint256 amount,
+        address to,
+        bytes calldata data,
+        bytes4 pNetworkChainId,
+        uint16 lzChainId,
+        uint gasForDestinationLzReceive
+    ) external payable;
 }
