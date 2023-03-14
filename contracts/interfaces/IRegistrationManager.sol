@@ -17,6 +17,14 @@ interface IRegistrationManager {
     }
 
     /**
+     * @dev Emitted when an user increases his staking sentinel registration position by increasing his lock time within the Staking Manager.
+     *
+     * @param sentinel The sentinel
+     * @param endEpoch The new end epoch
+     */
+    event DurationIncreased(address indexed sentinel, uint16 endEpoch);
+
+    /**
      * @dev Emitted when a sentinel registration is completed.
      *
      * @param owner The sentinel owner
@@ -53,6 +61,22 @@ interface IRegistrationManager {
     function getSentinelAddressFromSignature(address owner, bytes calldata signature) external pure returns (address);
 
     /*
+     * @notice Increase the duration of a staking sentinel registration.
+     *
+     * @param duration
+     */
+    function increaseSentinelRegistrationDuration(uint64 duration) external;
+
+    /*
+     * @notice Increase the duration  of a staking sentinel registration. This function is used togheter with
+     *         onlyForwarder modifier in order to enable cross chain duration increasing
+     *
+     * @param owner
+     * @param duration
+     */
+    function increaseSentinelRegistrationDuration(address owner, uint64 duration) external;
+
+    /*
      * @notice Returns the sentinel of a given owner
      *
      * @param owner
@@ -69,6 +93,21 @@ interface IRegistrationManager {
      * @return address representing the sentinel registration data.
      */
     function sentinelRegistration(address sentinel) external view returns (Registration memory);
+
+    /*
+     * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
+     *         This function is used togheter with onlyForwarder.
+     *
+     * @params owner
+     * @param numberOfEpochs
+     * @param signature
+     *
+     */
+    function updateSentinelRegistrationByBorrowing(
+        address owner,
+        uint16 numberOfEpochs,
+        bytes calldata signature
+    ) external;
 
     /*
      * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
@@ -127,9 +166,9 @@ interface IRegistrationManager {
      *
      */
     function updateSentinelRegistrationByStaking(
+        address owner,
         uint256 amount,
         uint64 duration,
-        bytes calldata signature,
-        address owner
+        bytes calldata signature
     ) external;
 }

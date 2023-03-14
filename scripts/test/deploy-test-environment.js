@@ -2,16 +2,17 @@ const { ethers, upgrades } = require('hardhat')
 const { getRole } = require('../../test/utils/index')
 const { time } = require('@nomicfoundation/hardhat-network-helpers')
 
-const ACL_ADDRESS = '0xFDcae423E5e92B76FE7D1e2bcabd36fca8a6a8Fe'
+const ACL_ADDRESS = ''
 const EPOCH_DURATION = 60 * 60 * 24 * 15
-const PNT_ADDRESS = '0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD'
-const PBTC_ADDRESS = '0x62199B909FB8B8cf870f97BEf2cE6783493c4908'
-const TOKEN_MANAGER_ADDRESS = '0xD7E8E79d318eCE001B39D83Ea891ebD5fC22d254'
-const DAO_ROOT_ADDRESS = '0x6Ae14ff8d24F719a8cf5A9FAa2Ad05dA7e44C8b6'
-const PNT_HOLDER_1_ADDRESS = '0xaeaa8c6ebb17db8056fa30a08fd3097de555f571'
-const PBTC_HOLDER_1_ADDRESS = '0x0a3b24e917192fb3238d118bfa331cfad5a07368'
+const PNT_ADDRESS = ''
+const PBTC_ADDRESS = ''
+const TOKEN_MANAGER_ADDRESS = ''
+const DAO_ROOT_ADDRESS = ''
+const PNT_HOLDER_1_ADDRESS = ''
+const PBTC_HOLDER_1_ADDRESS = ''
 const LEND_MAX_EPOCHS = 24
 const MINIMUM_BORROWING_FEE = 0.3 * 10 ** 6 // 30%
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const main = async () => {
   const signer = await ethers.getSigner()
@@ -31,10 +32,12 @@ const main = async () => {
   const ACL = await ethers.getContractFactory('ACL')
   const ERC20 = await ethers.getContractFactory('ERC20')
   const StakingManager = await ethers.getContractFactory('StakingManager')
+  const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
   const EpochsManager = await ethers.getContractFactory('EpochsManager')
   const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
   const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
   const FeesManager = await ethers.getContractFactory('FeesManager')
+  const Forwarder = await ethers.getContractFactory('Forwarder')
 
   const acl = await ACL.attach(ACL_ADDRESS)
   const pnt = await ERC20.attach(PNT_ADDRESS)
@@ -46,7 +49,19 @@ const main = async () => {
 
   console.info('Deploying ...')
 
-  const stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS], {
+  const forwarder = await Forwarder.deploy(PNT_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS)
+
+  const stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
+    initializer: 'initialize',
+    kind: 'uups'
+  })
+
+  const stakingManagerBM = await upgrades.deployProxy(StakingManagerPermissioned, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
+    initializer: 'initialize',
+    kind: 'uups'
+  })
+
+  const stakingManagerRM = await upgrades.deployProxy(StakingManagerPermissioned, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
     initializer: 'initialize',
     kind: 'uups'
   })
@@ -58,7 +73,7 @@ const main = async () => {
 
   const borrowingManager = await upgrades.deployProxy(
     BorrowingManager,
-    [PNT_ADDRESS, stakingManager.address, epochsManager.address, LEND_MAX_EPOCHS],
+    [PNT_ADDRESS, stakingManagerBM.address, epochsManager.address, forwarder.address, LEND_MAX_EPOCHS],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -67,7 +82,7 @@ const main = async () => {
 
   const registrationManager = await upgrades.deployProxy(
     RegistrationManager,
-    [PNT_ADDRESS, stakingManager.address, epochsManager.address, borrowingManager.address],
+    [PNT_ADDRESS, stakingManagerRM.address, epochsManager.address, borrowingManager.address, forwarder.address],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -76,7 +91,7 @@ const main = async () => {
 
   const feesManager = await upgrades.deployProxy(
     FeesManager,
-    [stakingManager.address, epochsManager.address, borrowingManager.address, registrationManager.address, MINIMUM_BORROWING_FEE],
+    [epochsManager.address, borrowingManager.address, registrationManager.address, forwarder.address, MINIMUM_BORROWING_FEE],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -86,18 +101,27 @@ const main = async () => {
   console.log('Setting ACL permissions ...')
   await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
   await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+  await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+  await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+  await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+  await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
   console.log('Assigning roles ...')
   await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
   await borrowingManager.grantRole(getRole('DEPOSIT_INTEREST_ROLE'), signer.address)
   await borrowingManager.grantRole(getRole('DEPOSIT_INTEREST_ROLE'), signer.address)
+  await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), borrowingManager.address)
+  await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), borrowingManager.address)
+  await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
+  await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
 
   console.log('Lending ...')
   await pnt.approve(borrowingManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
-  await borrowingManager.lend('400000000000000000000000', EPOCH_DURATION * 10, signer.address)
+  await borrowingManager.lend(signer.address, ethers.utils.parseEther('400000'), EPOCH_DURATION * 10)
 
   console.log('Creating sentinel ...')
   await pnt.approve(registrationManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
+  await registrationManager.updateSentinelRegistrationByStaking(signer.address, ethers.utils.parseEther('200000'), EPOCH_DURATION * 12, '0x')
 
   console.log('Depositing interests and fees ...')
   await pnt.approve(feesManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
@@ -132,17 +156,19 @@ const main = async () => {
 
   // epoch 5
   await time.increase(EPOCH_DURATION)
-  await registrationManager.updateSentinelRegistrationByBorrowing(4, '0x')
-
-  await time.increase(EPOCH_DURATION * 10)
+  // await registrationManager.updateSentinelRegistrationByBorrowing(4, '0x')
 
   console.log(
     JSON.stringify({
+      acl: ACL_ADDRESS,
       stakingManager: stakingManager.address,
+      stakingManagerBM: stakingManagerBM.address,
+      stakingManagerRM: stakingManagerRM.address,
       borrowingManager: borrowingManager.address,
       epochsManager: epochsManager.address,
       registrationManager: registrationManager.address,
-      feesManager: feesManager.address
+      feesManager: feesManager.address,
+      forwarderOnPolygon: forwarder.address
     })
   )
 }

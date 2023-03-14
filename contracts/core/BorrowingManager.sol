@@ -5,11 +5,11 @@ pragma solidity 0.8.17;
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
-import {IStakingManager} from "../interfaces/IStakingManager.sol";
+import {IStakingManagerPermissioned} from "../interfaces/IStakingManagerPermissioned.sol";
 import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
@@ -21,7 +21,7 @@ contract BorrowingManager is
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable,
-    AccessControlEnumerableUpgradeable
+    ForwarderRecipientUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -43,11 +43,13 @@ contract BorrowingManager is
         address _token,
         address _stakingManager,
         address _epochsManager,
+        address _forwarder,
         uint16 _lendMaxEpochs
     ) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
+        __ForwarderRecipientUpgradeable_init(_forwarder);
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
@@ -183,10 +185,20 @@ contract BorrowingManager is
     }
 
     /// @inheritdoc IBorrowingManager
-    function lend(uint256 amount, uint64 duration, address lender) external {
+    function increaseDuration(uint64 duration) external {
+        _increaseDuration(_msgSender(), duration);
+    }
+
+    /// @inheritdoc IBorrowingManager
+    function increaseDuration(address lender, uint64 duration) external onlyForwarder {
+        _increaseDuration(lender, duration);
+    }
+
+    /// @inheritdoc IBorrowingManager
+    function lend(address lender, uint256 amount, uint64 duration) external {
         IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
-        IStakingManager(stakingManager).stake(amount, duration, lender);
+        IStakingManagerPermissioned(stakingManager).stake(lender, amount, duration);
         _updateWeights(lender, amount, duration);
     }
 
@@ -283,6 +295,43 @@ contract BorrowingManager is
             result[epoch - startEpoch] = _lendersEpochsWeight[lender][epoch];
         }
         return result;
+    }
+
+    function _increaseDuration(address lender, uint64 duration) internal {
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
+
+        IStakingManagerPermissioned(stakingManager).increaseDuration(lender, duration);
+        IStakingManagerPermissioned.Stake memory stake = IStakingManagerPermissioned(stakingManager).stakeOf(lender);
+
+        uint64 blockTimestamp = uint64(block.timestamp);
+        uint16 startEpoch = currentEpoch + 1;
+        // if startDate hasn't just been reset(increasing duration where block.timestamp < oldEndDate) it means that we have to count the epoch next to the current endEpoch one
+        uint16 numberOfEpochs = uint16((stake.endDate - blockTimestamp) / epochDuration) -
+            (stake.startDate == blockTimestamp ? 1 : 0);
+        uint16 endEpoch = uint16(startEpoch + numberOfEpochs - 1);
+        uint24 truncatedAmount = Helpers.truncate(stake.amount, 0);
+
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            uint24 weight = truncatedAmount * ((endEpoch - epoch) + 1);
+
+            // reset old weight in order to update with the new ones or just update the _epochsTotalLendedAmount if the epoch is a "clean" one
+            if (_lendersEpochsWeight[lender][epoch] != 0) {
+                uint32 oldWeight = _lendersEpochsWeight[lender][epoch];
+                _epochTotalWeight[epoch] -= oldWeight;
+                _lendersEpochsWeight[lender][epoch] -= oldWeight;
+            } else {
+                _epochsTotalLendedAmount[epoch] += truncatedAmount;
+            }
+            _epochTotalWeight[epoch] += weight;
+            _lendersEpochsWeight[lender][epoch] += weight;
+
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        emit DurationIncreased(lender, endEpoch);
     }
 
     function _updateWeights(address lender, uint256 amount, uint64 duration) internal {

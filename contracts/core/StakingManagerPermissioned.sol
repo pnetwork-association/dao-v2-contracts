@@ -6,10 +6,16 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {BaseStakingManager} from "./BaseStakingManager.sol";
-import {IStakingManager} from "../interfaces/IStakingManager.sol";
+import {IStakingManagerPermissioned} from "../interfaces/IStakingManagerPermissioned.sol";
 import {Roles} from "../libraries/Roles.sol";
 
-contract StakingManager is IStakingManager, Initializable, UUPSUpgradeable, OwnableUpgradeable, BaseStakingManager {
+contract StakingManagerPermissioned is
+    IStakingManagerPermissioned,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    BaseStakingManager
+{
     function initialize(address _token, address _tokenManager, address _forwarder) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
@@ -20,14 +26,14 @@ contract StakingManager is IStakingManager, Initializable, UUPSUpgradeable, Owna
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
-    /// @inheritdoc IStakingManager
-    function stake(address receiver, uint256 amount, uint64 duration) external {
+    /// @inheritdoc IStakingManagerPermissioned
+    function stake(address receiver, uint256 amount, uint64 duration) external onlyRole(Roles.STAKE_ROLE) {
         _stake(receiver, amount, duration);
     }
 
-    /// @inheritdoc IStakingManager
-    function increaseDuration(uint64 duration) external {
-        _increaseDuration(_msgSender(), duration);
+    /// @inheritdoc IStakingManagerPermissioned
+    function increaseDuration(address owner, uint64 duration) external onlyRole(Roles.INCREASE_DURATION_ROLE) {
+        _increaseDuration(owner, duration);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

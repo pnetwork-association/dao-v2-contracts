@@ -5,7 +5,7 @@ pragma solidity 0.8.17;
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
@@ -20,7 +20,7 @@ contract FeesManager is
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable,
-    AccessControlEnumerableUpgradeable
+    ForwarderRecipientUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -33,22 +33,21 @@ contract FeesManager is
     address public epochsManager;
     address public borrowingManager;
     address public registrationManager;
-    address public stakingManager;
 
     function initialize(
-        address _stakingManager,
         address _epochsManager,
         address _borrowingManager,
         address _registrationManager,
+        address _forwarder,
         uint24 _minimumBorrowingFee
     ) public initializer {
         __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
+        __ForwarderRecipientUpgradeable_init(_forwarder);
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
-        stakingManager = _stakingManager;
         epochsManager = _epochsManager;
         borrowingManager = _borrowingManager;
         registrationManager = _registrationManager;

@@ -10,6 +10,14 @@ pragma solidity 0.8.17;
  */
 interface IBorrowingManager {
     /**
+     * @dev Emitted when an user increases his lend position by increasing his lock time within the Staking Manager.
+     *
+     * @param lender The lender
+     * @param endEpoch The new end epoch
+     */
+    event DurationIncreased(address indexed lender, uint16 endEpoch);
+
+    /**
      * @dev Emitted when the lended amount for a certain epoch increase.
      *
      * @param lender The lender
@@ -143,16 +151,33 @@ interface IBorrowingManager {
     function depositInterest(address asset, uint16 epoch, uint256 amount) external;
 
     /*
+     * @notice Increase the duration of a lending position by increasing the lock time of the staked tokens.
+     *
+     * @param duration
+     *
+     */
+    function increaseDuration(uint64 duration) external;
+
+    /*
+     * @notice Increase the duration of a lending position by increasing the lock time of the staked tokens.
+     *         This function is used togheter with onlyForwarder in order to enable cross chain duration increasing
+     *
+     * @param duration
+     *
+     */
+    function increaseDuration(address lender, uint64 duration) external;
+
+    /*
      * @notice Lend in behalf of lender a certain amount of tokens locked for a given period of time. The lended
      * tokens are forwarded within the StakingManager. This fx is just a proxy fx to the StakingManager.stake that counts
      * how many tokens can be borrowed.
      *
+     * @param lender
      * @param amount
      * @param duration
-     * @param lender
      *
      */
-    function lend(uint256 amount, uint64 duration, address lender) external;
+    function lend(address lender, uint256 amount, uint64 duration) external;
 
     /*
      * @notice Returns the borrowed amount for a given epoch.
