@@ -32,7 +32,7 @@ let stakingManagerRM,
   acl,
   daoRoot,
   fakeForwarder
-let BORROW_ROLE, RELEASE_SENTINEL_ROLE
+let BORROW_ROLE, RELEASE_SENTINEL_ROLE, UPGRADE_ROLE
 
 describe('RegistrationManager', () => {
   beforeEach(async () => {
@@ -105,6 +105,7 @@ describe('RegistrationManager', () => {
     RELEASE_SENTINEL_ROLE = getRole('RELEASE_SENTINEL_ROLE')
     STAKE_ROLE = getRole('STAKE_ROLE')
     INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
+    UPGRADE_ROLE = getRole('UPGRADE_ROLE')
 
     // grant roles
     await borrowingManager.grantRole(BORROW_ROLE, registrationManager.address)
@@ -114,6 +115,7 @@ describe('RegistrationManager', () => {
     await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.address)
     await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
+    await registrationManager.grantRole(UPGRADE_ROLE, owner.address)
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))

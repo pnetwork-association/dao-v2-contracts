@@ -17,7 +17,7 @@ const {
 } = require('./constants')
 
 let daoRoot, acl, stakingManager, epochsManager, pnt, owner, pntHolder1, pntHolder2, user1, user2, BorrowingManager, fakeForwarder
-let BORROW_ROLE, DEPOSIT_INTEREST_ROLE
+let BORROW_ROLE, DEPOSIT_INTEREST_ROLE, UPGRADE_ROLE
 
 describe('BorrowingManager', () => {
   beforeEach(async () => {
@@ -75,6 +75,7 @@ describe('BorrowingManager', () => {
     DEPOSIT_INTEREST_ROLE = getRole('DEPOSIT_INTEREST_ROLE')
     STAKE_ROLE = getRole('STAKE_ROLE')
     INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
+    UPGRADE_ROLE = getRole('UPGRADE_ROLE')
 
     // grant roles
     await borrowingManager.grantRole(BORROW_ROLE, owner.address)
@@ -82,6 +83,7 @@ describe('BorrowingManager', () => {
     await borrowingManager.grantRole(BORROW_ROLE, user2.address)
     await borrowingManager.grantRole(RELEASE_ROLE, owner.address)
     await borrowingManager.grantRole(DEPOSIT_INTEREST_ROLE, owner.address)
+    await borrowingManager.grantRole(UPGRADE_ROLE, owner.address)
     await stakingManager.grantRole(STAKE_ROLE, borrowingManager.address)
     await stakingManager.grantRole(INCREASE_DURATION_ROLE, borrowingManager.address)
     await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))

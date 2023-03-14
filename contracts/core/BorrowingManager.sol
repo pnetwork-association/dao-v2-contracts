@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -16,13 +15,7 @@ import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 
-contract BorrowingManager is
-    IBorrowingManager,
-    Initializable,
-    UUPSUpgradeable,
-    OwnableUpgradeable,
-    ForwarderRecipientUpgradeable
-{
+contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, ForwarderRecipientUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     mapping(address => uint24[]) private _borrowersEpochsBorrowedAmount;
@@ -46,12 +39,12 @@ contract BorrowingManager is
         address _forwarder,
         uint16 _lendMaxEpochs
     ) public initializer {
-        __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
         __ForwarderRecipientUpgradeable_init(_forwarder);
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(SET_FORWARDER_ROLE, _msgSender());
 
         stakingManager = _stakingManager;
         token = _token;
@@ -364,5 +357,5 @@ contract BorrowingManager is
         emit Lended(lender, startEpoch, endEpoch, amount);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
 }

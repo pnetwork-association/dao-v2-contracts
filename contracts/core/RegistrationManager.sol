@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -18,13 +17,7 @@ import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries//Constants.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 
-contract RegistrationManager is
-    IRegistrationManager,
-    Initializable,
-    UUPSUpgradeable,
-    OwnableUpgradeable,
-    ForwarderRecipientUpgradeable
-{
+contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgradeable, ForwarderRecipientUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     mapping(address => Registration) private _sentinelRegistrations;
@@ -45,12 +38,12 @@ contract RegistrationManager is
         address _borrowingManager,
         address _forwarder
     ) public initializer {
-        __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
         __ForwarderRecipientUpgradeable_init(_forwarder);
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(SET_FORWARDER_ROLE, _msgSender());
 
         stakingManager = _stakingManager;
         token = _token;
@@ -323,5 +316,5 @@ contract RegistrationManager is
         emit SentinelRegistrationUpdated(owner, startEpoch, endEpoch, sentinel, kind, amount);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
 }
