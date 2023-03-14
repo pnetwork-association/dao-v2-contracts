@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -14,14 +13,9 @@ import {IRegistrationManager} from "../interfaces/IRegistrationManager.sol";
 import {IFeesManager} from "../interfaces/IFeesManager.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
+import {Roles} from "../libraries/Roles.sol";
 
-contract FeesManager is
-    IFeesManager,
-    Initializable,
-    UUPSUpgradeable,
-    OwnableUpgradeable,
-    ForwarderRecipientUpgradeable
-{
+contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderRecipientUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     mapping(uint256 => mapping(address => uint256)) _epochsSentinelsStakingAssetsFee;
@@ -41,12 +35,12 @@ contract FeesManager is
         address _forwarder,
         uint24 _minimumBorrowingFee
     ) public initializer {
-        __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
         __ForwarderRecipientUpgradeable_init(_forwarder);
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(SET_FORWARDER_ROLE, _msgSender());
 
         epochsManager = _epochsManager;
         borrowingManager = _borrowingManager;
@@ -227,5 +221,5 @@ contract FeesManager is
         return result;
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
 }

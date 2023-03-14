@@ -41,6 +41,7 @@ describe('StakingManager', () => {
       value: ethers.utils.parseEther('10')
     })
 
+    await stakingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 

@@ -147,6 +147,13 @@ describe('Forwarders', () => {
     await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
     await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
     await registrationManager.grantRole(getRole('RELEASE_SENTINEL_ROLE'), owner.address)
+    await stakingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
+    await borrowingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
+    await registrationManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
+
+    await stakingManager.setForwarder(forwarderHost.address)
+    await borrowingManager.setForwarder(forwarderHost.address)
+    await registrationManager.setForwarder(forwarderHost.address)
 
     await owner.sendTransaction({
       to: pntHolder1.address,

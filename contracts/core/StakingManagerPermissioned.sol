@@ -4,26 +4,19 @@ pragma solidity 0.8.17;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {BaseStakingManager} from "./BaseStakingManager.sol";
 import {IStakingManagerPermissioned} from "../interfaces/IStakingManagerPermissioned.sol";
 import {Roles} from "../libraries/Roles.sol";
 
-contract StakingManagerPermissioned is
-    IStakingManagerPermissioned,
-    Initializable,
-    UUPSUpgradeable,
-    OwnableUpgradeable,
-    BaseStakingManager
-{
+contract StakingManagerPermissioned is IStakingManagerPermissioned, Initializable, UUPSUpgradeable, BaseStakingManager {
     function initialize(address _token, address _tokenManager, address _forwarder) public initializer {
-        __Ownable_init();
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
         __BaseStakingManager_init(_token, _tokenManager);
         __ForwarderRecipientUpgradeable_init(_forwarder);
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(SET_FORWARDER_ROLE, _msgSender());
     }
 
     /// @inheritdoc IStakingManagerPermissioned
@@ -36,5 +29,5 @@ contract StakingManagerPermissioned is
         _increaseDuration(owner, duration);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
 }
