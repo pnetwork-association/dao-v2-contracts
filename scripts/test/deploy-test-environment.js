@@ -2,17 +2,18 @@ const { ethers, upgrades } = require('hardhat')
 const { getRole } = require('../../test/utils/index')
 const { time } = require('@nomicfoundation/hardhat-network-helpers')
 
-const ACL_ADDRESS = ''
+const ACL_ADDRESS = '0xFDcae423E5e92B76FE7D1e2bcabd36fca8a6a8Fe'
 const EPOCH_DURATION = 60 * 60 * 24 * 15
-const PNT_ADDRESS = ''
-const PBTC_ADDRESS = ''
-const TOKEN_MANAGER_ADDRESS = ''
-const DAO_ROOT_ADDRESS = ''
-const PNT_HOLDER_1_ADDRESS = ''
-const PBTC_HOLDER_1_ADDRESS = ''
+const PNT_ADDRESS = '0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD'
+const PBTC_ADDRESS = '0x62199B909FB8B8cf870f97BEf2cE6783493c4908'
+const TOKEN_MANAGER_ADDRESS = '0xD7E8E79d318eCE001B39D83Ea891ebD5fC22d254'
+const DAO_ROOT_ADDRESS = '0x6Ae14ff8d24F719a8cf5A9FAa2Ad05dA7e44C8b6'
+const PNT_HOLDER_1_ADDRESS = '0xaeaa8c6ebb17db8056fa30a08fd3097de555f571'
+const PBTC_HOLDER_1_ADDRESS = '0x0a3b24e917192fb3238d118bfa331cfad5a07368'
 const LEND_MAX_EPOCHS = 24
 const MINIMUM_BORROWING_FEE = 0.3 * 10 ** 6 // 30%
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+const PNT_MAX_TOTAL_SUPPLY = '96775228000000000000000000'
 
 const main = async () => {
   const signer = await ethers.getSigner()
@@ -51,20 +52,28 @@ const main = async () => {
 
   const forwarder = await Forwarder.deploy(PNT_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS)
 
-  const stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
+  const stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY], {
     initializer: 'initialize',
     kind: 'uups'
   })
 
-  const stakingManagerBM = await upgrades.deployProxy(StakingManagerPermissioned, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
-    initializer: 'initialize',
-    kind: 'uups'
-  })
+  const stakingManagerBM = await upgrades.deployProxy(
+    StakingManagerPermissioned,
+    [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
+    {
+      initializer: 'initialize',
+      kind: 'uups'
+    }
+  )
 
-  const stakingManagerRM = await upgrades.deployProxy(StakingManagerPermissioned, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
-    initializer: 'initialize',
-    kind: 'uups'
-  })
+  const stakingManagerRM = await upgrades.deployProxy(
+    StakingManagerPermissioned,
+    [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
+    {
+      initializer: 'initialize',
+      kind: 'uups'
+    }
+  )
 
   const epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION], {
     initializer: 'initialize',

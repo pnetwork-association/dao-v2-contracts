@@ -9,10 +9,15 @@ import {IStakingManager} from "../interfaces/IStakingManager.sol";
 import {Roles} from "../libraries/Roles.sol";
 
 contract StakingManager is IStakingManager, Initializable, UUPSUpgradeable, BaseStakingManager {
-    function initialize(address _token, address _tokenManager, address _forwarder) public initializer {
+    function initialize(
+        address _token,
+        address _tokenManager,
+        address _forwarder,
+        uint256 _maxTotalSupply
+    ) public initializer {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
-        __BaseStakingManager_init(_token, _tokenManager);
+        __BaseStakingManager_init(_token, _tokenManager, _maxTotalSupply);
         __ForwarderRecipientUpgradeable_init(_forwarder);
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());

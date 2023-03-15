@@ -6,4 +6,6 @@ interface ITokenManager {
     function mint(address receiver, uint256 amount) external;
 
     function burn(address holder, uint256 amount) external;
+
+    function token() external returns (address);
 }

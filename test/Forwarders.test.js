@@ -16,6 +16,7 @@ const {
   PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
+  PNT_MAX_TOTAL_SUPPLY,
   REGISTRATION_SENTINEL_BORROWING,
   REGISTRATION_SENTINEL_STAKING,
   TOKEN_MANAGER_ADDRESS,
@@ -72,20 +73,32 @@ describe('Forwarders', () => {
     await forwarderNative.whitelistOriginAddress(forwarderHost.address)
     await forwarderHost.whitelistOriginAddress(forwarderNative.address)
 
-    stakingManager = await upgrades.deployProxy(StakingManager, [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address], {
-      initializer: 'initialize',
-      kind: 'uups'
-    })
+    stakingManager = await upgrades.deployProxy(
+      StakingManager,
+      [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address, PNT_MAX_TOTAL_SUPPLY],
+      {
+        initializer: 'initialize',
+        kind: 'uups'
+      }
+    )
 
-    stakingManagerBM = await upgrades.deployProxy(StakingManagerPermissioned, [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address], {
-      initializer: 'initialize',
-      kind: 'uups'
-    })
+    stakingManagerBM = await upgrades.deployProxy(
+      StakingManagerPermissioned,
+      [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address, PNT_MAX_TOTAL_SUPPLY],
+      {
+        initializer: 'initialize',
+        kind: 'uups'
+      }
+    )
 
-    stakingManagerRM = await upgrades.deployProxy(StakingManagerPermissioned, [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address], {
-      initializer: 'initialize',
-      kind: 'uups'
-    })
+    stakingManagerRM = await upgrades.deployProxy(
+      StakingManagerPermissioned,
+      [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address, PNT_MAX_TOTAL_SUPPLY],
+      {
+        initializer: 'initialize',
+        kind: 'uups'
+      }
+    )
 
     epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION], {
       initializer: 'initialize',

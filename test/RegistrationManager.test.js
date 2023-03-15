@@ -13,6 +13,7 @@ const {
   PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
+  PNT_MAX_TOTAL_SUPPLY,
   REGISTRATION_NULL,
   REGISTRATION_SENTINEL_BORROWING,
   REGISTRATION_SENTINEL_STAKING,
@@ -66,12 +67,12 @@ describe('RegistrationManager', () => {
     pnt = await ERC20.attach(PNT_ADDRESS)
     acl = await ACL.attach(ACL_ADDRESS)
 
-    stakingManagerBM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
+    stakingManagerBM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })
 
-    stakingManagerRM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address], {
+    stakingManagerRM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })

@@ -24,6 +24,13 @@ interface IBaseStakingManager {
     event DurationIncreased(address indexed owner, uint64 duration);
 
     /**
+     * @dev Emitted when the max total supply changes
+     *
+     * @param maxTotalSupply The maximun total supply
+     */
+    event MaxTotalSupplyChanged(uint256 maxTotalSupply);
+
+    /**
      * @dev Emitted when an user stakes some tokens
      *
      * @param receiver The receiver
@@ -39,6 +46,13 @@ interface IBaseStakingManager {
      * @param amount The unstaked amount
      */
     event Unstaked(address indexed owner, uint256 amount);
+
+    /* @notice Changes the maximun total supply
+     *
+     * @param maxTotalSupply
+     *
+     */
+    function changeMaxTotalSupply(uint256 maxTotalSupply) external;
 
     /*
      * @notice Returns the owner's stake data

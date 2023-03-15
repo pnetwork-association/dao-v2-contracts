@@ -9,6 +9,7 @@ const {
   LEND_MAX_EPOCHS,
   MINIMUM_BORROWING_FEE,
   PNT_ON_POLYGON_ADDRESS,
+  PNT_MAX_TOTAL_SUPPLY,
   TOKEN_MANAGER_ADDRESS
 } = require('./config')
 
@@ -28,15 +29,19 @@ const main = async () => {
   const forwarder = await Forwarder.attach(FORWARDER_ON_POLYGON)
 
   console.info('StakingManager ...')
-  const stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address], {
-    initializer: 'initialize',
-    kind: 'uups'
-  })
+  const stakingManager = await upgrades.deployProxy(
+    StakingManager,
+    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
+    {
+      initializer: 'initialize',
+      kind: 'uups'
+    }
+  )
 
   console.info('StakingManager BM ...')
   const stakingManagerBM = await upgrades.deployProxy(
     StakingManagerPermissioned,
-    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address],
+    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -46,7 +51,7 @@ const main = async () => {
   console.info('StakingManager RM ...')
   const stakingManagerRM = await upgrades.deployProxy(
     StakingManagerPermissioned,
-    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address],
+    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
     {
       initializer: 'initialize',
       kind: 'uups'

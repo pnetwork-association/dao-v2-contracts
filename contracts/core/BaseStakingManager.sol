@@ -12,6 +12,7 @@ import {IPToken} from "../interfaces/external/IPToken.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
+import {Roles} from "../libraries/Roles.sol";
 
 abstract contract BaseStakingManager is IBaseStakingManager, Initializable, ForwarderRecipientUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -19,14 +20,30 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     mapping(address => Stake) private _stakes;
     address public token;
     address public tokenManager;
+    uint256 public maxTotalSupply;
 
-    function __BaseStakingManager_init(address _token, address _tokenManager) internal onlyInitializing {
-        __BaseStakingManager_init_unchained(_token, _tokenManager);
+    function __BaseStakingManager_init(
+        address _token,
+        address _tokenManager,
+        uint256 _maxTotalSupply
+    ) internal onlyInitializing {
+        __BaseStakingManager_init_unchained(_token, _tokenManager, _maxTotalSupply);
     }
 
-    function __BaseStakingManager_init_unchained(address _token, address _tokenManager) internal onlyInitializing {
+    function __BaseStakingManager_init_unchained(
+        address _token,
+        address _tokenManager,
+        uint256 _maxTotalSupply
+    ) internal onlyInitializing {
         token = _token;
         tokenManager = _tokenManager;
+        maxTotalSupply = _maxTotalSupply;
+    }
+
+    /// @inheritdoc IBaseStakingManager
+    function changeMaxTotalSupply(uint256 _maxTotalSupply) external onlyRole(Roles.CHANGE_MAX_TOTAL_SUPPLY_ROLE) {
+        maxTotalSupply = _maxTotalSupply;
+        emit MaxTotalSupplyChanged(_maxTotalSupply);
     }
 
     /// @inheritdoc IBaseStakingManager
@@ -87,6 +104,11 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         st.startDate = blockTimestamp;
 
         ITokenManager(tokenManager).mint(receiver, amount);
+
+        address minime = ITokenManager(tokenManager).token();
+        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
+            revert Errors.MaxTotalSupplyExceeded();
+        }
 
         emit Staked(receiver, amount, duration);
     }
