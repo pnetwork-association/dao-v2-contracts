@@ -1,11 +1,4 @@
-const {
-  getCompatibilityFallbackHandlerDeployment,
-  getMultiSendDeployment,
-  getProxyFactoryDeployment,
-  getSafeSingletonDeployment,
-  getSafeL2SingletonDeployment,
-  getMultiSendCallOnlyDeployment
-} = require('@gnosis.pm/safe-deployments')
+const { getSafeSingletonDeployment } = require('@gnosis.pm/safe-deployments')
 const { calculateSafeTransactionHash, executeTx, safeSignMessage, buildSafeTransaction } = require('@gnosis.pm/safe-contracts')
 
 const contractInstance = async (_hre, deployment, _address) => {
@@ -16,16 +9,6 @@ const contractInstance = async (_hre, deployment, _address) => {
 }
 
 module.exports.safeSingleton = async (_hre, _address) => contractInstance(_hre, getSafeSingletonDeployment({ released: undefined }), _address)
-
-module.exports.safeL2Singleton = async (_hre, _address) => contractInstance(_hre, getSafeL2SingletonDeployment({ released: undefined }), _address)
-
-module.exports.proxyFactory = async (_hre, _address) => contractInstance(_hre, getProxyFactoryDeployment(), _address)
-
-module.exports.multiSendLib = async (_hre, _address) => contractInstance(_hre, getMultiSendDeployment(), _address)
-
-module.exports.multiSendCallOnlyLib = async (_hre, _address) => contractInstance(_hre, getMultiSendCallOnlyDeployment(), _address)
-
-module.exports.compatHandler = async (_hre, _address) => contractInstance(_hre, getCompatibilityFallbackHandlerDeployment(), _address)
 
 module.exports.calcSafeTxHash = async (_safe, _tx, _chainId, _onChainOnly) => {
   const onChainHash = await _safe.getTransactionHash(
