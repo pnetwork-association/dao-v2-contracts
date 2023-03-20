@@ -22,9 +22,9 @@ error InvalidCaller(address caller);
 contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
     using SafeERC20 for IERC20;
 
-    address public sender;
-    address public token;
-    address public vault;
+    address public immutable sender;
+    address public immutable token;
+    address public immutable vault;
     mapping(address => bool) private _whitelistedOriginAddresses;
 
     constructor(address _token, address _sender, address _vault) {
