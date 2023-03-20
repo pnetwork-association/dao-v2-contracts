@@ -19,7 +19,7 @@ interface IForwarderRecipientUpgradeable {
     /*
      * @notice Set the forwarder address.
      *
-     *param forwarder_ forwarder address.
+     * @param forwarder_ forwarder address.
      */
     function setForwarder(address forwarder_) external;
 }
