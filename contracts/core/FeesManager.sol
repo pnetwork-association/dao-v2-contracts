@@ -82,8 +82,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             }
 
             uint256 borrowedAmount = IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(sentinel, epoch);
-            fee = ((((borrowedAmount * Constants.DECIMALS_PRECISION) / totalBorrowedAmount) *
-                sentinelsBorrowingAssetFee) / Constants.DECIMALS_PRECISION);
+            fee = (borrowedAmount * sentinelsBorrowingAssetFee) / totalBorrowedAmount;
         }
 
         return fee;
