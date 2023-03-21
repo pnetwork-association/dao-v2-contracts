@@ -343,11 +343,12 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
             _lendersEpochsWeight[lender] = new uint32[](36);
         }
 
+        uint24 truncatedAmount = Helpers.truncate(amount, 0);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            uint24 weight = Helpers.truncate(amount, 0) * ((endEpoch - epoch) + 1);
+            uint24 weight = truncatedAmount * ((endEpoch - epoch) + 1);
             _epochTotalWeight[epoch] += weight;
             _lendersEpochsWeight[lender][epoch] += weight;
-            _epochsTotalLendedAmount[epoch] += Helpers.truncate(amount, 0);
+            _epochsTotalLendedAmount[epoch] += truncatedAmount;
 
             unchecked {
                 ++epoch;
