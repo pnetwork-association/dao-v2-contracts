@@ -127,7 +127,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             _sentinelsEpochsStakedAmount[sentinel] = new uint24[](36);
         }
 
-        uint24 truncatedAmount = Helpers.truncate(amount, 0);
+        uint24 truncatedAmount = Helpers.truncate(amount);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             _sentinelsEpochsStakedAmount[sentinel][epoch] += truncatedAmount;
             _sentinelsEpochsTotalStakedAmount[epoch] += truncatedAmount;
@@ -240,7 +240,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 numberOfEpochs = uint16((stake.endDate - blockTimestamp) / epochDuration) -
             (stake.startDate == blockTimestamp ? 1 : 0);
         uint16 endEpoch = uint16(startEpoch + numberOfEpochs - 1);
-        uint24 truncatedAmount = Helpers.truncate(stake.amount, 0);
+        uint24 truncatedAmount = Helpers.truncate(stake.amount);
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             if (_sentinelsEpochsStakedAmount[sentinel][epoch] == 0) {

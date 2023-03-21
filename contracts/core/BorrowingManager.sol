@@ -59,7 +59,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
     /// @inheritdoc IBorrowingManager
     function borrow(uint256 amount, uint16 epoch, address borrower) external onlyRole(Roles.BORROW_ROLE) {
         if (amount == 0) revert Errors.InvalidAmount();
-        uint24 truncatedAmount = Helpers.truncate(amount, 0);
+        uint24 truncatedAmount = Helpers.truncate(amount);
 
         // TODO: is it possible to borrow in the current epoch?
 
@@ -227,7 +227,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
 
     /// @inheritdoc IBorrowingManager
     function release(address borrower, uint16 epoch, uint256 amount) external onlyRole(Roles.RELEASE_ROLE) {
-        uint24 truncatedAmount = uint24(Helpers.truncate(amount, 0));
+        uint24 truncatedAmount = uint24(Helpers.truncate(amount));
         _epochsTotalBorrowedAmount[epoch] -= truncatedAmount;
         _borrowersEpochsBorrowedAmount[borrower][epoch] -= truncatedAmount;
         emit Released(borrower, epoch, amount);
@@ -299,7 +299,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         uint16 numberOfEpochs = uint16((stake.endDate - blockTimestamp) / epochDuration) -
             (stake.startDate == blockTimestamp ? 1 : 0);
         uint16 endEpoch = uint16(startEpoch + numberOfEpochs - 1);
-        uint24 truncatedAmount = Helpers.truncate(stake.amount, 0);
+        uint24 truncatedAmount = Helpers.truncate(stake.amount);
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             uint24 weight = truncatedAmount * ((endEpoch - epoch) + 1);
@@ -339,7 +339,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
             _lendersEpochsWeight[lender] = new uint32[](36);
         }
 
-        uint24 truncatedAmount = Helpers.truncate(amount, 0);
+        uint24 truncatedAmount = Helpers.truncate(amount);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             uint24 weight = truncatedAmount * ((endEpoch - epoch) + 1);
             _epochTotalWeight[epoch] += weight;
