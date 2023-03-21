@@ -98,7 +98,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory) {
-        uint256[] memory result = new uint256[]((endEpoch - startEpoch + 1) * assets.length);
+        uint256[] memory result = new uint256[]((endEpoch - (startEpoch + 1)) * assets.length);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             for (uint8 i = 0; i < assets.length; i++) {
                 result[((epoch - startEpoch) * assets.length) + i] = claimableFeeByEpochOf(sentinel, assets[i], epoch);
@@ -214,7 +214,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
     /// @inheritdoc IFeesManager
     function kByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint256[] memory) {
-        uint256[] memory result = new uint256[](endEpoch - startEpoch + 1);
+        uint256[] memory result = new uint256[](endEpoch - (startEpoch + 1));
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = kByEpoch(epoch);
         }

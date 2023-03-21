@@ -214,7 +214,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory) {
-        uint256[] memory result = new uint256[](endEpoch - startEpoch + 1);
+        uint256[] memory result = new uint256[](endEpoch - (startEpoch + 1));
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = _sentinelsEpochsTotalStakedAmount[epoch];
         }
