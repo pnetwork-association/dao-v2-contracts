@@ -71,9 +71,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
                 return 0;
             }
 
-            fee =
-                (((stakedAmount * Constants.DECIMALS_PRECISION) / totalStakedAmount) * sentinelStakingAssetFee) /
-                Constants.DECIMALS_PRECISION;
+            fee = (stakedAmount * sentinelStakingAssetFee) / totalStakedAmount;
         }
         if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             uint256 sentinelsBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
