@@ -59,11 +59,6 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
         uint256 fee = 0;
         if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
-            uint256 sentinelStakingAssetFee = _epochsSentinelsStakingAssetsFee[epoch][asset];
-            uint256 stakedAmount = IRegistrationManager(registrationManager).sentinelStakedAmountByEpochOf(
-                sentinel,
-                epoch
-            );
             uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
                 epoch
             );
@@ -71,16 +66,21 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
                 return 0;
             }
 
+            uint256 sentinelStakingAssetFee = _epochsSentinelsStakingAssetsFee[epoch][asset];
+            uint256 stakedAmount = IRegistrationManager(registrationManager).sentinelStakedAmountByEpochOf(
+                sentinel,
+                epoch
+            );
+
             fee = (stakedAmount * sentinelStakingAssetFee) / totalStakedAmount;
         }
         if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
-            uint256 sentinelsBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
-
             uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(epoch);
             if (totalBorrowedAmount == 0) {
                 return 0;
             }
 
+            uint256 sentinelsBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
             uint256 borrowedAmount = IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(sentinel, epoch);
             fee = (borrowedAmount * sentinelsBorrowingAssetFee) / totalBorrowedAmount;
         }
