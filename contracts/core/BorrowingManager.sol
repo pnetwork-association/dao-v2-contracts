@@ -93,10 +93,10 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
 
         uint256 totalWeight = _epochTotalWeight[epoch];
         if (_lendersEpochsWeight[lender].length == 0 || totalWeight == 0) return 0;
-        uint256 percentage = (uint256(_lendersEpochsWeight[lender][epoch]) * Constants.DECIMALS_PRECISION) /
-            totalWeight;
 
-        return ((_totalEpochsAssetsInterestAmount[asset][epoch] * percentage) / Constants.DECIMALS_PRECISION);
+        return
+            (_totalEpochsAssetsInterestAmount[asset][epoch] * uint256(_lendersEpochsWeight[lender][epoch])) /
+            totalWeight;
     }
 
     /// @inheritdoc IBorrowingManager

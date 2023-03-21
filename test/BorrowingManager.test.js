@@ -1024,10 +1024,10 @@ describe('BorrowingManager', () => {
     await time.increase(EPOCH_DURATION)
     await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 2))
       .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 2, ethers.utils.parseEther('8823.52'))
+      .withArgs(pntHolder1.address, pnt.address, 2, ethers.utils.parseEther('8823.529411764705882352'))
     await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 2))
       .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder2.address, pnt.address, 2, ethers.utils.parseEther('1176.47'))
+      .withArgs(pntHolder2.address, pnt.address, 2, ethers.utils.parseEther('1176.470588235294117647'))
 
     await time.increase(EPOCH_DURATION)
     await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(
@@ -1175,14 +1175,14 @@ describe('BorrowingManager', () => {
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
 
     await borrowingManager.depositInterest(pnt.address, 2, depositInterestAmount)
-    // (50k * 3) / (50k*3 + 5k*4) = 0.882352  ---> 1000 * 0.882352 = 8823.52
+    // (50k * 3) / (50k*3 + 5k*4) = 0.8823529411764705882352  ---> 1000 * 0.8823529411764705882352 = 8823.529411764705882352
     await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 2))
       .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 2, ethers.utils.parseEther('8823.52'))
-    // (5k * 4) / (50k*3 + 5k*4) = 0.117647 ---> 1000 * 0.117647 = 11176.47
+      .withArgs(pntHolder1.address, pnt.address, 2, ethers.utils.parseEther('8823.529411764705882352'))
+    // (5k * 4) / (50k*3 + 5k*4) = 0.1176470588235294117647 ---> 1000 * 0.1176470588235294117647 = 11176.470588235294117647
     await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 2))
       .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder2.address, pnt.address, 2, ethers.utils.parseEther('1176.47'))
+      .withArgs(pntHolder2.address, pnt.address, 2, ethers.utils.parseEther('1176.470588235294117647'))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
