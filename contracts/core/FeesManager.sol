@@ -144,8 +144,9 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         }
 
         uint256 cumulativeFee = 0;
+        uint256 fee = 0;
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
+            fee = claimableFeeByEpochOf(sentinel, asset, epoch);
             if (fee > 0) {
                 _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
                 cumulativeFee += fee;
