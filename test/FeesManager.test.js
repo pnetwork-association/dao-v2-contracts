@@ -379,19 +379,19 @@ describe('FeesManager', () => {
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
-      .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, ethers.utils.parseEther('33.3333'))
+      .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, ethers.utils.parseEther('33.333333333333333333'))
 
     await expect(feesManager.connect(sentinelBorrowerRegistrator1).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
-      .withArgs(sentinelBorrowerRegistrator1.address, sentinel2.address, 1, pnt.address, ethers.utils.parseEther('8.51857092595')) // more or less (100 * 0.6666 * 0.2555555) / 2
+      .withArgs(sentinelBorrowerRegistrator1.address, sentinel2.address, 1, pnt.address, ethers.utils.parseEther('8.518566666666666667')) // more or less (100 * 0.6666 * 0.2555555) / 2
 
     await expect(feesManager.connect(sentinelBorrowerRegistrator2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
-      .withArgs(sentinelBorrowerRegistrator2.address, sentinel3.address, 1, pnt.address, ethers.utils.parseEther('8.51857092595')) // more or less (100 * 0.6666 * 0.2555555) / 2
+      .withArgs(sentinelBorrowerRegistrator2.address, sentinel3.address, 1, pnt.address, ethers.utils.parseEther('8.518566666666666667')) // more or less (100 * 0.6666 * 0.2555555) / 2
 
     await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1))
       .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 1, ethers.utils.parseEther('49.6295581481')) // more or less (100 * 0.6666 * 0.74444444)
+      .withArgs(pntHolder1.address, pnt.address, 1, ethers.utils.parseEther('49.629533333333333333')) // more or less (100 * 0.6666 * 0.74444444)
   })
 
   it('should not be able to claim the fee twice in the same epoch', async () => {

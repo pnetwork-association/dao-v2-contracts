@@ -172,15 +172,11 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             currentEpoch
         );
         uint256 totalAmount = totalStakedAmount + totalBorrowedAmount;
-        uint256 sentinelsStakingFeesPercentage = totalAmount > 0
-            ? (totalStakedAmount * Constants.DECIMALS_PRECISION) / totalAmount
-            : 0;
-        uint256 sentinelsStakingFeesAmount = (amount * sentinelsStakingFeesPercentage) / Constants.DECIMALS_PRECISION;
-        uint256 sentinelsBorrowingFeesAndLendersInterestsAmount = amount - sentinelsStakingFeesAmount;
 
+        uint256 sentinelsStakingFeesAmount = totalAmount > 0 ? (amount * totalStakedAmount) / totalAmount : 0;
+        uint256 sentinelsBorrowingFeesAndLendersInterestsAmount = amount - sentinelsStakingFeesAmount;
         uint256 lendersInterestsAmount = (sentinelsBorrowingFeesAndLendersInterestsAmount * kByEpoch(currentEpoch)) /
             Constants.DECIMALS_PRECISION;
-
         uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersInterestsAmount - lendersInterestsAmount;
 
         if (lendersInterestsAmount > 0) {
