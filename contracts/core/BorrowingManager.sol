@@ -167,11 +167,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
     }
 
     /// @inheritdoc IBorrowingManager
-    function depositInterest(
-        address asset,
-        uint16 epoch,
-        uint256 amount
-    ) external onlyRole(Roles.DEPOSIT_INTEREST_ROLE) {
+    function depositInterest(address asset, uint16 epoch, uint256 amount) external {
         IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
         _totalEpochsAssetsInterestAmount[asset][epoch] += amount;
         emit InterestDeposited(asset, epoch, amount);
