@@ -22,7 +22,7 @@ const {
 } = require('./constants')
 
 let stakingManagerRM,
-  stakingManagerBM,
+  stakingManagerLM,
   epochsManager,
   registrationManager,
   pnt,
@@ -69,7 +69,7 @@ describe('RegistrationManager', () => {
     pnt = await ERC20.attach(PNT_ADDRESS)
     acl = await ACL.attach(ACL_ADDRESS)
 
-    stakingManagerBM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
+    stakingManagerLM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -86,7 +86,7 @@ describe('RegistrationManager', () => {
 
     lendingManager = await upgrades.deployProxy(
       LendingManager,
-      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
+      [pnt.address, stakingManagerLM.address, epochsManager.address, fakeForwarder.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -113,16 +113,16 @@ describe('RegistrationManager', () => {
     // grant roles
     await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
     await lendingManager.grantRole(RELEASE_ROLE, registrationManager.address)
-    await stakingManagerBM.grantRole(STAKE_ROLE, lendingManager.address)
-    await stakingManagerBM.grantRole(INCREASE_DURATION_ROLE, lendingManager.address)
+    await stakingManagerLM.grantRole(STAKE_ROLE, lendingManager.address)
+    await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, lendingManager.address)
     await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.address)
     await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
     await registrationManager.grantRole(UPGRADE_ROLE, owner.address)
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
   })
 
   it('should be able to updateSentinelRegistrationByStaking for 4 epochs starting from epoch 1', async () => {

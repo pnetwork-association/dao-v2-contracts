@@ -84,7 +84,7 @@ describe('Forwarders', () => {
       }
     )
 
-    stakingManagerBM = await upgrades.deployProxy(
+    stakingManagerLM = await upgrades.deployProxy(
       StakingManagerPermissioned,
       [pToken.address, TOKEN_MANAGER_ADDRESS, forwarderHost.address, PNT_MAX_TOTAL_SUPPLY],
       {
@@ -109,7 +109,7 @@ describe('Forwarders', () => {
 
     lendingManager = await upgrades.deployProxy(
       LendingManager,
-      [pToken.address, stakingManagerBM.address, epochsManager.address, forwarderHost.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
+      [pToken.address, stakingManagerLM.address, epochsManager.address, forwarderHost.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -132,11 +132,11 @@ describe('Forwarders', () => {
     await acl.connect(root).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
     await acl.connect(root).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(root).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl.connect(root).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl.connect(root).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(root).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(root).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
     await lendingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
-    await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), lendingManager.address)
-    await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), lendingManager.address)
+    await stakingManagerLM.grantRole(getRole('STAKE_ROLE'), lendingManager.address)
+    await stakingManagerLM.grantRole(getRole('INCREASE_DURATION_ROLE'), lendingManager.address)
     await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
     await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
     await registrationManager.grantRole(getRole('RELEASE_SENTINEL_ROLE'), owner.address)

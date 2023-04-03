@@ -57,7 +57,7 @@ const main = async () => {
     kind: 'uups'
   })
 
-  const stakingManagerBM = await upgrades.deployProxy(
+  const stakingManagerLM = await upgrades.deployProxy(
     StakingManagerPermissioned,
     [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
     {
@@ -82,7 +82,7 @@ const main = async () => {
 
   const lendingManager = await upgrades.deployProxy(
     LendingManager,
-    [PNT_ADDRESS, stakingManagerBM.address, epochsManager.address, forwarder.address, LEND_MAX_EPOCHS],
+    [PNT_ADDRESS, stakingManagerLM.address, epochsManager.address, forwarder.address, LEND_MAX_EPOCHS],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -112,13 +112,13 @@ const main = async () => {
   await acl.connect(daoRoot).grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
   await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
   await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-  await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-  await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+  await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+  await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
   console.log('Assigning roles ...')
   await lendingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
-  await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), lendingManager.address)
-  await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), lendingManager.address)
+  await stakingManagerLM.grantRole(getRole('STAKE_ROLE'), lendingManager.address)
+  await stakingManagerLM.grantRole(getRole('INCREASE_DURATION_ROLE'), lendingManager.address)
   await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
   await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
 
@@ -169,7 +169,7 @@ const main = async () => {
     JSON.stringify({
       acl: ACL_ADDRESS,
       stakingManager: stakingManager.address,
-      stakingManagerBM: stakingManagerBM.address,
+      stakingManagerLM: stakingManagerLM.address,
       stakingManagerRM: stakingManagerRM.address,
       lendingManager: lendingManager.address,
       epochsManager: epochsManager.address,

@@ -17,7 +17,7 @@ const {
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
 
-let stakingManagerBM,
+let stakingManagerLM,
   stakingManagerRM,
   epochsManager,
   registrationManager,
@@ -76,7 +76,7 @@ describe('FeesManager', () => {
     dandelionVoting = await MockDandelionVotingContract.deploy()
     await dandelionVoting.setTestStartDate(EPOCH_DURATION * 1000) // this is needed to don't break normal tests
 
-    stakingManagerBM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
+    stakingManagerLM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -93,7 +93,7 @@ describe('FeesManager', () => {
 
     lendingManager = await upgrades.deployProxy(
       LendingManager,
-      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, dandelionVoting.address, LEND_MAX_EPOCHS],
+      [pnt.address, stakingManagerLM.address, epochsManager.address, fakeForwarder.address, dandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -129,15 +129,15 @@ describe('FeesManager', () => {
     await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
     await lendingManager.grantRole(RELEASE_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
-    await stakingManagerBM.grantRole(STAKE_ROLE, lendingManager.address)
-    await stakingManagerBM.grantRole(INCREASE_DURATION_ROLE, lendingManager.address)
+    await stakingManagerLM.grantRole(STAKE_ROLE, lendingManager.address)
+    await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, lendingManager.address)
     await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.address)
     await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
     await owner.sendTransaction({
       to: pntHolder1.address,
