@@ -9,14 +9,14 @@ import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
 import {IStakingManagerPermissioned} from "../interfaces/IStakingManagerPermissioned.sol";
-import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
+import {ILendingManager} from "../interfaces/ILendingManager.sol";
 import {IDandelionVoting} from "../interfaces/external/IDandelionVoting.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 
-contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, ForwarderRecipientUpgradeable {
+contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, ForwarderRecipientUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     mapping(address => uint24[]) private _borrowersEpochsBorrowedAmount;
@@ -60,7 +60,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         _epochTotalWeight = new uint32[](Constants.AVAILABLE_EPOCHS);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function borrow(uint256 amount, uint16 epoch, address borrower) external onlyRole(Roles.BORROW_ROLE) {
         if (amount == 0) revert Errors.InvalidAmount();
         uint24 truncatedAmount = Helpers.truncate(amount);
@@ -81,17 +81,17 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         emit Borrowed(borrower, epoch, amount);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24) {
         return _epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24) {
         return _borrowersEpochsBorrowedAmount[borrower][epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function claimableRewardsByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
         if (_lendersEpochsAssetsRewardsClaim[lender][epoch][asset]) return 0;
 
@@ -102,7 +102,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
             (_totalEpochsAssetsRewardAmount[asset][epoch] * uint256(_lendersEpochsWeight[lender][epoch])) / totalWeight;
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function claimableAssetsAmountByEpochsRangeOf(
         address lender,
         address[] calldata assets,
@@ -122,7 +122,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         return result;
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function claimRewardByEpoch(address asset, uint16 epoch) external {
         address lender = _msgSender();
 
@@ -144,7 +144,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         emit RewardClaimed(lender, asset, epoch, reward);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function claimRewardByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
         address lender = _msgSender();
 
@@ -175,14 +175,14 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         IERC20Upgradeable(asset).safeTransfer(lender, cumulativeReward);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function depositReward(address asset, uint16 epoch, uint256 amount) external {
         IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
         _totalEpochsAssetsRewardAmount[asset][epoch] += amount;
         emit RewardDeposited(asset, epoch, amount);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function getLenderVotingStateByEpoch(address lender, uint16 epoch) public returns (uint256, uint256) {
         address dandelionVotingAddress = dandelionVoting;
         uint256 numberOfVotes = IDandelionVoting(dandelionVotingAddress).votesLength();
@@ -224,17 +224,17 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         return (epochNumberOfVotes, epochVotedVotes);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function increaseDuration(uint64 duration) external {
         _increaseDuration(_msgSender(), duration);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function increaseDuration(address lender, uint64 duration) external onlyForwarder {
         _increaseDuration(lender, duration);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function lend(address lender, uint256 amount, uint64 duration) external {
         IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         IERC20Upgradeable(token).approve(stakingManager, amount);
@@ -242,12 +242,12 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         _updateWeights(lender, amount, duration);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function totalBorrowedAmountByEpoch(uint16 epoch) external view returns (uint24) {
         return _epochsTotalBorrowedAmount[epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function totalBorrowedAmountByEpochsRange(
         uint16 startEpoch,
         uint16 endEpoch
@@ -259,12 +259,12 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         return result;
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint24) {
         return _epochsTotalLendedAmount[epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function totalLendedAmountByEpochsRange(
         uint16 startEpoch,
         uint16 endEpoch
@@ -276,7 +276,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         return result;
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function release(address borrower, uint16 epoch, uint256 amount) external onlyRole(Roles.RELEASE_ROLE) {
         uint24 truncatedAmount = uint24(Helpers.truncate(amount));
         _epochsTotalBorrowedAmount[epoch] -= truncatedAmount;
@@ -284,17 +284,17 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         emit Released(borrower, epoch, amount);
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function totalAssetRewardAmountByEpoch(address asset, uint16 epoch) external view returns (uint256) {
         return _totalEpochsAssetsRewardAmount[asset][epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function totalWeightByEpoch(uint16 epoch) external view returns (uint32) {
         return _epochTotalWeight[epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function totalWeightByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory) {
         uint32[] memory result = new uint32[](endEpoch - (startEpoch + 1));
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
@@ -303,14 +303,14 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         return result;
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function utilizationRatioByEpoch(uint16 epoch) public view returns (uint24) {
         uint24 size = _epochsTotalLendedAmount[epoch];
         return
             size > 0 ? uint24((uint256(_epochsTotalBorrowedAmount[epoch]) * Constants.DECIMALS_PRECISION) / size) : 0;
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory) {
         uint24[] memory result = new uint24[](endEpoch - (startEpoch + 1));
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
@@ -319,12 +319,12 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         return result;
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function weightByEpochOf(address lender, uint16 epoch) external view returns (uint32) {
         return _lendersEpochsWeight[lender][epoch];
     }
 
-    /// @inheritdoc IBorrowingManager
+    /// @inheritdoc ILendingManager
     function weightByEpochsRangeOf(
         address lender,
         uint16 startEpoch,

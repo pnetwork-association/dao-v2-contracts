@@ -26,7 +26,7 @@ const {
 let forwarderNative,
   forwarderHost,
   stakingManager,
-  borrowingManager,
+  lendingManager,
   registrationManager,
   owner,
   pToken,
@@ -45,7 +45,7 @@ describe('Forwarders', () => {
     const Forwarder = await ethers.getContractFactory('Forwarder')
     const StakingManager = await ethers.getContractFactory('StakingManager')
     const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
-    const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
+    const LendingManager = await ethers.getContractFactory('LendingManager')
     const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
     const MockPToken = await ethers.getContractFactory('MockPToken')
@@ -107,8 +107,8 @@ describe('Forwarders', () => {
       kind: 'uups'
     })
 
-    borrowingManager = await upgrades.deployProxy(
-      BorrowingManager,
+    lendingManager = await upgrades.deployProxy(
+      LendingManager,
       [pToken.address, stakingManagerBM.address, epochsManager.address, forwarderHost.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
@@ -118,7 +118,7 @@ describe('Forwarders', () => {
 
     registrationManager = await upgrades.deployProxy(
       RegistrationManager,
-      [pToken.address, stakingManagerRM.address, epochsManager.address, borrowingManager.address, forwarderHost.address],
+      [pToken.address, stakingManagerRM.address, epochsManager.address, lendingManager.address, forwarderHost.address],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -134,18 +134,18 @@ describe('Forwarders', () => {
     await acl.connect(root).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
     await acl.connect(root).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(root).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
-    await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), borrowingManager.address)
-    await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), borrowingManager.address)
+    await lendingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
+    await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), lendingManager.address)
+    await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), lendingManager.address)
     await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
     await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
     await registrationManager.grantRole(getRole('RELEASE_SENTINEL_ROLE'), owner.address)
     await stakingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
-    await borrowingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
+    await lendingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
     await registrationManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
 
     await stakingManager.setForwarder(forwarderHost.address)
-    await borrowingManager.setForwarder(forwarderHost.address)
+    await lendingManager.setForwarder(forwarderHost.address)
     await registrationManager.setForwarder(forwarderHost.address)
 
     await owner.sendTransaction({
@@ -168,8 +168,8 @@ describe('Forwarders', () => {
         contract: stakingManager
       },
       {
-        artifact: BorrowingManager,
-        contract: borrowingManager
+        artifact: LendingManager,
+        contract: lendingManager
       },
       {
         artifact: RegistrationManager,
@@ -289,9 +289,9 @@ describe('Forwarders', () => {
     const userData = encode(
       ['address[]', 'bytes[]'],
       [
-        [pToken.address, borrowingManager.address],
+        [pToken.address, lendingManager.address],
         [
-          erc20Interface.encodeFunctionData('approve', [borrowingManager.address, lendAmount]),
+          erc20Interface.encodeFunctionData('approve', [lendingManager.address, lendAmount]),
           stakingManagerInterface.encodeFunctionData('lend', [pntHolder1.address, lendAmount, duration])
         ]
       ]
@@ -317,7 +317,7 @@ describe('Forwarders', () => {
     )
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, metadata, '0x'))
-      .to.emit(borrowingManager, 'Lended')
+      .to.emit(lendingManager, 'Lended')
       .withArgs(pntHolder1.address, 1, 12, lendAmount)
   })
 
@@ -380,9 +380,9 @@ describe('Forwarders', () => {
     let userData = encode(
       ['address[]', 'bytes[]'],
       [
-        [pToken.address, borrowingManager.address],
+        [pToken.address, lendingManager.address],
         [
-          erc20Interface.encodeFunctionData('approve', [borrowingManager.address, lendAmount]),
+          erc20Interface.encodeFunctionData('approve', [lendingManager.address, lendAmount]),
           stakingManagerInterface.encodeFunctionData('lend', [pntHolder2.address, lendAmount, duration])
         ]
       ]
@@ -405,7 +405,7 @@ describe('Forwarders', () => {
       ]
     )
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, lendAmount, metadata, '0x'))
-      .to.emit(borrowingManager, 'Lended')
+      .to.emit(lendingManager, 'Lended')
       .withArgs(pntHolder2.address, 1, 14, lendAmount)
 
     // B O R R O W

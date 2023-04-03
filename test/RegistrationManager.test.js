@@ -50,7 +50,7 @@ describe('RegistrationManager', () => {
     })
 
     RegistrationManager = await ethers.getContractFactory('RegistrationManager')
-    const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
+    const LendingManager = await ethers.getContractFactory('LendingManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
     const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const ERC20 = await ethers.getContractFactory('ERC20')
@@ -84,8 +84,8 @@ describe('RegistrationManager', () => {
       kind: 'uups'
     })
 
-    borrowingManager = await upgrades.deployProxy(
-      BorrowingManager,
+    lendingManager = await upgrades.deployProxy(
+      LendingManager,
       [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
@@ -95,7 +95,7 @@ describe('RegistrationManager', () => {
 
     registrationManager = await upgrades.deployProxy(
       RegistrationManager,
-      [pnt.address, stakingManagerRM.address, epochsManager.address, borrowingManager.address, fakeForwarder.address],
+      [pnt.address, stakingManagerRM.address, epochsManager.address, lendingManager.address, fakeForwarder.address],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -111,10 +111,10 @@ describe('RegistrationManager', () => {
     UPGRADE_ROLE = getRole('UPGRADE_ROLE')
 
     // grant roles
-    await borrowingManager.grantRole(BORROW_ROLE, registrationManager.address)
-    await borrowingManager.grantRole(RELEASE_ROLE, registrationManager.address)
-    await stakingManagerBM.grantRole(STAKE_ROLE, borrowingManager.address)
-    await stakingManagerBM.grantRole(INCREASE_DURATION_ROLE, borrowingManager.address)
+    await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
+    await lendingManager.grantRole(RELEASE_ROLE, registrationManager.address)
+    await stakingManagerBM.grantRole(STAKE_ROLE, lendingManager.address)
+    await stakingManagerBM.grantRole(INCREASE_DURATION_ROLE, lendingManager.address)
     await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.address)
     await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
@@ -367,8 +367,8 @@ describe('RegistrationManager', () => {
 
     const lendAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 6
-    await pnt.connect(pntHolder1).approve(borrowingManager.address, lendAmount)
-    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
+    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     const signature = await getSentinelIdentity(user1.address, { sentinel: sentinel1 })
     await expect(registrationManager.connect(user1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature))
@@ -414,8 +414,8 @@ describe('RegistrationManager', () => {
 
     const lendAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 7
-    await pnt.connect(pntHolder1).approve(borrowingManager.address, lendAmount)
-    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
+    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     const signature = await getSentinelIdentity(user1.address, { sentinel: sentinel1 })
     await expect(registrationManager.connect(user1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature))
@@ -656,8 +656,8 @@ describe('RegistrationManager', () => {
     const lendAmount = ethers.utils.parseEther('200000')
     const borrowAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 5
-    await pnt.connect(pntHolder1).approve(borrowingManager.address, lendAmount)
-    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
+    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
@@ -673,9 +673,9 @@ describe('RegistrationManager', () => {
     expect(registration.endEpoch).to.be.eq(4)
     expect(registration.kind).to.be.eq(REGISTRATION_SENTINEL_BORROWING)
     expect(await registrationManager.sentinelOf(user1.address)).to.be.eq(sentinel1.address)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(truncateWithPrecision(borrowAmount))
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(truncateWithPrecision(borrowAmount))
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(truncateWithPrecision(borrowAmount))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -690,9 +690,9 @@ describe('RegistrationManager', () => {
     expect(registration.endEpoch).to.be.eq(0)
     expect(registration.kind).to.be.eq(REGISTRATION_NULL)
     expect(await registrationManager.sentinelOf(user1.address)).to.be.eq(ZERO_ADDRESS)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(0)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(0)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(0)
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(0)
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(0)
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(0)
   })
 
   it('should be able to release after a updateSentinelRegistrationByBorrowing', async () => {
@@ -719,8 +719,8 @@ describe('RegistrationManager', () => {
     const lendAmount = ethers.utils.parseEther('200000')
     const borrowAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 6
-    await pnt.connect(pntHolder1).approve(borrowingManager.address, lendAmount)
-    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
+    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     const signature = await getSentinelIdentity(user1.address, { sentinel: sentinel1 })
     await expect(registrationManager.connect(user1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](4, signature))
@@ -732,10 +732,10 @@ describe('RegistrationManager', () => {
     expect(registration.startEpoch).to.be.eq(1)
     expect(registration.endEpoch).to.be.eq(4)
     expect(registration.kind).to.be.eq(REGISTRATION_SENTINEL_BORROWING)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 1)).to.be.eq(truncateWithPrecision(borrowAmount))
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(truncateWithPrecision(borrowAmount))
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(truncateWithPrecision(borrowAmount))
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 1)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(truncateWithPrecision(borrowAmount))
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -750,10 +750,10 @@ describe('RegistrationManager', () => {
     expect(registration.endEpoch).to.be.eq(1)
     expect(registration.kind).to.be.eq(REGISTRATION_SENTINEL_BORROWING)
     expect(await registrationManager.sentinelOf(user1.address)).to.be.eq(sentinel1.address)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 1)).to.be.eq(truncateWithPrecision(borrowAmount))
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(0)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(0)
-    expect(await borrowingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(0)
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 1)).to.be.eq(truncateWithPrecision(borrowAmount))
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(0)
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(0)
+    expect(await lendingManager.borrowedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(0)
   })
 
   it('should not be able to release after a updateSentinelRegistrationByBorrowing', async () => {
@@ -778,8 +778,8 @@ describe('RegistrationManager', () => {
 
     const lendAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 9
-    await pnt.connect(pntHolder1).approve(borrowingManager.address, lendAmount)
-    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
+    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)

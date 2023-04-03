@@ -7,7 +7,7 @@ import {IBaseStakingManager} from "./IBaseStakingManager.sol";
  * @title IStakingManagerPermissioned
  * @author pNetwork
  *
- * @notice This contract can ONLY be used togheter with BorrowingManager and RegistrationManager
+ * @notice This contract can ONLY be used togheter with LendingManager and RegistrationManager
  *         in order to keep separated the amount staked from the lending, from the sentinels registration
  *         and for voting.
  */

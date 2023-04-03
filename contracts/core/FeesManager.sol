@@ -8,7 +8,7 @@ import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgr
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
-import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
+import {ILendingManager} from "../interfaces/ILendingManager.sol";
 import {IRegistrationManager} from "../interfaces/IRegistrationManager.sol";
 import {IFeesManager} from "../interfaces/IFeesManager.sol";
 import {Errors} from "../libraries/Errors.sol";
@@ -25,12 +25,12 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     uint24 public minimumBorrowingFee;
 
     address public epochsManager;
-    address public borrowingManager;
+    address public lendingManager;
     address public registrationManager;
 
     function initialize(
         address _epochsManager,
-        address _borrowingManager,
+        address _lendingManager,
         address _registrationManager,
         address _forwarder,
         uint24 _minimumBorrowingFee
@@ -43,7 +43,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         _grantRole(SET_FORWARDER_ROLE, _msgSender());
 
         epochsManager = _epochsManager;
-        borrowingManager = _borrowingManager;
+        lendingManager = _lendingManager;
         registrationManager = _registrationManager;
         minimumBorrowingFee = _minimumBorrowingFee;
     }
@@ -75,13 +75,13 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             fee = (stakedAmount * sentinelStakingAssetFee) / totalStakedAmount;
         }
         if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
-            uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(epoch);
+            uint256 totalBorrowedAmount = ILendingManager(lendingManager).totalBorrowedAmountByEpoch(epoch);
             if (totalBorrowedAmount == 0) {
                 return 0;
             }
 
             uint256 sentinelsBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
-            uint256 borrowedAmount = IBorrowingManager(borrowingManager).borrowedAmountByEpochOf(sentinel, epoch);
+            uint256 borrowedAmount = ILendingManager(lendingManager).borrowedAmountByEpochOf(sentinel, epoch);
             fee = (borrowedAmount * sentinelsBorrowingAssetFee) / totalBorrowedAmount;
         }
 
@@ -167,7 +167,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
 
-        uint256 totalBorrowedAmount = IBorrowingManager(borrowingManager).totalBorrowedAmountByEpoch(currentEpoch);
+        uint256 totalBorrowedAmount = ILendingManager(lendingManager).totalBorrowedAmountByEpoch(currentEpoch);
         uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
             currentEpoch
         );
@@ -180,8 +180,8 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersRewardsAmount - lendersRewardsAmount;
 
         if (lendersRewardsAmount > 0) {
-            IERC20Upgradeable(asset).approve(borrowingManager, lendersRewardsAmount);
-            IBorrowingManager(borrowingManager).depositReward(asset, currentEpoch, lendersRewardsAmount);
+            IERC20Upgradeable(asset).approve(lendingManager, lendersRewardsAmount);
+            ILendingManager(lendingManager).depositReward(asset, currentEpoch, lendersRewardsAmount);
         }
 
         if (sentinelsStakingFeesAmount > 0) {
@@ -197,7 +197,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
     /// @inheritdoc IFeesManager
     function kByEpoch(uint16 epoch) public view returns (uint256) {
-        uint256 utilizationRatio = IBorrowingManager(borrowingManager).utilizationRatioByEpoch(epoch);
+        uint256 utilizationRatio = ILendingManager(lendingManager).utilizationRatioByEpoch(epoch);
         if (utilizationRatio == 0) {
             return 0;
         }

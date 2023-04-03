@@ -3,12 +3,12 @@
 pragma solidity 0.8.17;
 
 /**
- * @title IBorrowingManager
+ * @title ILendingManager
  * @author pNetwork
  *
  * @notice
  */
-interface IBorrowingManager {
+interface ILendingManager {
     /**
      * @dev Emitted when an user increases his lend position by increasing his lock time within the Staking Manager.
      *

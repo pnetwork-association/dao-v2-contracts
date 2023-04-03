@@ -10,7 +10,7 @@ import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ER
 import {ForwarderRecipientUpgradeable} from "../forwarder/ForwarderRecipientUpgradeable.sol";
 import {IStakingManagerPermissioned} from "../interfaces/IStakingManagerPermissioned.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
-import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
+import {ILendingManager} from "../interfaces/ILendingManager.sol";
 import {IRegistrationManager} from "../interfaces/IRegistrationManager.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
@@ -29,13 +29,13 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     address public stakingManager;
     address public token;
     address public epochsManager;
-    address public borrowingManager;
+    address public lendingManager;
 
     function initialize(
         address _token,
         address _stakingManager,
         address _epochsManager,
-        address _borrowingManager,
+        address _lendingManager,
         address _forwarder
     ) public initializer {
         __UUPSUpgradeable_init();
@@ -48,7 +48,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         stakingManager = _stakingManager;
         token = _token;
         epochsManager = _epochsManager;
-        borrowingManager = _borrowingManager;
+        lendingManager = _lendingManager;
 
         _sentinelsEpochsTotalStakedAmount = new uint24[](36);
     }
@@ -167,7 +167,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
 
         for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
             if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
-                IBorrowingManager(borrowingManager).release(
+                ILendingManager(lendingManager).release(
                     sentinel,
                     epoch,
                     Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION
@@ -283,11 +283,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 endEpoch = startEpoch + numberOfEpochs - 1;
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            IBorrowingManager(borrowingManager).borrow(
-                Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
-                epoch,
-                sentinel
-            );
+            ILendingManager(lendingManager).borrow(Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION, epoch, sentinel);
             unchecked {
                 ++epoch;
             }

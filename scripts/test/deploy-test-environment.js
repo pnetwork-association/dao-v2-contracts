@@ -35,7 +35,7 @@ const main = async () => {
   const StakingManager = await ethers.getContractFactory('StakingManager')
   const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
   const EpochsManager = await ethers.getContractFactory('EpochsManager')
-  const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
+  const LendingManager = await ethers.getContractFactory('LendingManager')
   const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
   const FeesManager = await ethers.getContractFactory('FeesManager')
   const Forwarder = await ethers.getContractFactory('Forwarder')
@@ -80,8 +80,8 @@ const main = async () => {
     kind: 'uups'
   })
 
-  const borrowingManager = await upgrades.deployProxy(
-    BorrowingManager,
+  const lendingManager = await upgrades.deployProxy(
+    LendingManager,
     [PNT_ADDRESS, stakingManagerBM.address, epochsManager.address, forwarder.address, LEND_MAX_EPOCHS],
     {
       initializer: 'initialize',
@@ -91,7 +91,7 @@ const main = async () => {
 
   const registrationManager = await upgrades.deployProxy(
     RegistrationManager,
-    [PNT_ADDRESS, stakingManagerRM.address, epochsManager.address, borrowingManager.address, forwarder.address],
+    [PNT_ADDRESS, stakingManagerRM.address, epochsManager.address, lendingManager.address, forwarder.address],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -100,7 +100,7 @@ const main = async () => {
 
   const feesManager = await upgrades.deployProxy(
     FeesManager,
-    [epochsManager.address, borrowingManager.address, registrationManager.address, forwarder.address, MINIMUM_BORROWING_FEE],
+    [epochsManager.address, lendingManager.address, registrationManager.address, forwarder.address, MINIMUM_BORROWING_FEE],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -116,15 +116,15 @@ const main = async () => {
   await acl.connect(daoRoot).grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
   console.log('Assigning roles ...')
-  await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
-  await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), borrowingManager.address)
-  await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), borrowingManager.address)
+  await lendingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
+  await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), lendingManager.address)
+  await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), lendingManager.address)
   await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
   await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.address)
 
   console.log('Lending ...')
-  await pnt.approve(borrowingManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
-  await borrowingManager.lend(signer.address, ethers.utils.parseEther('400000'), EPOCH_DURATION * 10)
+  await pnt.approve(lendingManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
+  await lendingManager.lend(signer.address, ethers.utils.parseEther('400000'), EPOCH_DURATION * 10)
 
   console.log('Creating sentinel ...')
   await pnt.approve(registrationManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
@@ -171,7 +171,7 @@ const main = async () => {
       stakingManager: stakingManager.address,
       stakingManagerBM: stakingManagerBM.address,
       stakingManagerRM: stakingManagerRM.address,
-      borrowingManager: borrowingManager.address,
+      lendingManager: lendingManager.address,
       epochsManager: epochsManager.address,
       registrationManager: registrationManager.address,
       feesManager: feesManager.address,
