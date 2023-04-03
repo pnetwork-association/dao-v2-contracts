@@ -174,14 +174,14 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         uint256 totalAmount = totalStakedAmount + totalBorrowedAmount;
 
         uint256 sentinelsStakingFeesAmount = totalAmount > 0 ? (amount * totalStakedAmount) / totalAmount : 0;
-        uint256 sentinelsBorrowingFeesAndLendersInterestsAmount = amount - sentinelsStakingFeesAmount;
-        uint256 lendersInterestsAmount = (sentinelsBorrowingFeesAndLendersInterestsAmount * kByEpoch(currentEpoch)) /
+        uint256 sentinelsBorrowingFeesAndLendersRewardsAmount = amount - sentinelsStakingFeesAmount;
+        uint256 lendersRewardsAmount = (sentinelsBorrowingFeesAndLendersRewardsAmount * kByEpoch(currentEpoch)) /
             Constants.DECIMALS_PRECISION;
-        uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersInterestsAmount - lendersInterestsAmount;
+        uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersRewardsAmount - lendersRewardsAmount;
 
-        if (lendersInterestsAmount > 0) {
-            IERC20Upgradeable(asset).approve(borrowingManager, lendersInterestsAmount);
-            IBorrowingManager(borrowingManager).depositInterest(asset, currentEpoch, lendersInterestsAmount);
+        if (lendersRewardsAmount > 0) {
+            IERC20Upgradeable(asset).approve(borrowingManager, lendersRewardsAmount);
+            IBorrowingManager(borrowingManager).depositReward(asset, currentEpoch, lendersRewardsAmount);
         }
 
         if (sentinelsStakingFeesAmount > 0) {

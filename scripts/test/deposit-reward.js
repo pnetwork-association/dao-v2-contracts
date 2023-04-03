@@ -6,7 +6,7 @@ const TOKEN = ''
 const main = async () => {
   const BorrowingManager = await ethers.getContractFactory('BorrowingManager')
   const borrowingManager = await BorrowingManager.attach(BORROWING_MANAGER_ADDRESS)
-  await borrowingManager.depositInterest(TOKEN, 2, '2000000000000000000000', {
+  await borrowingManager.depositReward(TOKEN, 2, '2000000000000000000000', {
     gasLimit: 300000
   })
 }

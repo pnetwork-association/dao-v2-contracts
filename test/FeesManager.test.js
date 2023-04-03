@@ -119,14 +119,12 @@ describe('FeesManager', () => {
     BORROW_ROLE = getRole('BORROW_ROLE')
     RELEASE_ROLE = getRole('RELEASE_ROLE')
     RELEASE_SENTINEL_ROLE = getRole('RELEASE_SENTINEL_ROLE')
-    DEPOSIT_INTEREST_ROLE = getRole('DEPOSIT_INTEREST_ROLE')
     STAKE_ROLE = getRole('STAKE_ROLE')
     INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
 
     // grant roles
     await borrowingManager.grantRole(BORROW_ROLE, registrationManager.address)
     await borrowingManager.grantRole(RELEASE_ROLE, registrationManager.address)
-    await borrowingManager.grantRole(DEPOSIT_INTEREST_ROLE, feesManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
     await stakingManagerBM.grantRole(STAKE_ROLE, borrowingManager.address)
     await stakingManagerBM.grantRole(INCREASE_DURATION_ROLE, borrowingManager.address)
@@ -206,8 +204,8 @@ describe('FeesManager', () => {
       'NothingToClaim'
     )
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, pnt.address, 1, fee.div(2))
   })
 
@@ -252,7 +250,7 @@ describe('FeesManager', () => {
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
@@ -314,8 +312,8 @@ describe('FeesManager', () => {
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(sentinelBorrowerRegistrator1.address, sentinel2.address, 1, pnt.address, ethers.utils.parseEther('22.5')) // (100 * 0.5) * 0.45
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, pnt.address, 1, ethers.utils.parseEther('27.5')) // (100 * 0.5) * 0.55
   })
 
@@ -389,8 +387,8 @@ describe('FeesManager', () => {
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(sentinelBorrowerRegistrator2.address, sentinel3.address, 1, pnt.address, ethers.utils.parseEther('8.518566666666666667')) // more or less (100 * 0.6666 * 0.2555555) / 2
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, pnt.address, 1, ethers.utils.parseEther('49.629533333333333333')) // more or less (100 * 0.6666 * 0.74444444)
   })
 

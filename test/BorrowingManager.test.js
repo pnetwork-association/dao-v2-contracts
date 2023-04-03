@@ -18,7 +18,7 @@ const {
 } = require('./constants')
 
 let daoRoot, acl, stakingManager, epochsManager, pnt, owner, pntHolder1, pntHolder2, user1, user2, BorrowingManager, fakeForwarder
-let BORROW_ROLE, DEPOSIT_INTEREST_ROLE, UPGRADE_ROLE
+let BORROW_ROLE, UPGRADE_ROLE
 
 describe('BorrowingManager', () => {
   beforeEach(async () => {
@@ -73,7 +73,6 @@ describe('BorrowingManager', () => {
     // roles
     BORROW_ROLE = getRole('BORROW_ROLE')
     RELEASE_ROLE = getRole('RELEASE_ROLE')
-    DEPOSIT_INTEREST_ROLE = getRole('DEPOSIT_INTEREST_ROLE')
     STAKE_ROLE = getRole('STAKE_ROLE')
     INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
     UPGRADE_ROLE = getRole('UPGRADE_ROLE')
@@ -83,7 +82,6 @@ describe('BorrowingManager', () => {
     await borrowingManager.grantRole(BORROW_ROLE, user1.address)
     await borrowingManager.grantRole(BORROW_ROLE, user2.address)
     await borrowingManager.grantRole(RELEASE_ROLE, owner.address)
-    await borrowingManager.grantRole(DEPOSIT_INTEREST_ROLE, owner.address)
     await borrowingManager.grantRole(UPGRADE_ROLE, owner.address)
     await stakingManager.grantRole(STAKE_ROLE, borrowingManager.address)
     await stakingManager.grantRole(INCREASE_DURATION_ROLE, borrowingManager.address)
@@ -959,7 +957,7 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.borrowableAmountByEpoch(10)).to.be.eq(0)
   })
 
-  it('should be able to claim correcly the interest earned (1)', async () => {
+  it('should be able to claim correcly the reward earned (1)', async () => {
     //
     //   pntHolder1 - 1 lend -> [1, 5]
     //                  w=200k    w=150k     w=100k      w=50k
@@ -980,12 +978,12 @@ describe('BorrowingManager', () => {
     //   |----------|vvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|
     //   0          1         2          3          4          5          6          7          8
     //
-    //    interests
+    //    rewards
     //                   10k        10k         0        0         10k
     //   |----------|vvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|
     //   0          1         2          3          4          5          6          7          8
 
-    const depositInterestAmount = ethers.utils.parseEther('10000')
+    const depositRewardAmount = ethers.utils.parseEther('10000')
     const depositAmountPntHolder1 = ethers.utils.parseEther('50000')
     const depositAmountPntHolder2 = ethers.utils.parseEther('5000')
     let duration = EPOCH_DURATION * 5
@@ -994,7 +992,7 @@ describe('BorrowingManager', () => {
     await pnt.connect(pntHolder2).approve(borrowingManager.address, INFINITE)
     await pnt.approve(borrowingManager.address, INFINITE)
     await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, depositAmountPntHolder1, duration)
-    await pnt.connect(pntHolder1).transfer(owner.address, depositInterestAmount.mul(5))
+    await pnt.connect(pntHolder1).transfer(owner.address, depositRewardAmount.mul(5))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
@@ -1014,55 +1012,55 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.totalWeightByEpoch(4)).to.be.eq(60000)
     expect(await borrowingManager.totalWeightByEpoch(5)).to.be.eq(5000)
 
-    await borrowingManager.depositInterest(pnt.address, 1, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 1, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1))
-      .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 1, depositInterestAmount)
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 1, depositRewardAmount)
 
-    await borrowingManager.depositInterest(pnt.address, 2, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 2, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 2))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, pnt.address, 2, ethers.utils.parseEther('8823.529411764705882352'))
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 2))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder2.address, pnt.address, 2, ethers.utils.parseEther('1176.470588235294117647'))
 
     await time.increase(EPOCH_DURATION)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
 
     await time.increase(EPOCH_DURATION)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
 
-    await borrowingManager.depositInterest(pnt.address, 5, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 5, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
     // ((5k / 5k) + (1/1)) / 2 = 1   --->   10000 * 1 = 10000
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 5))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 5))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder2.address, pnt.address, 5, ethers.utils.parseEther('10000'))
 
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 5)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 5)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
   })
 
-  it('should be able to claim correcly the interest earned (2)', async () => {
+  it('should be able to claim correcly the reward earned (2)', async () => {
     //
     //   pntHolder1 - 1 lend -> [1, 2]
     //                  w=50k
@@ -1083,12 +1081,12 @@ describe('BorrowingManager', () => {
     //   |----------|vvvvvvvvv|vvvvvvvvvv|----------|----------|----------|----------|----------|
     //   0          1         2          3          4          5          6          7          8
     //
-    //    interests
+    //    rewards
     //                   10k       10k
     //   |----------|vvvvvvvvv|vvvvvvvvvv|----------|----------|----------|----------|----------|
     //   0          1         2          3          4          5          6          7          8
 
-    const depositInterestAmount = ethers.utils.parseEther('10000')
+    const depositRewardAmount = ethers.utils.parseEther('10000')
     const depositAmountPntHolder1 = ethers.utils.parseEther('50000')
     const depositAmountPntHolder2 = ethers.utils.parseEther('5000')
     let duration = EPOCH_DURATION * 2
@@ -1097,7 +1095,7 @@ describe('BorrowingManager', () => {
     await pnt.connect(pntHolder2).approve(borrowingManager.address, INFINITE)
     await pnt.approve(borrowingManager.address, INFINITE)
     await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, depositAmountPntHolder1, duration)
-    await pnt.connect(pntHolder1).transfer(owner.address, depositInterestAmount.mul(5))
+    await pnt.connect(pntHolder1).transfer(owner.address, depositRewardAmount.mul(5))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
@@ -1108,21 +1106,21 @@ describe('BorrowingManager', () => {
     expect(await borrowingManager.totalWeightByEpoch(1)).to.be.eq(50000)
     expect(await borrowingManager.totalWeightByEpoch(2)).to.be.eq(5000)
 
-    await borrowingManager.depositInterest(pnt.address, 1, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 1, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1))
-      .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 1, depositInterestAmount)
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 1, depositRewardAmount)
 
-    await borrowingManager.depositInterest(pnt.address, 2, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 2, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
 
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 2))
-      .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder2.address, pnt.address, 2, depositInterestAmount)
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder2.address, pnt.address, 2, depositRewardAmount)
   })
 
-  it('should not be able to claim the interest if the epoch is not terminated yet', async () => {
+  it('should not be able to claim the reward if the epoch is not terminated yet', async () => {
     //
     //   pntHolder1 - 1 lend -> [1, 5]
     //                  w=200k    w=150k     w=100k      w=50k
@@ -1143,12 +1141,12 @@ describe('BorrowingManager', () => {
     //   |----------|vvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|
     //   0          1         2          3          4          5          6          7          8
     //
-    //    interests
+    //    rewards
     //                10k+10k    10k+10k        0        0        10k+10k
     //   |----------|vvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|
     //   0          1         2          3          4          5          6          7          8
 
-    const depositInterestAmount = ethers.utils.parseEther('10000')
+    const depositRewardAmount = ethers.utils.parseEther('10000')
     const depositAmountPntHolder1 = ethers.utils.parseEther('50000')
     const depositAmountPntHolder2 = ethers.utils.parseEther('5000')
     let duration = EPOCH_DURATION * 5
@@ -1157,7 +1155,7 @@ describe('BorrowingManager', () => {
     await pnt.connect(pntHolder2).approve(borrowingManager.address, INFINITE)
     await pnt.approve(borrowingManager.address, INFINITE)
     await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, depositAmountPntHolder1, duration)
-    await pnt.connect(pntHolder1).transfer(owner.address, depositInterestAmount.mul(10))
+    await pnt.connect(pntHolder1).transfer(owner.address, depositRewardAmount.mul(10))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
@@ -1166,54 +1164,54 @@ describe('BorrowingManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await borrowingManager.depositInterest(pnt.address, 1, depositInterestAmount)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 1))
-      .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 1, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 1, depositRewardAmount)
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 1, depositRewardAmount)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
 
-    await borrowingManager.depositInterest(pnt.address, 2, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 2, depositRewardAmount)
     // (50k * 3) / (50k*3 + 5k*4) = 0.8823529411764705882352  ---> 1000 * 0.8823529411764705882352 = 8823.529411764705882352
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 2))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, pnt.address, 2, ethers.utils.parseEther('8823.529411764705882352'))
     // (5k * 4) / (50k*3 + 5k*4) = 0.1176470588235294117647 ---> 1000 * 0.1176470588235294117647 = 11176.470588235294117647
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 2))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder2.address, pnt.address, 2, ethers.utils.parseEther('1176.470588235294117647'))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
       borrowingManager,
       'InvalidEpoch'
     )
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 4)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
 
-    await borrowingManager.depositInterest(pnt.address, 5, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 5, depositRewardAmount)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(6)
 
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 5))
-      .to.emit(borrowingManager, 'InterestClaimed')
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 5))
+      .to.emit(borrowingManager, 'RewardClaimed')
       .withArgs(pntHolder2.address, pnt.address, 5, ethers.utils.parseEther('10000'))
 
-    await expect(borrowingManager.connect(pntHolder2).claimInterestByEpoch(pnt.address, 5)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 5)).to.be.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
@@ -1385,30 +1383,30 @@ describe('BorrowingManager', () => {
   })
 
   it('should not be able to claim twice with by claiming an asset in many epochs', async () => {
-    const depositInterestAmount = ethers.utils.parseEther('10000')
+    const depositRewardAmount = ethers.utils.parseEther('10000')
     const depositAmountPntHolder1 = ethers.utils.parseEther('50000')
     let duration = EPOCH_DURATION * 3
 
     await pnt.connect(pntHolder1).approve(borrowingManager.address, INFINITE)
     await pnt.approve(borrowingManager.address, INFINITE)
     await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, depositAmountPntHolder1, duration)
-    await pnt.connect(pntHolder1).transfer(owner.address, depositInterestAmount.mul(5))
+    await pnt.connect(pntHolder1).transfer(owner.address, depositRewardAmount.mul(5))
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
 
-    await borrowingManager.depositInterest(pnt.address, 1, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 1, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
-    await borrowingManager.depositInterest(pnt.address, 2, depositInterestAmount)
+    await borrowingManager.depositReward(pnt.address, 2, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpochsRange(pnt.address, 1, 2))
-      .to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 1, depositInterestAmount)
-      .and.to.emit(borrowingManager, 'InterestClaimed')
-      .withArgs(pntHolder1.address, pnt.address, 2, depositInterestAmount)
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpochsRange(pnt.address, 1, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 1, depositRewardAmount)
+      .and.to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 2, depositRewardAmount)
 
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpochsRange(pnt.address, 1, 2)).to.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpochsRange(pnt.address, 1, 2)).to.revertedWithCustomError(
       borrowingManager,
       'NothingToClaim'
     )
@@ -1416,7 +1414,7 @@ describe('BorrowingManager', () => {
 
   it('should not be able to claim many epochs using an end epoch grater than the current one', async () => {
     await time.increase(EPOCH_DURATION)
-    await expect(borrowingManager.connect(pntHolder1).claimInterestByEpochsRange(pnt.address, 1, 2)).to.be.revertedWithCustomError(
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpochsRange(pnt.address, 1, 2)).to.be.revertedWithCustomError(
       borrowingManager,
       'InvalidEpoch'
     )

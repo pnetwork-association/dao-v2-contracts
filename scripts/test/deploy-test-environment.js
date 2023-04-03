@@ -117,8 +117,6 @@ const main = async () => {
 
   console.log('Assigning roles ...')
   await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
-  await borrowingManager.grantRole(getRole('DEPOSIT_INTEREST_ROLE'), signer.address)
-  await borrowingManager.grantRole(getRole('DEPOSIT_INTEREST_ROLE'), signer.address)
   await stakingManagerBM.grantRole(getRole('STAKE_ROLE'), borrowingManager.address)
   await stakingManagerBM.grantRole(getRole('INCREASE_DURATION_ROLE'), borrowingManager.address)
   await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.address)
@@ -132,7 +130,7 @@ const main = async () => {
   await pnt.approve(registrationManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
   await registrationManager.updateSentinelRegistrationByStaking(signer.address, ethers.utils.parseEther('200000'), EPOCH_DURATION * 12, '0x')
 
-  console.log('Depositing interests and fees ...')
+  console.log('Depositing rewards and fees ...')
   await pnt.approve(feesManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
   await pbtc.approve(feesManager.address, '0xffffffffffffffffffffffffffffffffffffffff')
 

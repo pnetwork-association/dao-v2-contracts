@@ -37,23 +37,23 @@ interface IBorrowingManager {
     event Borrowed(address indexed borrower, uint256 indexed epoch, uint256 amount);
 
     /**
-     * @dev Emitted when an interest is claimed
+     * @dev Emitted when an reward is claimed
      *
      * @param lender The lender address
      * @param asset The claimed asset address
      * @param epoch The epoch
      * @param amount The amount
      */
-    event InterestClaimed(address indexed lender, address indexed asset, uint256 indexed epoch, uint256 amount);
+    event RewardClaimed(address indexed lender, address indexed asset, uint256 indexed epoch, uint256 amount);
 
     /**
-     * @dev Emitted when an interest is lended
+     * @dev Emitted when an reward is lended
      *
      * @param asset The asset
      * @param epoch The current epoch
      * @param amount The amount
      */
-    event InterestDeposited(address indexed asset, uint256 indexed epoch, uint256 amount);
+    event RewardDeposited(address indexed asset, uint256 indexed epoch, uint256 amount);
 
     /**
      * @dev Emitted when a borrower borrow is released.
@@ -102,7 +102,7 @@ interface IBorrowingManager {
      *
      * @return uint256 an integer representing the lender's claimable value for a given asset in a specifich epoch..
      */
-    function claimableInterestByEpochOf(address lender, address asset, uint16 epoch) external view returns (uint256);
+    function claimableRewardsByEpochOf(address lender, address asset, uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the lender's claimable amount for a set of assets in an epochs range
@@ -122,33 +122,33 @@ interface IBorrowingManager {
     ) external view returns (uint256[] memory);
 
     /*
-     * @notice Claim the interests earned by the lender for a given epoch for a given asset.
+     * @notice Claim the rewards earned by the lender for a given epoch for a given asset.
      *
      * @param asset
      * @param epoch
      *
      */
-    function claimInterestByEpoch(address asset, uint16 epoch) external;
+    function claimRewardByEpoch(address asset, uint16 epoch) external;
 
     /*
-     * @notice Claim the interest earned by the lender in an epochs range for a given asset.
+     * @notice Claim the reward earned by the lender in an epochs range for a given asset.
      *
      * @param asset
      * @param startEpoch
      * @param endEpoch
      *
      */
-    function claimInterestByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external;
+    function claimRewardByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external;
 
     /*
-     * @notice Deposit an interest amount of an asset in a given epoch.
+     * @notice Deposit an reward amount of an asset in a given epoch.
      *
      * @param amount
      * @param asset
      * @param epoch
      *
      */
-    function depositInterest(address asset, uint16 epoch, uint256 amount) external;
+    function depositReward(address asset, uint16 epoch, uint256 amount) external;
 
     /*
      * @notice Increase the duration of a lending position by increasing the lock time of the staked tokens.
@@ -232,14 +232,14 @@ interface IBorrowingManager {
     function release(address borrower, uint16 epoch, uint256 amount) external;
 
     /*
-     * @notice Returns the current total asset interest amount by epoch
+     * @notice Returns the current total asset reward amount by epoch
      *
      * @param asset
      * @param epoch
      *
-     * @return (uint256,uint256) representing the total asset interest amount by epoch.
+     * @return (uint256,uint256) representing the total asset reward amount by epoch.
      */
-    function totalAssetInterestAmountByEpoch(address asset, uint16 epoch) external view returns (uint256);
+    function totalAssetRewardAmountByEpoch(address asset, uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Returns the current total weight for a given epoch. The total weight is the sum of the user weights in a specific epoch.

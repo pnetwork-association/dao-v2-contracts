@@ -110,7 +110,6 @@ const main = async () => {
 
   console.log('Assigning roles and whitelisting origin addresses ...')
   await borrowingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
-  await borrowingManager.grantRole(getRole('DEPOSIT_INTEREST_ROLE'), feesManager.address)
   await forwarder.whitelistOriginAddress(FORWARDER_ON_MAINNET)
   await forwarder.whitelistOriginAddress(FORWARDER_ON_BSC)
 
