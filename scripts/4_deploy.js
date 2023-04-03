@@ -2,14 +2,15 @@ const { ethers, upgrades } = require('hardhat')
 const { getRole } = require('../test/utils/index')
 const {
   ACL_ADDRESS,
+  DANDELION_VOTING_ADDRESS,
   EPOCH_DURATION,
   FORWARDER_ON_BSC,
   FORWARDER_ON_MAINNET,
   FORWARDER_ON_POLYGON,
   LEND_MAX_EPOCHS,
   MINIMUM_BORROWING_FEE,
-  PNT_ON_POLYGON_ADDRESS,
   PNT_MAX_TOTAL_SUPPLY,
+  PNT_ON_POLYGON_ADDRESS,
   TOKEN_MANAGER_ADDRESS
 } = require('./config')
 
@@ -67,7 +68,7 @@ const main = async () => {
   console.info('LendingManager ...')
   const lendingManager = await upgrades.deployProxy(
     LendingManager,
-    [PNT_ON_POLYGON_ADDRESS, stakingManagerBM.address, epochsManager.address, forwarder.address, LEND_MAX_EPOCHS],
+    [PNT_ON_POLYGON_ADDRESS, stakingManagerBM.address, epochsManager.address, forwarder.address, DANDELION_VOTING_ADDRESS, LEND_MAX_EPOCHS],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -95,8 +96,8 @@ const main = async () => {
   )
 
   console.log('Setting ACL permissions ...')
-  // await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-  // await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
   await acl.grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
   await acl.grantPermission(stakingManager.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
   await acl.grantPermission(stakingManagerBM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
