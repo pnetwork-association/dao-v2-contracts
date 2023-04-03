@@ -50,7 +50,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         epochsManager = _epochsManager;
         lendingManager = _lendingManager;
 
-        _sentinelsEpochsTotalStakedAmount = new uint24[](36);
+        _sentinelsEpochsTotalStakedAmount = new uint24[](Constants.AVAILABLE_EPOCHS);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -124,7 +124,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 registrationEndEpoch = registration.endEpoch;
 
         if (_sentinelsEpochsStakedAmount[sentinel].length == 0) {
-            _sentinelsEpochsStakedAmount[sentinel] = new uint24[](36);
+            _sentinelsEpochsStakedAmount[sentinel] = new uint24[](Constants.AVAILABLE_EPOCHS);
         }
 
         uint24 truncatedAmount = Helpers.truncate(amount);
