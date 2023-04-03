@@ -184,9 +184,9 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
 
     /// @inheritdoc IBorrowingManager
     function getLenderVotingStateByEpoch(address lender, uint16 epoch) public returns (uint256, uint256) {
-        address votingAddress = dandelionVoting;
-        uint256 numberOfVotes = IDandelionVoting(votingAddress).votesLength();
-        uint64 voteDuration = IDandelionVoting(votingAddress).duration();
+        address dandelionVotingAddress = dandelionVoting;
+        uint256 numberOfVotes = IDandelionVoting(dandelionVotingAddress).votesLength();
+        uint64 voteDuration = IDandelionVoting(dandelionVotingAddress).duration();
 
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
         uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
@@ -198,7 +198,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         uint256 epochVotedVotes = 0;
 
         for (uint256 voteId = numberOfVotes; voteId >= 1; ) {
-            (, , uint64 voteStartDate, , , , , , , , ) = IDandelionVoting(votingAddress).getVote(voteId);
+            (, , uint64 voteStartDate, , , , , , , , ) = IDandelionVoting(dandelionVotingAddress).getVote(voteId);
 
             uint64 voteEndDate = voteStartDate + voteDuration;
             if (voteEndDate >= epochStartDate && voteEndDate <= epochEndDate) {
@@ -207,7 +207,8 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
                 }
 
                 if (
-                    IDandelionVoting(votingAddress).getVoterState(voteId, lender) != IDandelionVoting.VoterState.Absent
+                    IDandelionVoting(dandelionVotingAddress).getVoterState(voteId, lender) !=
+                    IDandelionVoting.VoterState.Absent
                 ) {
                     unchecked {
                         ++epochVotedVotes;
