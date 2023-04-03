@@ -151,6 +151,18 @@ interface IBorrowingManager {
     function depositReward(address asset, uint16 epoch, uint256 amount) external;
 
     /*
+     * @notice Returns the number of votes and the number of voted votes by a lender. This function is needed
+     *         in order to allow the lender to be able to claim the rewards only if he voted to all votes
+     *         within an epoch
+     *
+     * @param lender
+     * @param epoch
+     *
+     * @return (uint256,uint256) representing the total number of votes within an epoch an the number of voted votes by a lender.
+     */
+    function getLenderVotingStateByEpoch(address lender, uint16 epoch) external returns (uint256, uint256);
+
+    /*
      * @notice Increase the duration of a lending position by increasing the lock time of the staked tokens.
      *
      * @param duration

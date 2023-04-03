@@ -10,6 +10,7 @@ import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ER
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
 import {IStakingManagerPermissioned} from "../interfaces/IStakingManagerPermissioned.sol";
 import {IBorrowingManager} from "../interfaces/IBorrowingManager.sol";
+import {IDandelionVoting} from "../interfaces/external/IDandelionVoting.sol";
 import {Roles} from "../libraries/Roles.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Constants} from "../libraries/Constants.sol";
@@ -30,6 +31,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
     address public stakingManager;
     address public token;
     address public epochsManager;
+    address public dandelionVoting;
     uint16 public lendMaxEpochs;
 
     function initialize(
@@ -37,6 +39,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         address _stakingManager,
         address _epochsManager,
         address _forwarder,
+        address _dandelionVoting,
         uint16 _lendMaxEpochs
     ) public initializer {
         __UUPSUpgradeable_init();
@@ -49,6 +52,7 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         stakingManager = _stakingManager;
         token = _token;
         epochsManager = _epochsManager;
+        dandelionVoting = _dandelionVoting;
         lendMaxEpochs = _lendMaxEpochs;
 
         _epochsTotalLendedAmount = new uint24[](Constants.AVAILABLE_EPOCHS);
@@ -126,7 +130,8 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
             revert Errors.InvalidEpoch();
         }
 
-        // Add voting check
+        (uint256 numberOfVotes, uint256 votedVotes) = getLenderVotingStateByEpoch(lender, epoch);
+        if (numberOfVotes > votedVotes) revert Errors.NotPartecipatedInGovernanceAtEpoch(epoch);
 
         uint256 reward = claimableRewardsByEpochOf(lender, asset, epoch);
         if (reward == 0) {
@@ -149,6 +154,9 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
 
         uint256 cumulativeReward = 0;
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            (uint256 numberOfVotes, uint256 votedVotes) = getLenderVotingStateByEpoch(lender, epoch);
+            if (numberOfVotes > votedVotes) continue;
+
             uint256 reward = claimableRewardsByEpochOf(lender, asset, epoch);
             if (reward > 0) {
                 _lendersEpochsAssetsRewardsClaim[lender][epoch][asset] = true;
@@ -172,6 +180,47 @@ contract BorrowingManager is IBorrowingManager, Initializable, UUPSUpgradeable, 
         IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
         _totalEpochsAssetsRewardAmount[asset][epoch] += amount;
         emit RewardDeposited(asset, epoch, amount);
+    }
+
+    /// @inheritdoc IBorrowingManager
+    function getLenderVotingStateByEpoch(address lender, uint16 epoch) public returns (uint256, uint256) {
+        address votingAddress = dandelionVoting;
+        uint256 numberOfVotes = IDandelionVoting(votingAddress).votesLength();
+        uint64 voteDuration = IDandelionVoting(votingAddress).duration();
+
+        uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
+        uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
+
+        uint256 epochStartDate = startFirstEpochTimestamp + (epoch * epochDuration);
+        uint256 epochEndDate = epochStartDate + epochDuration - 1;
+
+        uint256 epochNumberOfVotes = 0;
+        uint256 epochVotedVotes = 0;
+
+        for (uint256 voteId = numberOfVotes; voteId >= 1; ) {
+            (, , uint64 voteStartDate, , , , , , , , ) = IDandelionVoting(votingAddress).getVote(voteId);
+
+            uint64 voteEndDate = voteStartDate + voteDuration;
+            if (voteEndDate >= epochStartDate && voteEndDate <= epochEndDate) {
+                unchecked {
+                    ++epochNumberOfVotes;
+                }
+
+                if (
+                    IDandelionVoting(votingAddress).getVoterState(voteId, lender) != IDandelionVoting.VoterState.Absent
+                ) {
+                    unchecked {
+                        ++epochVotedVotes;
+                    }
+                }
+            }
+
+            unchecked {
+                --voteId;
+            }
+        }
+
+        return (epochNumberOfVotes, epochVotedVotes);
     }
 
     /// @inheritdoc IBorrowingManager

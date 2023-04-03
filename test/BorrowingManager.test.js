@@ -17,7 +17,7 @@ const {
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
 
-let daoRoot, acl, stakingManager, epochsManager, pnt, owner, pntHolder1, pntHolder2, user1, user2, BorrowingManager, fakeForwarder
+let daoRoot, acl, stakingManager, epochsManager, pnt, owner, pntHolder1, pntHolder2, user1, user2, BorrowingManager, fakeForwarder, dandelionVoting
 let BORROW_ROLE, UPGRADE_ROLE
 
 describe('BorrowingManager', () => {
@@ -38,6 +38,7 @@ describe('BorrowingManager', () => {
     const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const ERC20 = await ethers.getContractFactory('ERC20')
     const ACL = await ethers.getContractFactory('ACL')
+    const MockDandelionVotingContract = await ethers.getContractFactory('MockDandelionVotingContract')
 
     const signers = await ethers.getSigners()
     owner = signers[0]
@@ -50,6 +51,8 @@ describe('BorrowingManager', () => {
 
     pnt = await ERC20.attach(PNT_ADDRESS)
     acl = await ACL.attach(ACL_ADDRESS)
+    dandelionVoting = await MockDandelionVotingContract.deploy()
+    await dandelionVoting.setTestStartDate(EPOCH_DURATION * 1000) // this is needed to don't break normal tests
 
     stakingManager = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
@@ -63,7 +66,7 @@ describe('BorrowingManager', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pnt.address, stakingManager.address, epochsManager.address, fakeForwarder.address, LEND_MAX_EPOCHS],
+      [pnt.address, stakingManager.address, epochsManager.address, fakeForwarder.address, dandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -1679,5 +1682,85 @@ describe('BorrowingManager', () => {
     await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
+  })
+
+  it('should not be able to claim the earned reward if it did not partecipte to the governance', async () => {
+    //
+    //   pntHolder1 - 1 lend -> [1, 5]
+    //                  w=200k    w=150k     w=100k      w=50k
+    //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //
+    //   pntHolder2 - 2 lend -> [2, 6]
+    //                            w=20k      w=15k      w=10k      w=5k
+    //   |----------|-----xxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx------|----------|
+    //   0          1         2          3          4          5          6           7          8
+    //
+    //
+    //    result:
+    //
+    //    poolSize
+    //                   50k        55k       55k        55k         5k
+    //   |----------|vvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|
+    //   0          1         2          3          4          5          6          7          8
+    //
+    //    rewards
+    //                   10k        10k         0        0         10k
+    //   |----------|vvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|
+    //   0          1         2          3          4          5          6          7          8
+
+    const depositRewardAmount = ethers.utils.parseEther('10000')
+    const depositAmountPntHolder1 = ethers.utils.parseEther('50000')
+    const depositAmountPntHolder2 = ethers.utils.parseEther('5000')
+    const startFirstEpochTimestamp = await epochsManager.startFirstEpochTimestamp()
+    let duration = EPOCH_DURATION * 5
+
+    await pnt.connect(pntHolder1).approve(borrowingManager.address, INFINITE)
+    await pnt.connect(pntHolder2).approve(borrowingManager.address, INFINITE)
+    await pnt.approve(borrowingManager.address, INFINITE)
+    await borrowingManager.connect(pntHolder1).lend(pntHolder1.address, depositAmountPntHolder1, duration)
+    await pnt.connect(pntHolder1).transfer(owner.address, depositRewardAmount.mul(5))
+
+    await time.increase(EPOCH_DURATION)
+    expect(await epochsManager.currentEpoch()).to.be.equal(1)
+    await borrowingManager.connect(pntHolder2).lend(pntHolder2.address, depositAmountPntHolder2, duration)
+
+    // making the vote available at epoch 1
+    await dandelionVoting.setTestStartDate(startFirstEpochTimestamp.toNumber() + EPOCH_DURATION + ONE_DAY)
+    await dandelionVoting.setTestVoteState(0)
+
+    await borrowingManager.depositReward(pnt.address, 1, depositRewardAmount)
+    await time.increase(EPOCH_DURATION)
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(
+      borrowingManager,
+      'NotPartecipatedInGovernanceAtEpoch'
+    )
+
+    await borrowingManager.depositReward(pnt.address, 2, depositRewardAmount)
+    await time.increase(EPOCH_DURATION)
+
+    // making the vote available at epoch 2
+    await dandelionVoting.setTestStartDate(startFirstEpochTimestamp.toNumber() + EPOCH_DURATION * 2 + ONE_DAY)
+    await dandelionVoting.setTestVoteState(1)
+
+    await expect(borrowingManager.connect(pntHolder1).claimRewardByEpoch(pnt.address, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder1.address, pnt.address, 2, ethers.utils.parseEther('8823.529411764705882352'))
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 2))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder2.address, pnt.address, 2, ethers.utils.parseEther('1176.470588235294117647'))
+
+    await borrowingManager.depositReward(pnt.address, 5, depositRewardAmount)
+    await time.increase(EPOCH_DURATION * 3)
+    // ((5k / 5k) + (1/1)) / 2 = 1   --->   10000 * 1 = 10000
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 5))
+      .to.emit(borrowingManager, 'RewardClaimed')
+      .withArgs(pntHolder2.address, pnt.address, 5, ethers.utils.parseEther('10000'))
+
+    await expect(borrowingManager.connect(pntHolder2).claimRewardByEpoch(pnt.address, 5)).to.be.revertedWithCustomError(
+      borrowingManager,
+      'NothingToClaim'
+    )
   })
 })

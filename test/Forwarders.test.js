@@ -37,7 +37,8 @@ let forwarderNative,
   pntHolder1,
   pntHolder2,
   fakeForwarder,
-  forwarderRecipientUpgradeableTestData
+  forwarderRecipientUpgradeableTestData,
+  fakeDandelionVoting
 
 describe('Forwarders', () => {
   beforeEach(async () => {
@@ -58,6 +59,7 @@ describe('Forwarders', () => {
     sentinel1 = signers[1]
     router = signers[2]
     fakeForwarder = signers[3]
+    fakeDandelionVoting = signers[4]
     pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
@@ -107,7 +109,7 @@ describe('Forwarders', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pToken.address, stakingManagerBM.address, epochsManager.address, forwarderHost.address, LEND_MAX_EPOCHS],
+      [pToken.address, stakingManagerBM.address, epochsManager.address, forwarderHost.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'

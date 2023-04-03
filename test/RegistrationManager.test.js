@@ -32,7 +32,8 @@ let stakingManagerRM,
   RegistrationManager,
   acl,
   daoRoot,
-  fakeForwarder
+  fakeForwarder,
+  fakeDandelionVoting
 let BORROW_ROLE, RELEASE_SENTINEL_ROLE, UPGRADE_ROLE
 
 describe('RegistrationManager', () => {
@@ -60,6 +61,7 @@ describe('RegistrationManager', () => {
     sentinel1 = signers[1]
     user1 = signers[2]
     fakeForwarder = signers[3]
+    fakeDandelionVoting = signers[4]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
@@ -84,7 +86,7 @@ describe('RegistrationManager', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, LEND_MAX_EPOCHS],
+      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'

@@ -56,6 +56,7 @@ describe('FeesManager', () => {
     const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const ERC20 = await ethers.getContractFactory('ERC20')
     const ACL = await ethers.getContractFactory('ACL')
+    const MockDandelionVotingContract = await ethers.getContractFactory('MockDandelionVotingContract')
 
     const signers = await ethers.getSigners()
     owner = signers[0]
@@ -63,8 +64,8 @@ describe('FeesManager', () => {
     sentinel2 = signers[2]
     sentinel3 = signers[3]
     fakeForwarder = signers[4]
-    sentinelBorrowerRegistrator1 = signers[4]
-    sentinelBorrowerRegistrator2 = signers[5]
+    sentinelBorrowerRegistrator1 = signers[5]
+    sentinelBorrowerRegistrator2 = signers[6]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
@@ -72,6 +73,8 @@ describe('FeesManager', () => {
     pnt = await ERC20.attach(PNT_ADDRESS)
     pbtc = await ERC20.attach(PBTC_ADDRESS)
     acl = await ACL.attach(ACL_ADDRESS)
+    dandelionVoting = await MockDandelionVotingContract.deploy()
+    await dandelionVoting.setTestStartDate(EPOCH_DURATION * 1000) // this is needed to don't break normal tests
 
     stakingManagerBM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
@@ -90,7 +93,7 @@ describe('FeesManager', () => {
 
     borrowingManager = await upgrades.deployProxy(
       BorrowingManager,
-      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, LEND_MAX_EPOCHS],
+      [pnt.address, stakingManagerBM.address, epochsManager.address, fakeForwarder.address, dandelionVoting.address, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'

@@ -15,4 +15,5 @@ library Errors {
     error UnfinishedStakingPeriod();
     error NothingAtStake();
     error MaxTotalSupplyExceeded();
+    error NotPartecipatedInGovernanceAtEpoch(uint16 epoch);
 }
