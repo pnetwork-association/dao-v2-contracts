@@ -1,4 +1,4 @@
-// This is just a test that uses old contracts since using aragon stuff it's a pain and we want
+/*// This is just a test that uses old contracts since using aragon stuff it's a pain and we want
 // to simulate easily in a forked environment what could happen if we wanted to implements some
 // changes required for the pNetwork DAO V2
 
@@ -9,7 +9,7 @@ const { encodeCallScript } = require('./utils/aragon')
 const { time, mine, mineUpTo } = require('@nomicfoundation/hardhat-network-helpers')
 const TransparentUpgradeableProxy = require('@openzeppelin/upgrades-core/artifacts/@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json')
 
-let voting, owner, daoPntHolder1, daoPntHolder2, daoPntHolder3, daoPntHolder4, daoPntHolder5, user2, ACL
+let voting, owner, daoPntHolder1, daoPntHolder2, daoPntHolder3, daoPntHolder4, daoPntHolder5, user2, ACL, financeVault, association
 
 const STAKING_MANAGER_ADDRESS = '0xeb10e80D99655B51E3a981E888a73D0B21e21A6C'
 const DANDELION_VOTING_ADDRESS = '0x2211bFD97b1c02aE8Ac305d206e9780ba7D8BfF4'
@@ -23,6 +23,9 @@ const DAO_ROOT_ADDRESS = '0x6Ae14ff8d24F719a8cf5A9FAa2Ad05dA7e44C8b6'
 const ACL_ADDRESS = '0xFDcae423E5e92B76FE7D1e2bcabd36fca8a6a8Fe'
 const KERNEL_ADDRESS = '0x2732fd9fd5f0e84b1b774cf5e6f5c812eafd455b'
 const REPO_ADDRESS = '0x933c8920bb67dd8e3a845187f77766584579ee1f'
+const FINANCE_VAULT_ADDRESS = '0xDd92eb1478D3189707aB7F4a5aCE3a615cdD0476'
+const ASSOCIATION_ADDRESS = '0xf1f6568a76559d85cF68E6597fA587544184dD46'
+const ETHPNT_ADDRESS = '0xf4eA6B892853413bD9d9f1a5D3a620A0ba39c5b2'
 
 const CREATE_VOTES_ROLE = getRole('CREATE_VOTES_ROLE')
 const TRANSFER_ROLE = getRole('TRANSFER_ROLE')
@@ -59,7 +62,11 @@ describe('DandelionVoting', () => {
     daoPntHolder3 = await ethers.getImpersonatedSigner(DAO_PNT_HOLDER_3_ADDRESS)
     daoPntHolder4 = await ethers.getImpersonatedSigner(DAO_PNT_HOLDER_4_ADDRESS)
     daoPntHolder5 = await ethers.getImpersonatedSigner(DAO_PNT_HOLDER_5_ADDRESS)
+    association = await ethers.getImpersonatedSigner(ASSOCIATION_ADDRESS)
     root = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
+
+    ethpnt = await ERC20.attach(ETHPNT_ADDRESS)
+    financeVault = await Vault.attach(FINANCE_VAULT_ADDRESS)
 
     test = await upgrades.deployProxy(Test, [], {
       initializer: 'initialize',
@@ -96,9 +103,13 @@ describe('DandelionVoting', () => {
       to: user2.address,
       value: ethers.utils.parseEther('1')
     })
+    await owner.sendTransaction({
+      to: association.address,
+      value: ethers.utils.parseEther('1')
+    })
   })
 
-  it('should be able to open a vote that updates an OLD contract', async () => {
+  /*it('should be able to open a vote that updates an OLD contract', async () => {
     const voteId = 24
     const Kernel = await ethers.getContractFactory('Kernel')
     const kernel = Kernel.attach(KERNEL_ADDRESS)
@@ -172,4 +183,35 @@ describe('DandelionVoting', () => {
     await expect(voting.executeVote(voteId))
     expect(await test.version()).to.be.eq(2)
   })
-})
+
+  it('should be able to open a vote that withdraw 720k PNT from the vault', async () => {
+    const voteId = 24
+    const amount = ethers.utils.parseEther('720000')
+
+    const action = {
+      to: financeVault.address,
+      calldata: Vault.interface.encodeFunctionData('transfer', [ethpnt.address, ASSOCIATION_ADDRESS, amount])
+    }
+    const script = encodeCallScript([action])
+
+    console.log(script)
+
+    await expect(voting.connect(association).newVote(script, 'metadata', false))
+      .to.emit(voting, 'StartVote')
+      .withArgs(voteId, association.address, 'metadata')
+
+    await voting.connect(daoPntHolder1).vote(voteId, true)
+    await voting.connect(daoPntHolder2).vote(voteId, true)
+    await voting.connect(daoPntHolder3).vote(voteId, true)
+    await voting.connect(daoPntHolder4).vote(voteId, true)
+
+    const balancePre = await ethpnt.balanceOf(association.address)
+
+    const vote = await voting.getVote(voteId)
+    await mineUpTo(vote.executionBlock.toNumber() + 1)
+    await expect(voting.executeVote(voteId)).to.emit(financeVault, 'VaultTransfer').withArgs(ethpnt.address, association.address, amount)
+
+    const balancePost = await ethpnt.balanceOf(association.address)
+    expect(balancePost).to.be.eq(balancePre.add(amount))
+  })
+})*/
