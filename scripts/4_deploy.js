@@ -39,7 +39,7 @@ const main = async () => {
     }
   )
 
-  console.info('StakingManager BM ...')
+  console.info('StakingManager LM ...')
   const stakingManagerLM = await upgrades.deployProxy(
     StakingManagerPermissioned,
     [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
