@@ -109,7 +109,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory) {
-        uint256[] memory result = new uint256[]((endEpoch - (startEpoch + 1)) * assets.length);
+        uint256[] memory result = new uint256[](((endEpoch + 1) - startEpoch) * assets.length);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             for (uint8 i = 0; i < assets.length; i++) {
                 result[((epoch - startEpoch) * assets.length) + i] = claimableRewardsByEpochOf(
@@ -252,7 +252,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint24[] memory) {
-        uint24[] memory result = new uint24[](endEpoch - (startEpoch + 1));
+        uint24[] memory result = new uint24[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = _epochsTotalBorrowedAmount[epoch];
         }
@@ -269,7 +269,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint24[] memory) {
-        uint24[] memory result = new uint24[](endEpoch - (startEpoch + 1));
+        uint24[] memory result = new uint24[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = _epochsTotalLendedAmount[epoch];
         }
@@ -296,7 +296,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
 
     /// @inheritdoc ILendingManager
     function totalWeightByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory) {
-        uint32[] memory result = new uint32[](endEpoch - (startEpoch + 1));
+        uint32[] memory result = new uint32[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = _epochTotalWeight[epoch];
         }
@@ -312,7 +312,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
 
     /// @inheritdoc ILendingManager
     function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory) {
-        uint24[] memory result = new uint24[](endEpoch - (startEpoch + 1));
+        uint24[] memory result = new uint24[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = utilizationRatioByEpoch(epoch);
         }
@@ -330,7 +330,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint32[] memory) {
-        uint32[] memory result = new uint32[](endEpoch - (startEpoch + 1));
+        uint32[] memory result = new uint32[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = _lendersEpochsWeight[lender][epoch];
         }
