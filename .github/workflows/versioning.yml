@@ -22,6 +22,5 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             Changes in this Release:
-              - Beta contracts implementation of pNetwork DAO V2.
           draft: false
           prerelease: false
