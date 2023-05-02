@@ -79,3 +79,5 @@ module.exports = {
     timeout: 100000000
   }
 }
+
+require('./tasks/decode-forwarder-metadata.js')
