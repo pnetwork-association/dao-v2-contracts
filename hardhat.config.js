@@ -6,6 +6,9 @@ require('hardhat-gas-reporter')
 require('@nomicfoundation/hardhat-chai-matchers')
 require('hardhat-spdx-license-identifier')
 
+require('./tasks/decode-forwarder-metadata.js')
+require('./tasks/acl-assign-permission.js')
+
 const getEnvironmentVariable = (_envVar) => process.env[_envVar]
 
 /**
@@ -44,7 +47,7 @@ module.exports = {
     polygon: {
       url: getEnvironmentVariable('POLYGON_NODE'),
       accounts: [getEnvironmentVariable('PK')],
-      gasPrice: 400e9
+      gasPrice: 250e9
     },
     bsc: {
       url: getEnvironmentVariable('BSC_NODE'),
@@ -79,5 +82,3 @@ module.exports = {
     timeout: 100000000
   }
 }
-
-require('./tasks/decode-forwarder-metadata.js')
