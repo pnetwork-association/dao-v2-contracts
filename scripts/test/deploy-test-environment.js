@@ -138,27 +138,27 @@ const main = async () => {
   await time.increase(EPOCH_DURATION)
 
   for (let i = 0; i < 3; i++) {
-    await feesManager.depositFee(pnt.address, '2000000000000000000000')
+    await feesManager.depositFeeForCurrentEpoch(pnt.address, '2000000000000000000000')
   }
 
   // epoch 2
   await time.increase(EPOCH_DURATION)
   for (let i = 0; i < 3; i++) {
-    await feesManager.depositFee(pnt.address, '2000000000000000000000')
-    await feesManager.depositFee(pbtc.address, '200000000000000000')
+    await feesManager.depositFeeForCurrentEpoch(pnt.address, '2000000000000000000000')
+    await feesManager.depositFeeForCurrentEpoch(pbtc.address, '200000000000000000')
   }
 
   // epoch 3
   await time.increase(EPOCH_DURATION)
   for (let i = 0; i < 3; i++) {
-    await feesManager.depositFee(pnt.address, '1500000000000000000000')
-    await feesManager.depositFee(pbtc.address, '300000000000000000')
+    await feesManager.depositFeeForCurrentEpoch(pnt.address, '1500000000000000000000')
+    await feesManager.depositFeeForCurrentEpoch(pbtc.address, '300000000000000000')
   }
 
   // epoch 4
   await time.increase(EPOCH_DURATION)
   for (let i = 0; i < 3; i++) {
-    await feesManager.depositFee(pbtc.address, '500000000000000000')
+    await feesManager.depositFeeForCurrentEpoch(pbtc.address, '500000000000000000')
   }
 
   // epoch 5

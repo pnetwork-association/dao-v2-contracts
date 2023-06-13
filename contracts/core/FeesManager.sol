@@ -163,36 +163,12 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     }
 
     /// @inheritdoc IFeesManager
-    function depositFee(address asset, uint256 amount) external {
-        IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
+    function depositFeeForPreviousEpoch(address asset, uint256 amount) external {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-
-        uint256 totalBorrowedAmount = ILendingManager(lendingManager).totalBorrowedAmountByEpoch(currentEpoch);
-        uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
-            currentEpoch
-        );
-        uint256 totalAmount = totalStakedAmount + totalBorrowedAmount;
-
-        uint256 sentinelsStakingFeesAmount = totalAmount > 0 ? (amount * totalStakedAmount) / totalAmount : 0;
-        uint256 sentinelsBorrowingFeesAndLendersRewardsAmount = amount - sentinelsStakingFeesAmount;
-        uint256 lendersRewardsAmount = (sentinelsBorrowingFeesAndLendersRewardsAmount * kByEpoch(currentEpoch)) /
-            Constants.DECIMALS_PRECISION;
-        uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersRewardsAmount - lendersRewardsAmount;
-
-        if (lendersRewardsAmount > 0) {
-            IERC20Upgradeable(asset).approve(lendingManager, lendersRewardsAmount);
-            ILendingManager(lendingManager).depositReward(asset, currentEpoch, lendersRewardsAmount);
+        if (currentEpoch == 0) {
+            revert Errors.InvalidEpoch();
         }
-
-        if (sentinelsStakingFeesAmount > 0) {
-            _epochsSentinelsStakingAssetsFee[currentEpoch][asset] += sentinelsStakingFeesAmount;
-        }
-
-        if (sentinelsBorrowingFeesAmount > 0) {
-            _epochsSentinelsBorrowingAssetsFee[currentEpoch][asset] += sentinelsBorrowingFeesAmount;
-        }
-
-        emit FeeDeposited(asset, currentEpoch, amount);
+        _depositFee(asset, amount, currentEpoch - 1);
     }
 
     /// @inheritdoc IFeesManager
@@ -213,6 +189,35 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             result[epoch - startEpoch] = kByEpoch(epoch);
         }
         return result;
+    }
+
+    function _depositFee(address asset, uint256 amount, uint16 epoch) internal {
+        IERC20Upgradeable(asset).safeTransferFrom(_msgSender(), address(this), amount);
+
+        uint256 totalBorrowedAmount = ILendingManager(lendingManager).totalBorrowedAmountByEpoch(epoch);
+        uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(epoch);
+        uint256 totalAmount = totalStakedAmount + totalBorrowedAmount;
+
+        uint256 sentinelsStakingFeesAmount = totalAmount > 0 ? (amount * totalStakedAmount) / totalAmount : 0;
+        uint256 sentinelsBorrowingFeesAndLendersRewardsAmount = amount - sentinelsStakingFeesAmount;
+        uint256 lendersRewardsAmount = (sentinelsBorrowingFeesAndLendersRewardsAmount * kByEpoch(epoch)) /
+            Constants.DECIMALS_PRECISION;
+        uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersRewardsAmount - lendersRewardsAmount;
+
+        if (lendersRewardsAmount > 0) {
+            IERC20Upgradeable(asset).approve(lendingManager, lendersRewardsAmount);
+            ILendingManager(lendingManager).depositReward(asset, epoch, lendersRewardsAmount);
+        }
+
+        if (sentinelsStakingFeesAmount > 0) {
+            _epochsSentinelsStakingAssetsFee[epoch][asset] += sentinelsStakingFeesAmount;
+        }
+
+        if (sentinelsBorrowingFeesAmount > 0) {
+            _epochsSentinelsBorrowingAssetsFee[epoch][asset] += sentinelsBorrowingFeesAmount;
+        }
+
+        emit FeeDeposited(asset, epoch, amount);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}

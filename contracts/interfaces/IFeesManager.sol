@@ -83,13 +83,13 @@ interface IFeesManager {
     ) external view returns (uint256[] memory);
 
     /*
-     * @notice Deposit an asset fee amount in the current epoch.
+     * @notice Deposit an asset fee amount in the previous epoch.
      *
      * @param asset
      * @param amount
      *
      */
-    function depositFee(address asset, uint256 amount) external;
+    function depositFeeForPreviousEpoch(address asset, uint256 amount) external;
 
     /*
      * @notice Indicates the K factor in a specific epoch. The K factor is calculated with the following formula: utilizationRatio^2 + minimumBorrowingFee
