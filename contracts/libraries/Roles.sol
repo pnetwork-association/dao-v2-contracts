@@ -12,4 +12,6 @@ library Roles {
     bytes32 public constant INCREASE_DURATION_ROLE = keccak256("INCREASE_DURATION_ROLE");
     bytes32 public constant UPGRADE_ROLE = keccak256("UPGRADE_ROLE");
     bytes32 public constant CHANGE_MAX_TOTAL_SUPPLY_ROLE = keccak256("CHANGE_MAX_TOTAL_SUPPLY_ROLE");
+    bytes32 public constant REGISTER_GUARDIAN_ROLE = keccak256("REGISTER_GUARDIAN_ROLE");
+    bytes32 public constant REMOVE_GUARDIAN_ROLE = keccak256("REMOVE_GUARDIAN_ROLE");
 }

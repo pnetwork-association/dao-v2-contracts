@@ -16,4 +16,6 @@ library Errors {
     error NothingAtStake();
     error MaxTotalSupplyExceeded();
     error NotPartecipatedInGovernanceAtEpoch(uint16 epoch);
+    error GuardianAlreadyRegistered(address guardian);
+    error GuardianNotRegistered(address guardian);
 }

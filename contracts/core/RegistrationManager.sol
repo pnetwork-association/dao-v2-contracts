@@ -31,6 +31,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     address public epochsManager;
     address public lendingManager;
 
+    //v1.1.0
+    mapping(address => bool) private _guardians;
+    uint16 public totalNumberOfGuardians;
+
     function initialize(
         address _token,
         address _stakingManager,
@@ -69,6 +73,39 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         _increaseSentinelRegistrationDuration(owner, duration);
     }
 
+     /// @inheritdoc IRegistrationManager
+    function isGuardian(address guardian) external view returns(bool) {
+        return _guardians[guardian];
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function removeGuardian(address guardian) external onlyRole(Roles.REMOVE_GUARDIAN_ROLE) {
+        if (!_guardians[guardian]) {
+            revert Errors.GuardianNotRegistered(guardian);
+        }
+
+        _guardians[guardian] = false;
+        unchecked {
+            --totalNumberOfGuardians;
+        }
+
+        emit GuardianRemoved(guardian);
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function registerGuardian(address guardian) external onlyRole(Roles.REGISTER_GUARDIAN_ROLE) {
+        if (_guardians[guardian]) {
+            revert Errors.GuardianAlreadyRegistered(guardian);
+        }
+
+        _guardians[guardian] = true;
+        unchecked {
+            ++totalNumberOfGuardians;
+        }
+
+        emit GuardianRegistered(guardian);
+    }
+
     /// @inheritdoc IRegistrationManager
     function sentinelRegistration(address sentinel) external view returns (Registration memory) {
         return _sentinelRegistrations[sentinel];
@@ -77,6 +114,73 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     /// @inheritdoc IRegistrationManager
     function sentinelOf(address owner) external view returns (address) {
         return _ownersSentinel[owner];
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function releaseSentinel(address sentinel) external onlyRole(Roles.RELEASE_SENTINEL_ROLE) {
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+
+        Registration storage registration = _sentinelRegistrations[sentinel];
+        uint16 registrationStartEpoch = registration.startEpoch;
+        uint16 registrationEndEpoch = registration.endEpoch;
+        bytes1 registrationKind = registration.kind;
+
+        if (registrationEndEpoch < currentEpoch) revert Errors.SentinelNotReleasable(sentinel);
+
+        for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
+            if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+                ILendingManager(lendingManager).release(
+                    sentinel,
+                    epoch,
+                    Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION
+                );
+            }
+
+            if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {
+                uint24 sentinelEpochStakingAmount = _sentinelsEpochsStakedAmount[sentinel][epoch];
+                delete _sentinelsEpochsStakedAmount[sentinel][epoch];
+                _sentinelsEpochsTotalStakedAmount[epoch] -= sentinelEpochStakingAmount;
+                // TODO: Should we slash the corresponding amount of tokens?
+            }
+
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        if (currentEpoch == registrationStartEpoch) {
+            delete _ownersSentinel[registration.owner];
+            delete registration.owner;
+            delete registration.startEpoch;
+            delete registration.endEpoch;
+            delete registration.kind;
+        } else {
+            registration.endEpoch = currentEpoch - 1;
+        }
+
+        emit SentinelReleased(sentinel, currentEpoch);
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256) {
+        return _sentinelsEpochsStakedAmount[sentinel].length > 0 ? _sentinelsEpochsStakedAmount[sentinel][epoch] : 0;
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function totalSentinelStakedAmountByEpoch(uint16 epoch) external view returns (uint256) {
+        return _sentinelsEpochsTotalStakedAmount[epoch];
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function totalSentinelStakedAmountByEpochsRange(
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (uint256[] memory) {
+        uint256[] memory result = new uint256[]((endEpoch + 1) - startEpoch);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
+            result[epoch - startEpoch] = _sentinelsEpochsTotalStakedAmount[epoch];
+        }
+        return result;
     }
 
     /// @inheritdoc IRegistrationManager
@@ -152,73 +256,6 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             registrationEndEpoch,
             Constants.REGISTRATION_SENTINEL_STAKING
         );
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function releaseSentinel(address sentinel) external onlyRole(Roles.RELEASE_SENTINEL_ROLE) {
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-
-        Registration storage registration = _sentinelRegistrations[sentinel];
-        uint16 registrationStartEpoch = registration.startEpoch;
-        uint16 registrationEndEpoch = registration.endEpoch;
-        bytes1 registrationKind = registration.kind;
-
-        if (registrationEndEpoch < currentEpoch) revert Errors.SentinelNotReleasable(sentinel);
-
-        for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
-            if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
-                ILendingManager(lendingManager).release(
-                    sentinel,
-                    epoch,
-                    Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION
-                );
-            }
-
-            if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {
-                uint24 sentinelEpochStakingAmount = _sentinelsEpochsStakedAmount[sentinel][epoch];
-                delete _sentinelsEpochsStakedAmount[sentinel][epoch];
-                _sentinelsEpochsTotalStakedAmount[epoch] -= sentinelEpochStakingAmount;
-                // TODO: Should we slash the corresponding amount of tokens?
-            }
-
-            unchecked {
-                ++epoch;
-            }
-        }
-
-        if (currentEpoch == registrationStartEpoch) {
-            delete _ownersSentinel[registration.owner];
-            delete registration.owner;
-            delete registration.startEpoch;
-            delete registration.endEpoch;
-            delete registration.kind;
-        } else {
-            registration.endEpoch = currentEpoch - 1;
-        }
-
-        emit SentinelReleased(sentinel, currentEpoch);
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256) {
-        return _sentinelsEpochsStakedAmount[sentinel].length > 0 ? _sentinelsEpochsStakedAmount[sentinel][epoch] : 0;
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function totalSentinelStakedAmountByEpoch(uint16 epoch) external view returns (uint256) {
-        return _sentinelsEpochsTotalStakedAmount[epoch];
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function totalSentinelStakedAmountByEpochsRange(
-        uint16 startEpoch,
-        uint16 endEpoch
-    ) external view returns (uint256[] memory) {
-        uint256[] memory result = new uint256[]((endEpoch + 1) - startEpoch);
-        for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
-            result[epoch - startEpoch] = _sentinelsEpochsTotalStakedAmount[epoch];
-        }
-        return result;
     }
 
     function _increaseSentinelRegistrationDuration(address owner, uint64 duration) internal {

@@ -25,6 +25,20 @@ interface IRegistrationManager {
     event DurationIncreased(address indexed sentinel, uint16 endEpoch);
 
     /**
+     * @dev Emitted when a guardian is removed.
+     *
+     * @param guardian The guardian
+     */
+    event GuardianRemoved(address indexed guardian);
+
+    /**
+     * @dev Emitted when a guardian is registered.
+     *
+     * @param guardian The guardian
+     */
+    event GuardianRegistered(address indexed guardian);
+
+    /**
      * @dev Emitted when a sentinel registration is completed.
      *
      * @param owner The sentinel owner
@@ -77,6 +91,29 @@ interface IRegistrationManager {
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external;
 
     /*
+     * @notice Returns if an address is a guardian or not.
+     *
+     * @param guardian
+     *
+     * @return a bool indicating if an address is a guardian.
+     */
+    function isGuardian(address guardian) external view returns(bool);
+
+    /*
+     * @notice Remove a guardian
+     *
+     * @param guardian
+     */
+    function removeGuardian(address guardian) external;
+
+    /*
+     * @notice Register a guardian
+     *
+     * @param guardian
+     */
+    function registerGuardian(address guardian) external;
+
+    /*
      * @notice Returns the sentinel of a given owner
      *
      * @param owner
@@ -93,30 +130,6 @@ interface IRegistrationManager {
      * @return address representing the sentinel registration data.
      */
     function sentinelRegistration(address sentinel) external view returns (Registration memory);
-
-    /*
-     * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
-     *         This function is used togheter with onlyForwarder.
-     *
-     * @params owner
-     * @param numberOfEpochs
-     * @param signature
-     *
-     */
-    function updateSentinelRegistrationByBorrowing(
-        address owner,
-        uint16 numberOfEpochs,
-        bytes calldata signature
-    ) external;
-
-    /*
-     * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
-     *
-     * @param numberOfEpochs
-     * @param signature
-     *
-     */
-    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external;
 
     /*
      * @notice Release a specific sentinel. This function shold be called only by who owns the RELEASE_SENTINEL_ROLE role.
@@ -155,6 +168,30 @@ interface IRegistrationManager {
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory);
+
+    /*
+     * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
+     *         This function is used togheter with onlyForwarder.
+     *
+     * @params owner
+     * @param numberOfEpochs
+     * @param signature
+     *
+     */
+    function updateSentinelRegistrationByBorrowing(
+        address owner,
+        uint16 numberOfEpochs,
+        bytes calldata signature
+    ) external;
+
+    /*
+     * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
+     *
+     * @param numberOfEpochs
+     * @param signature
+     *
+     */
+    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external;
 
     /*
      * @notice Registers/Renew a sentinel for a given duration in behalf of owner

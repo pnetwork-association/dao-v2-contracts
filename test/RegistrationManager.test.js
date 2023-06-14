@@ -33,7 +33,9 @@ let stakingManagerRM,
   acl,
   daoRoot,
   fakeForwarder,
-  fakeDandelionVoting
+  fakeDandelionVoting,
+  guardian
+
 let BORROW_ROLE, RELEASE_SENTINEL_ROLE, UPGRADE_ROLE
 
 describe('RegistrationManager', () => {
@@ -62,6 +64,7 @@ describe('RegistrationManager', () => {
     user1 = signers[2]
     fakeForwarder = signers[3]
     fakeDandelionVoting = signers[4]
+    guardian = signers[5]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
@@ -109,6 +112,8 @@ describe('RegistrationManager', () => {
     STAKE_ROLE = getRole('STAKE_ROLE')
     INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
     UPGRADE_ROLE = getRole('UPGRADE_ROLE')
+    REGISTER_GUARDIAN_ROLE = getRole('REGISTER_GUARDIAN_ROLE')
+    REMOVE_GUARDIAN_ROLE = getRole('REMOVE_GUARDIAN_ROLE')
 
     // grant roles
     await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
@@ -119,6 +124,8 @@ describe('RegistrationManager', () => {
     await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
     await registrationManager.grantRole(UPGRADE_ROLE, owner.address)
+    await registrationManager.grantRole(REGISTER_GUARDIAN_ROLE, fakeDandelionVoting.address)
+    await registrationManager.grantRole(REMOVE_GUARDIAN_ROLE, fakeDandelionVoting.address)
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
@@ -1090,5 +1097,47 @@ describe('RegistrationManager', () => {
     await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_CHAIN_IDS.polygonMainnet))
       .to.emit(stakingManagerRM, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
+  })
+
+  it('should be able to register a guardian', async () => {
+    await expect(registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address))
+      .to.emit(registrationManager, 'GuardianRegistered')
+      .withArgs(guardian.address)
+
+    expect(await registrationManager.isGuardian(guardian.address)).to.be.true
+    expect(await registrationManager.totalNumberOfGuardians()).to.be.equal(1)
+  })
+
+  it('should not be able to register a guardian twice', async () => {
+    await expect(registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address))
+      .to.emit(registrationManager, 'GuardianRegistered')
+      .withArgs(guardian.address)
+
+    await expect(registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address)).to.be.revertedWithCustomError(
+      registrationManager,
+      'GuardianAlreadyRegistered'
+    )
+  })
+
+  it('should be able to remove a guardian', async () => {
+    await registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address)
+    await expect(registrationManager.connect(fakeDandelionVoting).removeGuardian(guardian.address))
+      .to.emit(registrationManager, 'GuardianRemoved')
+      .withArgs(guardian.address)
+    expect(await registrationManager.isGuardian(guardian.address)).to.be.false
+    expect(await registrationManager.totalNumberOfGuardians()).to.be.equal(0)
+  })
+
+  it('should not be able to remove a guardian not registered', async () => {
+    await registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address)
+    await expect(registrationManager.connect(fakeDandelionVoting).removeGuardian(guardian.address))
+      .to.emit(registrationManager, 'GuardianRemoved')
+      .withArgs(guardian.address)
+    expect(await registrationManager.isGuardian(guardian.address)).to.be.false
+    expect(await registrationManager.totalNumberOfGuardians()).to.be.equal(0)
+    await expect(registrationManager.connect(fakeDandelionVoting).removeGuardian(guardian.address)).to.be.revertedWithCustomError(
+      registrationManager,
+      'GuardianNotRegistered'
+    )
   })
 })
