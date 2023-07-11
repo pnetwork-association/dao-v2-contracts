@@ -22,5 +22,7 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             Changes in this Release:
+              - Added possibility to deposit fee (`depositFeeForPreviousEpoch`) for the previous epoch.
+              - Removed `depositFee`.
           draft: false
           prerelease: false

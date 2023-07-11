@@ -188,15 +188,11 @@ describe('FeesManager', () => {
     const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
     await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature2)
 
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(1)
-
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
-
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
@@ -240,14 +236,11 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
     await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
 
-    await time.increase(EPOCH_DURATION)
-
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
-
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
@@ -298,14 +291,11 @@ describe('FeesManager', () => {
     const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
     await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature2)
 
-    await time.increase(EPOCH_DURATION)
-
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
-
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
@@ -369,14 +359,11 @@ describe('FeesManager', () => {
     const signature3 = await getSentinelIdentity(sentinelBorrowerRegistrator2.address, { sentinel: sentinel3 })
     await registrationManager.connect(sentinelBorrowerRegistrator2)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature3)
 
-    await time.increase(EPOCH_DURATION)
-
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
-
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
@@ -403,14 +390,11 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
     await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
 
-    await time.increase(EPOCH_DURATION)
-
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
-
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
@@ -427,14 +411,13 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
     await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
 
-    await time.increase(EPOCH_DURATION)
-
+    await time.increase(EPOCH_DURATION * 2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 2)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 3)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
   })
 
   it('should not be able to claim the fee twice in the same epoch by using the claim for many epochs (1)', async () => {
@@ -445,14 +428,11 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
     await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
 
-    await time.increase(EPOCH_DURATION)
-
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
-
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(2)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
@@ -472,20 +452,16 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
     await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
 
-    await time.increase(EPOCH_DURATION)
-
+    await time.increase(EPOCH_DURATION * 2)
+    expect(await epochsManager.currentEpoch()).to.be.equal(2)
     const fee = ethers.utils.parseEther('100')
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
-
-    await time.increase(EPOCH_DURATION)
-    expect(await epochsManager.currentEpoch()).to.be.equal(2)
-
-    await pnt.connect(pntHolder1).approve(feesManager.address, fee)
-    await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
+    await pnt.connect(pntHolder1).approve(feesManager.address, fee)
+    await feesManager.connect(pntHolder1).depositFeeForPreviousEpoch(pnt.address, fee)
 
     await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pnt.address, 1, 2))
       .to.emit(feesManager, 'FeeClaimed')
