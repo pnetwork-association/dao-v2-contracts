@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 interface ITokenManager {
     function mint(address receiver, uint256 amount) external;
