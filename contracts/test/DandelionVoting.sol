@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Unlicense
 
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 contract DandelionVoting {
     event StartVote(uint256 indexed voteId, address indexed creator, string metadata);
