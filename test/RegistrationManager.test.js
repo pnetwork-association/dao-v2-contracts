@@ -17,11 +17,13 @@ const {
   REGISTRATION_NULL,
   REGISTRATION_SENTINEL_BORROWING,
   REGISTRATION_SENTINEL_STAKING,
+  REGISTRATON_GUARDIAN,
   TOKEN_MANAGER_ADDRESS,
   ZERO_ADDRESS
 } = require('./constants')
 
-let stakingManagerRM,
+let signers,
+  stakingManagerRM,
   stakingManagerLM,
   epochsManager,
   registrationManager,
@@ -34,7 +36,10 @@ let stakingManagerRM,
   daoRoot,
   fakeForwarder,
   fakeDandelionVoting,
-  guardian
+  guardian1,
+  guardianOwner1,
+  guardian2,
+  guardianOwner2
 
 let BORROW_ROLE, RELEASE_SENTINEL_ROLE, UPGRADE_ROLE
 
@@ -58,13 +63,16 @@ describe('RegistrationManager', () => {
     const ERC20 = await ethers.getContractFactory('ERC20')
     const ACL = await ethers.getContractFactory('ACL')
 
-    const signers = await ethers.getSigners()
+    signers = await ethers.getSigners()
     owner = signers[0]
     sentinel1 = signers[1]
     user1 = signers[2]
     fakeForwarder = signers[3]
     fakeDandelionVoting = signers[4]
-    guardian = signers[5]
+    guardian1 = signers[5]
+    guardianOwner1 = signers[6]
+    guardian2 = signers[7]
+    guardianOwner2 = signers[8]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
@@ -112,8 +120,7 @@ describe('RegistrationManager', () => {
     STAKE_ROLE = getRole('STAKE_ROLE')
     INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
     UPGRADE_ROLE = getRole('UPGRADE_ROLE')
-    REGISTER_GUARDIAN_ROLE = getRole('REGISTER_GUARDIAN_ROLE')
-    REMOVE_GUARDIAN_ROLE = getRole('REMOVE_GUARDIAN_ROLE')
+    UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
 
     // grant roles
     await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
@@ -124,8 +131,7 @@ describe('RegistrationManager', () => {
     await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
     await registrationManager.grantRole(RELEASE_SENTINEL_ROLE, owner.address)
     await registrationManager.grantRole(UPGRADE_ROLE, owner.address)
-    await registrationManager.grantRole(REGISTER_GUARDIAN_ROLE, fakeDandelionVoting.address)
-    await registrationManager.grantRole(REMOVE_GUARDIAN_ROLE, fakeDandelionVoting.address)
+    await registrationManager.grantRole(UPDATE_GUARDIAN_REGISTRATION_ROLE, fakeDandelionVoting.address)
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
     await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
@@ -1100,44 +1106,232 @@ describe('RegistrationManager', () => {
   })
 
   it('should be able to register a guardian', async () => {
-    await expect(registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address))
-      .to.emit(registrationManager, 'GuardianRegistered')
-      .withArgs(guardian.address)
+    //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|----------|
+    //   0          1          2          3          4          5          6          7          8
 
-    expect(await registrationManager.isGuardian(guardian.address)).to.be.true
-    expect(await registrationManager.totalNumberOfGuardians()).to.be.equal(1)
-  })
+    const currentEpoch = await epochsManager.currentEpoch()
+    const numberOfEpochs = 5
 
-  it('should not be able to register a guardian twice', async () => {
-    await expect(registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address))
-      .to.emit(registrationManager, 'GuardianRegistered')
-      .withArgs(guardian.address)
-
-    await expect(registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address)).to.be.revertedWithCustomError(
-      registrationManager,
-      'GuardianAlreadyRegistered'
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + 5, guardian1.address, REGISTRATON_GUARDIAN)
+
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(0)
   })
 
-  it('should be able to remove a guardian', async () => {
-    await registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address)
-    await expect(registrationManager.connect(fakeDandelionVoting).removeGuardian(guardian.address))
-      .to.emit(registrationManager, 'GuardianRemoved')
-      .withArgs(guardian.address)
-    expect(await registrationManager.isGuardian(guardian.address)).to.be.false
-    expect(await registrationManager.totalNumberOfGuardians()).to.be.equal(0)
-  })
+  it('should be able to update a guardian registration (1)', async () => {
+    //
+    //   updateGuardianRegistration - 1
+    //
+    //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //
+    //   updateGuardianRegistration - 2 (reset in epoch 4 & 5)
+    //
+    //   |----------|----------|----------|-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //   res - 2
+    //
+    //   |----------|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|
+    //   0          1          2          3          4          5          6          7          8
 
-  it('should not be able to remove a guardian not registered', async () => {
-    await registrationManager.connect(fakeDandelionVoting).registerGuardian(guardian.address)
-    await expect(registrationManager.connect(fakeDandelionVoting).removeGuardian(guardian.address))
-      .to.emit(registrationManager, 'GuardianRemoved')
-      .withArgs(guardian.address)
-    expect(await registrationManager.isGuardian(guardian.address)).to.be.false
-    expect(await registrationManager.totalNumberOfGuardians()).to.be.equal(0)
-    await expect(registrationManager.connect(fakeDandelionVoting).removeGuardian(guardian.address)).to.be.revertedWithCustomError(
-      registrationManager,
-      'GuardianNotRegistered'
+    let currentEpoch = await epochsManager.currentEpoch()
+    let numberOfEpochs = 5
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+
+    await time.increase(EPOCH_DURATION * 3)
+    currentEpoch = await epochsManager.currentEpoch()
+    expect(currentEpoch).to.be.eq(3)
+
+    numberOfEpochs = 3
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
+    )
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
+  })
+
+  it('should be able to update a guardian registration (2)', async () => {
+    //
+    //   guardian1 - updateGuardianRegistration - 1
+    //
+    //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //
+    //   guardian2 - updateGuardianRegistration - 2
+    //
+    //   |----------|----------|----------|----------|----------|----------|-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|
+    //   0          1          2          3          4          5          6          7          8          9          10
+    //
+    //   res - 2
+    //
+    //   |----------|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|vvvvvvvvvv|vvvvvvvvvv|----------|
+    //   0          1          2          3          4          5          6          7          8          9          10
+
+    let currentEpoch = await epochsManager.currentEpoch()
+    let numberOfEpochs = 4
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
+    )
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+
+    await time.increase(EPOCH_DURATION * 6)
+    currentEpoch = await epochsManager.currentEpoch()
+    expect(currentEpoch).to.be.eq(6)
+
+    numberOfEpochs = 2
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner2.address, numberOfEpochs, guardian2.address)
+    )
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardianOwner2.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian2.address, REGISTRATON_GUARDIAN)
+
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(8)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(9)).to.be.equal(0)
+  })
+
+  it('should be able to register 2 guardians', async () => {
+    //
+    //   guardian1 - updateGuardianRegistration - 1
+    //
+    //   |-----xxxxx|1111111111|1111111111|1111111111|1111111111|1111111111|xxxxx-----|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //
+    //   guardian2 - updateGuardianRegistration - 2 (reset in epoch 4 & 5)
+    //
+    //   |----------|----------|----------|-----xxxxx|1111111111|1111111111|1111111111|xxxxx-----|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //   res - 2
+    //
+    //   |----------|1111111111|1111111111|1111111111|2222222222|2222222222|1111111111|----------|
+    //   0          1          2          3          4          5          6          7          8
+
+    let currentEpoch = await epochsManager.currentEpoch()
+    let numberOfEpochs = 5
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
+    )
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+
+    await time.increase(EPOCH_DURATION * 3)
+    currentEpoch = await epochsManager.currentEpoch()
+    expect(currentEpoch).to.be.eq(3)
+
+    numberOfEpochs = 3
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner2.address, numberOfEpochs, guardian2.address)
+    )
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardianOwner2.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian2.address, REGISTRATON_GUARDIAN)
+
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(2)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(2)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
+  })
+
+  it('cannot register a guardian using number of epochs = 0', async () => {
+    await expect(
+      registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, 0, guardian1.address)
+    ).to.be.revertedWithCustomError(registrationManager, 'InvalidNumberOfEpochs')
+  })
+
+  it('should be able to register more guardians', async () => {
+    //
+    //   guardians[0] - updateGuardianRegistration
+    //
+    //   |-----xxxxx|1111111111|1111111111|1111111111|1111111111|1111111111|xxxxx-----|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //   guardians[1] - updateGuardianRegistration
+    //
+    //   |-----xxxxx|1111111111|1111111111|xxxxx-----|----------|----------|----------|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //   guardians[2] - updateGuardianRegistration
+    //
+    //   |-----xxxxx|1111111111|1111111111|1111111111|xxxxx-----|----------|----------|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //   guardians[3] - updateGuardianRegistration
+    //
+    //   |-----xxxxx|1111111111|1111111111|1111111111|1111111111|1111111111|1111111111|xxxxx-----|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //   guardians[4] - updateGuardianRegistration
+    //
+    //   |-----xxxxx|1111111111|xxxxx-----|----------|----------|----------|----------|----------|
+    //   0          1          2          3          4          5          6          7          8
+    //
+    //   res
+    //
+    //   |-----xxxxx|5555555555|4444444444|3333333333|2222222222|2222222222|1111111111|----------|
+    //   0          1          2          3          4          5          6          7          8
+
+    const guardians = signers.slice(10, 15).map(({ address }) => address)
+    const guardiansOwners = signers.slice(15, 20).map(({ address }) => address)
+    const currentEpoch = await epochsManager.currentEpoch()
+    const numbersOfEpochs = [5, 2, 3, 6, 1]
+
+    await expect(registrationManager.connect(fakeDandelionVoting).updateGuardiansRegistrations(guardiansOwners, numbersOfEpochs, guardians))
+      .to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardiansOwners[0], currentEpoch + 1, currentEpoch + numbersOfEpochs[0], guardians[0], REGISTRATON_GUARDIAN)
+      .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardiansOwners[1], currentEpoch + 1, currentEpoch + numbersOfEpochs[1], guardians[1], REGISTRATON_GUARDIAN)
+      .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardiansOwners[2], currentEpoch + 1, currentEpoch + numbersOfEpochs[2], guardians[2], REGISTRATON_GUARDIAN)
+      .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardiansOwners[3], currentEpoch + 1, currentEpoch + numbersOfEpochs[3], guardians[3], REGISTRATON_GUARDIAN)
+      .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
+      .withArgs(guardiansOwners[4], currentEpoch + 1, currentEpoch + numbersOfEpochs[4], guardians[4], REGISTRATON_GUARDIAN)
+
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(5)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(4)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(3)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(2)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(2)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
   })
 })

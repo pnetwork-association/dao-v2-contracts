@@ -32,8 +32,9 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     address public lendingManager;
 
     //v1.1.0
-    mapping(address => bool) private _guardians;
-    uint16 public totalNumberOfGuardians;
+    mapping(address => Registration) private _guardianRegistrations;
+    mapping(address => address) private _ownersGuardian;
+    mapping(uint16 => uint16) private _epochsTotalNumberOfGuardians;
 
     function initialize(
         address _token,
@@ -64,6 +65,11 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
+    function guardianRegistration(address guardian) external view returns (Registration memory) {
+        return _guardianRegistrations[guardian];
+    }
+
+    /// @inheritdoc IRegistrationManager
     function increaseSentinelRegistrationDuration(uint64 duration) external {
         _increaseSentinelRegistrationDuration(_msgSender(), duration);
     }
@@ -71,39 +77,6 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     /// @inheritdoc IRegistrationManager
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external onlyForwarder {
         _increaseSentinelRegistrationDuration(owner, duration);
-    }
-
-     /// @inheritdoc IRegistrationManager
-    function isGuardian(address guardian) external view returns(bool) {
-        return _guardians[guardian];
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function removeGuardian(address guardian) external onlyRole(Roles.REMOVE_GUARDIAN_ROLE) {
-        if (!_guardians[guardian]) {
-            revert Errors.GuardianNotRegistered(guardian);
-        }
-
-        _guardians[guardian] = false;
-        unchecked {
-            --totalNumberOfGuardians;
-        }
-
-        emit GuardianRemoved(guardian);
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function registerGuardian(address guardian) external onlyRole(Roles.REGISTER_GUARDIAN_ROLE) {
-        if (_guardians[guardian]) {
-            revert Errors.GuardianAlreadyRegistered(guardian);
-        }
-
-        _guardians[guardian] = true;
-        unchecked {
-            ++totalNumberOfGuardians;
-        }
-
-        emit GuardianRegistered(guardian);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -167,6 +140,11 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
+    function totalNumberOfGuardiansByEpoch(uint16 epoch) external view returns (uint16) {
+        return _epochsTotalNumberOfGuardians[epoch];
+    }
+
+    /// @inheritdoc IRegistrationManager
     function totalSentinelStakedAmountByEpoch(uint16 epoch) external view returns (uint256) {
         return _sentinelsEpochsTotalStakedAmount[epoch];
     }
@@ -181,6 +159,65 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             result[epoch - startEpoch] = _sentinelsEpochsTotalStakedAmount[epoch];
         }
         return result;
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function updateGuardiansRegistrations(
+        address[] calldata owners,
+        uint16[] calldata numbersOfEpochs,
+        address[] calldata guardians
+    ) external onlyRole(Roles.UPDATE_GUARDIAN_REGISTRATION_ROLE) {
+        for (uint16 i = 0; i < owners.length; ) {
+            _updateGuardianRegistration(owners[i], numbersOfEpochs[i], guardians[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function updateGuardianRegistration(
+        address owner,
+        uint16 numberOfEpochs,
+        address guardian
+    ) external onlyRole(Roles.UPDATE_GUARDIAN_REGISTRATION_ROLE) {
+        _updateGuardianRegistration(owner, numberOfEpochs, guardian);
+    }
+
+    function _updateGuardianRegistration(address owner, uint16 numberOfEpochs, address guardian) internal {
+        if (numberOfEpochs == 0) {
+            revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
+        }
+
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        Registration storage currentRegistration = _guardianRegistrations[guardian];
+
+        uint16 currentRegistrationEndEpoch = currentRegistration.endEpoch;
+        uint16 startEpoch = currentEpoch + 1;
+        uint16 endEpoch = startEpoch + numberOfEpochs - 1;
+
+        // NOTE: reset _epochsTotalNumberOfGuardians if the guardian was already registered and if the current epoch is less than the
+        // epoch in which the current registration ends.
+        if (currentRegistration.owner != address(0) && currentEpoch < currentRegistrationEndEpoch) {
+            for (uint16 epoch = startEpoch; epoch <= currentRegistrationEndEpoch; ) {
+                unchecked {
+                    --_epochsTotalNumberOfGuardians[epoch];
+                    ++epoch;
+                }
+            }
+        }
+
+        _guardianRegistrations[guardian] = Registration(owner, startEpoch, endEpoch, Constants.REGISTRATION_GUARDIAN);
+
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            unchecked {
+                ++_epochsTotalNumberOfGuardians[epoch];
+                ++epoch;
+            }
+        }
+
+        emit GuardianRegistrationUpdated(owner, startEpoch, endEpoch, guardian, Constants.REGISTRATION_GUARDIAN);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -303,6 +340,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 numberOfEpochs,
         bytes calldata signature
     ) internal {
+        if (numberOfEpochs == 0) {
+            revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
+        }
+
         address sentinel = getSentinelAddressFromSignature(owner, signature);
 
         Registration storage registration = _sentinelRegistrations[sentinel];

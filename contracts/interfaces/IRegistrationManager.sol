@@ -25,18 +25,21 @@ interface IRegistrationManager {
     event DurationIncreased(address indexed sentinel, uint16 endEpoch);
 
     /**
-     * @dev Emitted when a guardian is removed.
-     *
-     * @param guardian The guardian
-     */
-    event GuardianRemoved(address indexed guardian);
-
-    /**
      * @dev Emitted when a guardian is registered.
      *
-     * @param guardian The guardian
+     * @param owner The sentinel owner
+     * @param startEpoch The epoch in which the registration starts
+     * @param endEpoch The epoch at which the registration ends
+     * @param guardian The sentinel address
+     * @param kind The type of registration
      */
-    event GuardianRegistered(address indexed guardian);
+    event GuardianRegistrationUpdated(
+        address indexed owner,
+        uint16 indexed startEpoch,
+        uint16 indexed endEpoch,
+        address guardian,
+        bytes1 kind
+    );
 
     /**
      * @dev Emitted when a sentinel registration is completed.
@@ -66,13 +69,22 @@ interface IRegistrationManager {
     event SentinelReleased(address indexed sentinel, uint16 indexed epoch);
 
     /*
-     * @notice Returns the sentinel address given the owner and the signature
+     * @notice Returns the sentinel address given the owner and the signature.
      *
      * @param sentinel
      *
      * @return address representing the address of the sentinel.
      */
     function getSentinelAddressFromSignature(address owner, bytes calldata signature) external pure returns (address);
+
+    /*
+     * @notice Returns a guardian registration.
+     *
+     * @param guardian
+     *
+     * @return Registration representing the guardian registration.
+     */
+    function guardianRegistration(address guardian) external view returns (Registration memory);
 
     /*
      * @notice Increase the duration of a staking sentinel registration.
@@ -89,29 +101,6 @@ interface IRegistrationManager {
      * @param duration
      */
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external;
-
-    /*
-     * @notice Returns if an address is a guardian or not.
-     *
-     * @param guardian
-     *
-     * @return a bool indicating if an address is a guardian.
-     */
-    function isGuardian(address guardian) external view returns(bool);
-
-    /*
-     * @notice Remove a guardian
-     *
-     * @param guardian
-     */
-    function removeGuardian(address guardian) external;
-
-    /*
-     * @notice Register a guardian
-     *
-     * @param guardian
-     */
-    function registerGuardian(address guardian) external;
 
     /*
      * @notice Returns the sentinel of a given owner
@@ -149,6 +138,15 @@ interface IRegistrationManager {
     function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256);
 
     /*
+     * @notice Return the total number of guardians in a specific epoch.
+     *
+     * @param epoch
+     *
+     * @return uint256 the total number of guardians in a specific epoch.
+     */
+    function totalNumberOfGuardiansByEpoch(uint16 epoch) external view returns (uint16);
+
+    /*
      * @notice Return the total staked amount by the sentinels in a given epoch.
      *
      * @param epoch
@@ -168,6 +166,30 @@ interface IRegistrationManager {
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (uint256[] memory);
+
+    /*
+     * @notice Update guardians registrations. UPDATE_GUARDIAN_REGISTRATION_ROLE is needed to call this function
+     *
+     * @param owners
+     * @param numbersOfEpochs
+     * @param guardians
+     *
+     */
+    function updateGuardiansRegistrations(
+        address[] calldata owners,
+        uint16[] calldata numbersOfEpochs,
+        address[] calldata guardians
+    ) external;
+
+    /*
+     * @notice Update a guardian registration. UPDATE_GUARDIAN_REGISTRATION_ROLE is needed to call this function
+     *
+     * @param owners
+     * @param numbersOfEpochs
+     * @param guardians
+     *
+     */
+    function updateGuardianRegistration(address owner, uint16 numberOfEpochs, address guardian) external;
 
     /*
      * @notice Registers/Renew a sentinel by borrowing the specified amount of tokens for a given number of epochs.
