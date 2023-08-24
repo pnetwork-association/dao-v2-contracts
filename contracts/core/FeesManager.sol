@@ -129,9 +129,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     }
 
     /// @inheritdoc IFeesManager
-    function claimFeeByEpoch(address asset, uint16 epoch) public {
-        address owner = _msgSender();
-
+    function claimFeeByEpoch(address owner, address asset, uint16 epoch) public {
         if (epoch >= IEpochsManager(epochsManager).currentEpoch()) {
             revert Errors.InvalidEpoch();
         }
@@ -147,7 +145,8 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         }
 
         // NOTE: if a borrowing sentinel has been slashed (aka redirectClaimToChallengerByEpoch)
-        // the fees earned until the slashing can be claimed by the challenger
+        // the fees earned until the slashing can be claimed by the challenger for the epoch in
+        // which the slashing happened
         address challenger = _challengersEpochsClaimRedirect[sentinel][epoch];
         address receiver = challenger != address(0) ? challenger : owner;
 
@@ -157,11 +156,11 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     }
 
     /// @inheritdoc IFeesManager
-    function claimFeeByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
+    function claimFeeByEpochsRange(address owner, address asset, uint16 startEpoch, uint16 endEpoch) external {
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             // NOTE: impossible to use the cumulative claim since in an epoch the fees
             // could be claimed by a challenger that slashed a sentinel
-            claimFeeByEpoch(asset, epoch);
+            claimFeeByEpoch(owner, asset, epoch);
             unchecked {
                 ++epoch;
             }

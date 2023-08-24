@@ -201,11 +201,11 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee.div(2))
 
-    await expect(feesManager.connect(sentinelBorrowerRegistrator1).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(
+    await expect(feesManager.claimFeeByEpoch(sentinelBorrowerRegistrator1.address, pnt.address, 1)).to.be.revertedWithCustomError(
       feesManager,
       'NothingToClaim'
     )
@@ -252,7 +252,7 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
 
@@ -310,11 +310,11 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee.div(2))
 
-    await expect(feesManager.connect(sentinelBorrowerRegistrator1).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(sentinelBorrowerRegistrator1.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(sentinelBorrowerRegistrator1.address, sentinel2.address, 1, pnt.address, ethers.utils.parseEther('22.5')) // (100 * 0.5) * 0.45
 
@@ -381,15 +381,15 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, ethers.utils.parseEther('33.333333333333333333'))
 
-    await expect(feesManager.connect(sentinelBorrowerRegistrator1).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(sentinelBorrowerRegistrator1.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(sentinelBorrowerRegistrator1.address, sentinel2.address, 1, pnt.address, ethers.utils.parseEther('8.518566666666666667')) // more or less (100 * 0.6666 * 0.2555555) / 2
 
-    await expect(feesManager.connect(sentinelBorrowerRegistrator2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.connect(sentinelBorrowerRegistrator2).claimFeeByEpoch(sentinelBorrowerRegistrator2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(sentinelBorrowerRegistrator2.address, sentinel3.address, 1, pnt.address, ethers.utils.parseEther('8.518566666666666667')) // more or less (100 * 0.6666 * 0.2555555) / 2
 
@@ -415,11 +415,11 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'NothingToClaim')
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'NothingToClaim')
   })
 
   it('should not be able to claim the fee in the current or the next epoch', async () => {
@@ -436,8 +436,8 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder1).approve(feesManager.address, fee)
     await feesManager.connect(pntHolder1).depositFee(pnt.address, fee)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 2)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 2)).to.be.revertedWithCustomError(feesManager, 'InvalidEpoch')
   })
 
   it('should not be able to claim the fee twice in the same epoch by using the claim for many epochs (1)', async () => {
@@ -457,11 +457,11 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pnt.address, 1, 1)).to.be.revertedWithCustomError(
+    await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pntHolder2.address, pnt.address, 1, 1)).to.be.revertedWithCustomError(
       feesManager,
       'NothingToClaim'
     )
@@ -490,13 +490,13 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pnt.address, 1, 2))
+    await expect(feesManager.claimFeeByEpochsRange(pntHolder2.address, pnt.address, 1, 2))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee)
       .and.to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 2, pnt.address, fee)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpochsRange(pnt.address, 1, 2)).to.be.revertedWithCustomError(
+    await expect(feesManager.claimFeeByEpochsRange(pntHolder2.address, pnt.address, 1, 2)).to.be.revertedWithCustomError(
       feesManager,
       'NothingToClaim'
     )
@@ -504,7 +504,7 @@ describe('FeesManager', () => {
 
   it('should not be able to claim many epochs using an end epoch grater than the current one', async () => {
     await time.increase(EPOCH_DURATION)
-    await expect(feesManager.connect(pntHolder1).claimFeeByEpochsRange(pnt.address, 1, 2)).to.be.revertedWithCustomError(
+    await expect(feesManager.claimFeeByEpochsRange(pntHolder1.address, pnt.address, 1, 2)).to.be.revertedWithCustomError(
       lendingManager,
       'InvalidEpoch'
     )
@@ -563,12 +563,12 @@ describe('FeesManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await expect(feesManager.connect(pntHolder2).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(pntHolder2.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(pntHolder2.address, sentinel1.address, 1, pnt.address, fee.div(2))
 
     // NOTE: even if the claim is made by sentinelBorrowerRegistrator1, the fees will be sent to the challenger
-    await expect(feesManager.connect(sentinelBorrowerRegistrator1).claimFeeByEpoch(pnt.address, 1))
+    await expect(feesManager.claimFeeByEpoch(sentinelBorrowerRegistrator1.address, pnt.address, 1))
       .to.emit(feesManager, 'FeeClaimed')
       .withArgs(challenger.address, sentinel2.address, 1, pnt.address, ethers.utils.parseEther('22.5')) // (100 * 0.5) * 0.45
   })
