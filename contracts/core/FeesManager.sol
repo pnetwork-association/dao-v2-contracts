@@ -28,6 +28,9 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     address public lendingManager;
     address public registrationManager;
 
+    // v.1.1.0
+    mapping(address => mapping(uint16 => address)) _challengersEpochsClaimRedirect;
+
     function initialize(
         address _epochsManager,
         address _lendingManager,
@@ -46,6 +49,27 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         lendingManager = _lendingManager;
         registrationManager = _registrationManager;
         minimumBorrowingFee = _minimumBorrowingFee;
+    }
+
+    /// @inheritdoc IFeesManager
+    function challengerClaimRedirectByEpochsRangeOf(
+        address sentinel,
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (address[] memory) {
+        address[] memory result = new address[]((endEpoch + 1) - startEpoch);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            result[epoch] = challengerClaimRedirectByEpochOf(sentinel, epoch);
+            unchecked {
+                ++epoch;
+            }
+        }
+        return result;
+    }
+
+    /// @inheritdoc IFeesManager
+    function challengerClaimRedirectByEpochOf(address sentinel, uint16 epoch) public view returns (address) {
+        return _challengersEpochsClaimRedirect[sentinel][epoch];
     }
 
     /// @inheritdoc IFeesManager
@@ -105,7 +129,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     }
 
     /// @inheritdoc IFeesManager
-    function claimFeeByEpoch(address asset, uint16 epoch) external {
+    function claimFeeByEpoch(address asset, uint16 epoch) public {
         address owner = _msgSender();
 
         if (epoch >= IEpochsManager(epochsManager).currentEpoch()) {
@@ -122,44 +146,26 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             revert Errors.NothingToClaim();
         }
 
+        // NOTE: if a borrowing sentinel has been slashed (aka redirectClaimToChallengerByEpoch)
+        // the fees earned until the slashing can be claimed by the challenger
+        address challenger = _challengersEpochsClaimRedirect[sentinel][epoch];
+        address receiver = challenger != address(0) ? challenger : owner;
+
         _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
-        IERC20Upgradeable(asset).safeTransfer(owner, fee);
-        emit FeeClaimed(owner, sentinel, epoch, asset, fee);
+        IERC20Upgradeable(asset).safeTransfer(receiver, fee);
+        emit FeeClaimed(receiver, sentinel, epoch, asset, fee);
     }
 
     /// @inheritdoc IFeesManager
     function claimFeeByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
-        address owner = _msgSender();
-
-        if (endEpoch > IEpochsManager(epochsManager).currentEpoch()) {
-            revert Errors.InvalidEpoch();
-        }
-
-        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
-        if (sentinel == address(0)) {
-            revert Errors.SentinelNotRegistered();
-        }
-
-        uint256 cumulativeFee = 0;
-        uint256 fee = 0;
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            fee = claimableFeeByEpochOf(sentinel, asset, epoch);
-            if (fee > 0) {
-                _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
-                cumulativeFee += fee;
-                emit FeeClaimed(owner, sentinel, epoch, asset, fee);
-            }
-
+            // NOTE: impossible to use the cumulative claim since in an epoch the fees
+            // could be claimed by a challenger that slashed a sentinel
+            claimFeeByEpoch(asset, epoch);
             unchecked {
                 ++epoch;
             }
         }
-
-        if (cumulativeFee == 0) {
-            revert Errors.NothingToClaim();
-        }
-
-        IERC20Upgradeable(asset).safeTransfer(owner, cumulativeFee);
     }
 
     /// @inheritdoc IFeesManager
@@ -213,6 +219,16 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             result[epoch - startEpoch] = kByEpoch(epoch);
         }
         return result;
+    }
+
+    /// @inheritdoc IFeesManager
+    function redirectClaimToChallengerByEpoch(
+        address sentinel,
+        address challenger,
+        uint16 epoch
+    ) external onlyRole(Roles.REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE) {
+        _challengersEpochsClaimRedirect[sentinel][epoch] = challenger;
+        emit ClaimRedirectedToChallenger(sentinel, challenger, epoch);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
