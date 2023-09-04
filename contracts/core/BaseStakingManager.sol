@@ -47,6 +47,21 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     }
 
     /// @inheritdoc IBaseStakingManager
+    function slash(address owner, uint256 amount, address receiver) external onlyRole(Roles.SLASH_ROLE) {
+        Stake storage stake = _stakes[owner];
+        uint256 stakedAmount = stake.amount;
+
+        if (amount > stakedAmount) {
+            revert Errors.InvalidAmount();
+        }
+
+        stake.amount -= amount;
+        ITokenManager(tokenManager).burn(owner, amount);
+        IERC20Upgradeable(token).safeTransfer(receiver, amount);
+        emit Slashed(owner, amount, receiver);
+    }
+
+    /// @inheritdoc IBaseStakingManager
     function stakeOf(address owner) external view returns (Stake memory) {
         return _stakes[owner];
     }
