@@ -56,6 +56,11 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         }
 
         stake.amount -= amount;
+
+        if (stakedAmount - amount == 0) {
+            delete _stakes[owner];
+        }
+
         ITokenManager(tokenManager).burn(owner, amount);
         IERC20Upgradeable(token).safeTransfer(receiver, amount);
         emit Slashed(owner, amount, receiver);

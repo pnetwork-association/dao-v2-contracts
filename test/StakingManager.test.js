@@ -394,10 +394,12 @@ describe('StakingManager', () => {
 
     await time.increase(duration + 1)
 
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.polygonMainnet)).to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
+    await expect(
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.polygonMainnet)
+    ).to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
   })
 
-  it('should be able to slash more than the staked amount', async () => {
+  it('should not be able to slash more than the staked amount', async () => {
     const stakeAmount = ethers.utils.parseEther('10000')
     const slashAmount = stakeAmount.add(1)
     const duration = MIN_LOCK_DURATION * 4
@@ -405,10 +407,27 @@ describe('StakingManager', () => {
     await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
     await stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration)
 
-    let stake = await stakingManager.stakeOf(pntHolder1.address)
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
     await expect(stake.amount).to.be.eq(stakeAmount)
 
-    await expect(stakingManager.slash(pntHolder1.address, slashAmount, challenger.address))
-      .to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
+    await expect(stakingManager.slash(pntHolder1.address, slashAmount, challenger.address)).to.be.revertedWithCustomError(
+      stakingManager,
+      'InvalidAmount'
+    )
+  })
+
+  it('should delete the Stake struct if the slashed amount is equal to the staked amount', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+    const slashAmount = stakeAmount
+    const duration = MIN_LOCK_DURATION * 4
+
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration)
+    await stakingManager.slash(pntHolder1.address, slashAmount, challenger.address)
+
+    const stake = await stakingManager.stakeOf(pntHolder1.address)
+    await expect(stake.amount).to.be.eq(0)
+    await expect(stake.startDate).to.be.eq(0)
+    await expect(stake.endDate).to.be.eq(0)
   })
 })
