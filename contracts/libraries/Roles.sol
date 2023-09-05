@@ -16,4 +16,5 @@ library Roles {
     bytes32 public constant REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE =
         keccak256("REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE");
     bytes32 public constant SET_FEES_MANAGER_ROLE = keccak256("SET_FEES_MANAGER_ROLE");
+     bytes32 public constant INCREASE_AMOUNT_ROLE = keccak256("INCREASE_AMOUNT_ROLE");
 }

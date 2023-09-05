@@ -430,4 +430,51 @@ describe('StakingManager', () => {
     await expect(stake.startDate).to.be.eq(0)
     await expect(stake.endDate).to.be.eq(0)
   })
+
+  it('should be able to increase the amount at stake', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+    const duration = MIN_LOCK_DURATION * 4
+
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration)
+
+    let stake = await stakingManager.stakeOf(pntHolder1.address)
+    await expect(stake.amount).to.be.eq(stakeAmount)
+
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await expect(stakingManager.connect(pntHolder1).increaseAmount(stakeAmount)).to.emit(
+      stakingManager,
+      'AmountIncreased',
+      pntHolder1.address,
+      stakeAmount
+    )
+
+    stake = await stakingManager.stakeOf(pntHolder1.address)
+    await expect(stake.amount).to.be.eq(stakeAmount.mul(2))
+  })
+
+  it('should not be able to increase the amount at stake if there is nothing at stake', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await expect(stakingManager.connect(pntHolder1).increaseAmount(stakeAmount)).to.be.revertedWithCustomError(stakingManager, 'NothingAtStake')
+  })
+
+  it('should not be able to increase the amount at stake if the timelock is passed', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+    const duration = MIN_LOCK_DURATION * 4
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration)
+    await time.increase(duration + 1)
+    await expect(stakingManager.connect(pntHolder1).increaseAmount(stakeAmount)).to.be.revertedWithCustomError(stakingManager, 'InvalidDuration')
+  })
+
+  it('should not be able to increase the amount at stake if the remaining timelock is less than 7 days', async () => {
+    const stakeAmount = ethers.utils.parseEther('10000')
+    const duration = MIN_LOCK_DURATION * 4
+    await pnt.connect(pntHolder1).approve(stakingManager.address, stakeAmount)
+    await stakingManager.connect(pntHolder1).stake(pntHolder1.address, stakeAmount, duration)
+    await time.increase(duration - MIN_LOCK_DURATION + ONE_DAY)
+    await expect(stakingManager.connect(pntHolder1).increaseAmount(stakeAmount)).to.be.revertedWithCustomError(stakingManager, 'InvalidDuration')
+  })
 })

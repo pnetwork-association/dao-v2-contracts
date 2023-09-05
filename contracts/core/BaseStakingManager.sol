@@ -84,6 +84,38 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         _finalizeUnstake(owner, amount, chainId);
     }
 
+    function _checkTotalSupply() internal {
+        address minime = ITokenManager(tokenManager).token();
+        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
+            revert Errors.MaxTotalSupplyExceeded();
+        }
+    }
+
+    function _increaseAmount(address owner, uint256 amount) internal {
+        if (amount == 0) {
+            revert Errors.InvalidAmount();
+        }
+
+        Stake storage st = _stakes[owner];
+        if (st.amount == 0) {
+            revert Errors.NothingAtStake();
+        }
+
+        uint64 endDate = st.endDate;
+        uint64 blockTimestamp = uint64(block.timestamp);
+
+        if (endDate <= blockTimestamp || endDate - blockTimestamp < Constants.MIN_STAKE_DURATION) {
+            revert Errors.InvalidDuration();
+        }
+        st.amount += amount;
+
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+        ITokenManager(tokenManager).mint(owner, amount);
+
+        _checkTotalSupply();
+        emit AmountIncreased(owner, amount);
+    }
+
     function _increaseDuration(address owner, uint64 duration) internal {
         Stake storage st = _stakes[owner];
         uint64 endDate = st.endDate;
@@ -112,8 +144,6 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
             revert Errors.InvalidAmount();
         }
 
-        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
-
         Stake storage st = _stakes[receiver];
         uint64 blockTimestamp = uint64(block.timestamp);
         uint64 currentEndDate = st.endDate;
@@ -123,13 +153,10 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         st.endDate = newEndDate >= currentEndDate ? newEndDate : currentEndDate;
         st.startDate = blockTimestamp;
 
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         ITokenManager(tokenManager).mint(receiver, amount);
 
-        address minime = ITokenManager(tokenManager).token();
-        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
-            revert Errors.MaxTotalSupplyExceeded();
-        }
-
+        _checkTotalSupply();
         emit Staked(receiver, amount, duration);
     }
 
@@ -147,9 +174,7 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
 
         uint256 newStakeAmount = stAmount -= amount;
         if (newStakeAmount == 0) {
-            delete st.startDate;
-            delete st.endDate;
-            delete st.amount;
+            delete _stakes[owner];
         } else {
             st.amount = newStakeAmount;
         }

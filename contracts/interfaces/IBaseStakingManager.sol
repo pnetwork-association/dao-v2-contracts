@@ -16,6 +16,14 @@ interface IBaseStakingManager {
     }
 
     /**
+     * @dev Emitted when an user increases his stake amount.
+     *
+     * @param owner The owner
+     * @param amount The amount to add to the current one
+     */
+    event AmountIncreased(address indexed owner, uint256 amount);
+
+    /**
      * @dev Emitted when an user increases his stake duration.
      *
      * @param owner The owner
