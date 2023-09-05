@@ -17,6 +17,13 @@ interface IRegistrationManager {
     }
 
     /**
+     * @dev Emitted when a borrowing sentinel is slashed.
+     *
+     * @param sentinel The sentinel
+     */
+    event BorrowingSentinelSlashed(address indexed sentinel);
+
+    /**
      * @dev Emitted when an user increases his staking sentinel registration position by increasing his lock time within the Staking Manager.
      *
      * @param sentinel The sentinel
@@ -61,12 +68,26 @@ interface IRegistrationManager {
     );
 
     /**
-     * @dev Emitted when a sentinel is released.
+     * @dev Emitted when a sentinel is resumed.
      *
-     * @param sentinel The sentinel address
-     * @param epoch The epoch at which the release happens
+     * @param sentinel The sentinel
      */
-    event SentinelReleased(address indexed sentinel, uint16 indexed epoch);
+    event SentinelResumed(address indexed sentinel);
+
+    /**
+     * @dev Emitted when a staking sentinel increased its amount at stake.
+     *
+     * @param sentinel The sentinel
+     */
+    event StakedAmountIncreased(address indexed sentinel, uint256 amount);
+
+    /**
+     * @dev Emitted when a staking sentinel is slashed.
+     *
+     * @param sentinel The sentinel
+     * @param amount The amount
+     */
+    event StakingSentinelSlashed(address indexed sentinel, uint256 amount);
 
     /*
      * @notice Returns the sentinel address given the owner and the signature.
@@ -85,6 +106,25 @@ interface IRegistrationManager {
      * @return Registration representing the guardian registration.
      */
     function guardianRegistration(address guardian) external view returns (Registration memory);
+
+    /*
+     * @notice Increase the sentinel staked amount without changhing the timelock.
+     *
+     * @param amount
+     *
+     * @return Registration representing the guardian registration.
+     */
+    function increaseSentinelStakedAmount(uint256 amount) external;
+
+    /*
+     * @notice Increase the sentinel staked amount without changhing the timelock. This function is callable
+     *         only by the Forwarder
+     *
+     * @param amount
+     *
+     * @return Registration representing the guardian registration.
+     */
+    function increaseSentinelStakedAmount(address owner, uint256 amount) external;
 
     /*
      * @notice Increase the duration of a staking sentinel registration.
@@ -121,14 +161,6 @@ interface IRegistrationManager {
     function sentinelRegistration(address sentinel) external view returns (Registration memory);
 
     /*
-     * @notice Release a specific sentinel. This function shold be called only by who owns the RELEASE_SENTINEL_ROLE role.
-     *
-     * @param sentinel
-     *
-     */
-    function releaseSentinel(address sentinel) external;
-
-    /*
      * @notice Return the staked amount by a sentinel in a given epoch.
      *
      * @param epoch
@@ -136,6 +168,43 @@ interface IRegistrationManager {
      * @return uint256 representing staked amount by a sentinel in a given epoch.
      */
     function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256);
+
+    /*
+     * @notice Set FeesManager
+     *
+     * @param feesManager
+     *
+     */
+    function setFeesManager(address feesManager) external;
+
+    /*
+     * @notice Set GovernanceMessageEmitter
+     *
+     * @param feesManager
+     *
+     */
+    function setGovernanceMessageEmitter(address governanceMessageEmitter) external;
+
+    /*
+     * @notice Resume a sentinel after a slashing happens. If a staking sentinel does not have enought PNT at stake
+     *         it should call increaseSentinelStakedAmount before calling this fx.
+     *
+     * @param owner
+     * @param signature
+     *
+     */
+    function resumeSentinel(address owner, bytes calldata signature) external;
+
+    /*
+     * @notice Slash a sentinel or a guardian. This function is callable only by the PNetworkHub
+     *
+     * @param actor
+     * @param proof
+     * @param amount
+     * @param challenger
+     *
+     */
+    function slash(address actor, bytes32[] calldata proof, uint256 amount, address challenger) external;
 
     /*
      * @notice Return the total number of guardians in a specific epoch.

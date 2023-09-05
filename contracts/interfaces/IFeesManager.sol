@@ -47,21 +47,23 @@ interface IFeesManager {
     /*
      * @notice Claim a fee for a given asset in a specific epoch.
      *
+     * @param owner
      * @param asset
      * @param epoch
      *
      */
-    function claimFeeByEpoch(address asset, uint16 epoch) external;
+    function claimFeeByEpoch(address owner, address asset, uint16 epoch) external;
 
     /*
      * @notice Claim a fee for a given asset in an epochs range.
      *
+     * @param owner
      * @param asset
      * @param startEpoch
      * @param endEpoch
      *
      */
-    function claimFeeByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external;
+    function claimFeeByEpochsRange(address owner, address asset, uint16 startEpoch, uint16 endEpoch) external;
 
     /*
      * @notice Indicates the claimable asset fee amount in a specific epoch.
