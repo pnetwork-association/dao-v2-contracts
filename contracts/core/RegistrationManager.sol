@@ -75,6 +75,11 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
+    function guardianOf(address owner) external view returns (address) {
+        return _ownersGuardian[owner];
+    }
+
+    /// @inheritdoc IRegistrationManager
     function hardResumeSentinel(
         uint256 amount,
         address[] calldata sentinels,
@@ -454,6 +459,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             }
         }
 
+        _ownersGuardian[owner] = guardian;
         _guardianRegistrations[guardian] = Registration(owner, startEpoch, endEpoch, Constants.REGISTRATION_GUARDIAN);
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {

@@ -849,6 +849,7 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
+    expect(await registrationManager.guardianOf(guardianOwner1.address)).to.be.eq(guardian1.address)
   })
 
   it('should be able to update a guardian registration (2)', async () => {
@@ -898,6 +899,7 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(8)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(9)).to.be.equal(0)
+    expect(await registrationManager.guardianOf(guardianOwner1.address)).to.be.eq(guardian1.address)
   })
 
   it('should be able to register 2 guardians', async () => {
@@ -945,6 +947,7 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(2)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
+    expect(await registrationManager.guardianOf(guardianOwner1.address)).to.be.eq(guardian1.address)
   })
 
   it('cannot register a guardian using number of epochs = 0', async () => {
@@ -1010,6 +1013,12 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(2)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
+
+    expect(await registrationManager.guardianOf(guardiansOwners[0])).to.be.eq(guardians[0])
+    expect(await registrationManager.guardianOf(guardiansOwners[1])).to.be.eq(guardians[1])
+    expect(await registrationManager.guardianOf(guardiansOwners[2])).to.be.eq(guardians[2])
+    expect(await registrationManager.guardianOf(guardiansOwners[3])).to.be.eq(guardians[3])
+    expect(await registrationManager.guardianOf(guardiansOwners[4])).to.be.eq(guardians[4])
   })
 
   it("should be able to slash and disabling (for the current epoch) a staking sentinel because it's stake is below 200k PNT", async () => {

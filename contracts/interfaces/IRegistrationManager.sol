@@ -115,6 +115,15 @@ interface IRegistrationManager {
     function guardianRegistration(address guardian) external view returns (Registration memory);
 
     /*
+     * @notice Returns a guardian by its owner.
+     *
+     * @param owner
+     *
+     * @return the guardian.
+     */
+    function guardianOf(address owner) external view returns (address);
+
+    /*
      * @notice Resume a sentinel that was hard-slashed that means that its amount went below 200k PNT
      *         and its address was removed from the merkle tree. In order to be able to hard-resume a
      *         sentinel, when the function is called, StakingManager.increaseAmount is also called in
