@@ -108,7 +108,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             }
 
             _sentinelsEpochsTotalStakedAmount[epoch] += truncatedAmount;
-            
+
             unchecked {
                 ++epoch;
             }
@@ -231,7 +231,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             }
 
             if (stakeAmount - amountToSlash < Constants.STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION) {
-                IGovernanceMessageEmitter(governanceMessageEmitter).propagateSentinelsByRemovingTheLeafByProof(proof);
+                // NOTE: remove the sentinel from the tree and propagate the message on all chains
+                // in order to trigger the lock down mode on all of them. The lock down mode will be already
+                // triggered on the chains where the challenge that led to the slashing started
+                IGovernanceMessageEmitter(governanceMessageEmitter).hardSlashSentinel(actor, proof);
             } else {
                 unchecked {
                     ++_lightResumeCounts[currentEpoch][actor];

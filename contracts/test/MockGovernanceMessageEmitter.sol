@@ -10,11 +10,11 @@ error InvalidSentinelRegistration(bytes1 kind);
 error NotRegistrationManager();
 
 contract MockGovernanceMessageEmitter {
-    bytes32 public constant GOVERNANCE_MESSAGE_SENTINELS_MERKLE_ROOT =
-        keccak256("GOVERNANCE_MESSAGE_SENTINELS_MERKLE_ROOT");
+    bytes32 public constant GOVERNANCE_MESSAGE_HARD_SLASH_SENTINEL =
+        keccak256("GOVERNANCE_MESSAGE_HARD_SLASH_SENTINEL");
     bytes32 public constant GOVERNANCE_MESSAGE_LIGHT_RESUME_SENTINEL =
         keccak256("GOVERNANCE_MESSAGE_LIGHT_RESUME_SENTINEL");
-         bytes32 public constant GOVERNANCE_MESSAGE_HARD_RESUME_SENTINEL =
+    bytes32 public constant GOVERNANCE_MESSAGE_HARD_RESUME_SENTINEL =
         keccak256("GOVERNANCE_MESSAGE_HARD_RESUME_SENTINEL");
 
     address public immutable epochsManager;
@@ -36,31 +36,33 @@ contract MockGovernanceMessageEmitter {
     }
 
     function hardResumeSentinel(address sentinel, address[] calldata sentinels) external onlyRegistrationManager {
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         emit GovernanceMessage(
             abi.encode(
                 GOVERNANCE_MESSAGE_HARD_RESUME_SENTINEL,
-                abi.encode(currentEpoch, sentinel, MerkleTree.getRoot(_hashAddresses(sentinels)))
+                abi.encode(
+                    IEpochsManager(epochsManager).currentEpoch(),
+                    sentinel,
+                    MerkleTree.getRoot(_hashAddresses(sentinels))
+                )
+            )
+        );
+    }
+
+    function hardSlashSentinel(address sentinel, bytes32[] calldata proof) external onlyRegistrationManager {
+        emit GovernanceMessage(
+            abi.encode(
+                GOVERNANCE_MESSAGE_HARD_SLASH_SENTINEL,
+                abi.encode(
+                    IEpochsManager(epochsManager).currentEpoch(),
+                    sentinel,
+                    MerkleTree.getRootByProofAndLeaf(keccak256(abi.encodePacked(address(0))), proof)
+                )
             )
         );
     }
 
     function lightResumeSentinel(address actor) external onlyRegistrationManager {
         emit GovernanceMessage(abi.encode(GOVERNANCE_MESSAGE_LIGHT_RESUME_SENTINEL, abi.encode(actor)));
-    }
-
-    function propagateSentinelsByRemovingTheLeafByProof(bytes32[] calldata proof) external onlyRegistrationManager {
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-
-        emit GovernanceMessage(
-            abi.encode(
-                GOVERNANCE_MESSAGE_SENTINELS_MERKLE_ROOT,
-                abi.encode(
-                    currentEpoch,
-                    MerkleTree.getRootByProofAndLeaf(keccak256(abi.encodePacked(address(0))), proof)
-                )
-            )
-        );
     }
 
     function _hashAddresses(address[] memory addresses) internal pure returns (bytes32[] memory) {
