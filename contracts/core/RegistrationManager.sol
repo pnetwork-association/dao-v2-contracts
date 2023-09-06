@@ -37,7 +37,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     mapping(address => Registration) private _guardianRegistrations;
     mapping(address => address) private _ownersGuardian;
     mapping(uint16 => uint16) private _epochsTotalNumberOfGuardians;
-    mapping(uint16 => mapping(address => uint16)) private _resumeCounts;
+    mapping(uint16 => mapping(address => uint16)) private _lightResumeCounts;
     address public feesManager;
     address public governanceMessageEmitter;
 
@@ -75,13 +75,54 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function increaseSentinelStakedAmount(uint256 amount) external {
-        _increaseSentinelStakedAmount(_msgSender(), amount);
-    }
+    function hardResumeSentinel(
+        uint256 amount,
+        address[] calldata sentinels,
+        address owner,
+        bytes calldata signature
+    ) external {
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        address sentinel = getSentinelAddressFromSignature(owner, signature);
 
-    /// @inheritdoc IRegistrationManager
-    function increaseSentinelStakedAmount(address owner, uint256 amount) external onlyForwarder {
-        _increaseSentinelStakedAmount(owner, amount);
+        Registration storage registration = _sentinelRegistrations[sentinel];
+        bytes1 registrationKind = registration.kind;
+        uint16 registrationEndEpoch = registration.endEpoch;
+
+        if (registrationKind != Constants.REGISTRATION_SENTINEL_STAKING || registrationEndEpoch < currentEpoch) {
+            revert Errors.InvalidRegistration();
+        }
+
+        if (amount == 0) {
+            revert Errors.InvalidAmount();
+        }
+
+        uint24 truncatedAmount = Helpers.truncate(amount);
+        for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
+            _sentinelsEpochsStakedAmount[sentinel][epoch] += truncatedAmount;
+
+            if (
+                _sentinelsEpochsStakedAmount[sentinel][epoch] <
+                Constants.STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION_TRUNCATED
+            ) {
+                revert Errors.AmountNotAvailableInEpoch(epoch);
+            }
+
+            _sentinelsEpochsTotalStakedAmount[epoch] += truncatedAmount;
+            
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        IERC20Upgradeable(token).safeTransferFrom(owner, address(this), amount);
+        IERC20Upgradeable(token).approve(stakingManager, amount);
+        // NOTE: since this fx will be called by staking sentinels that would want to increase their amount
+        // at stake for example after a slashing in order to be resumable, they wont be able to do it
+        // if the remaining staking time is less than 7 days in order to avoid abuses.
+        IStakingManagerPermissioned(stakingManager).increaseAmount(owner, amount);
+
+        IGovernanceMessageEmitter(governanceMessageEmitter).hardResumeSentinel(sentinel, sentinels);
+        emit SentinelHardResumed(sentinel);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -92,6 +133,31 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     /// @inheritdoc IRegistrationManager
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external onlyForwarder {
         _increaseSentinelRegistrationDuration(owner, duration);
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function lightResumeSentinel(address owner, bytes calldata signature) external {
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        address sentinel = getSentinelAddressFromSignature(owner, signature);
+
+        Registration storage registration = _sentinelRegistrations[sentinel];
+        uint16 registrationEndEpoch = registration.endEpoch;
+
+        // NOTE: avoid to resume a sentinel whose registration is expired or null
+        if (registrationEndEpoch < currentEpoch || registrationEndEpoch == 0) {
+            revert Errors.InvalidRegistration();
+        }
+
+        if (_lightResumeCounts[currentEpoch][sentinel] == 0) {
+            revert Errors.NotResumable();
+        }
+
+        unchecked {
+            --_lightResumeCounts[currentEpoch][sentinel];
+        }
+
+        IGovernanceMessageEmitter(governanceMessageEmitter).lightResumeSentinel(sentinel);
+        emit SentinelLightResumed(sentinel);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -119,40 +185,6 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         address governanceMessageEmitter_
     ) external onlyRole(Roles.SET_GOVERNANCE_MESSAGE_EMITTER_ROLE) {
         governanceMessageEmitter = governanceMessageEmitter_;
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function resumeSentinel(address owner, bytes calldata signature) external {
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        address sentinel = getSentinelAddressFromSignature(owner, signature);
-
-        Registration storage registration = _sentinelRegistrations[sentinel];
-        bytes1 registrationKind = registration.kind;
-        uint16 registrationEndEpoch = registration.endEpoch;
-
-        // NOTE: avoid to resume a sentinel whose registration is expired or null
-        if (registrationEndEpoch < currentEpoch || registrationEndEpoch == 0) {
-            revert Errors.InvalidRegistration();
-        }
-
-        if (
-            registrationKind == Constants.REGISTRATION_SENTINEL_STAKING &&
-            _sentinelsEpochsStakedAmount[sentinel][currentEpoch] <
-            Constants.STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION_TRUNCATED
-        ) {
-            revert Errors.AmountNotAvailableInEpoch(currentEpoch);
-        }
-
-        if (_resumeCounts[currentEpoch][sentinel] == 0) {
-            revert Errors.NotResumable();
-        }
-
-        unchecked {
-            --_resumeCounts[currentEpoch][sentinel];
-        }
-
-        IGovernanceMessageEmitter(governanceMessageEmitter).resumeSentinel(sentinel);
-        emit SentinelResumed(sentinel);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -200,6 +232,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
 
             if (stakeAmount - amountToSlash < Constants.STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION) {
                 IGovernanceMessageEmitter(governanceMessageEmitter).propagateSentinelsByRemovingTheLeafByProof(proof);
+            } else {
+                unchecked {
+                    ++_lightResumeCounts[currentEpoch][actor];
+                }
             }
 
             IStakingManagerPermissioned(stakingManager).slash(registrationOwner, amountToSlash, challenger);
@@ -209,15 +245,14 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             // TODO: define better what to do with slashed borrowing sentinels.
             IFeesManager(feesManager).redirectClaimToChallengerByEpoch(actor, challenger, currentEpoch);
+            unchecked {
+                ++_lightResumeCounts[currentEpoch][actor];
+            }
             emit BorrowingSentinelSlashed(actor);
         }
 
         if (registrationKind == Constants.REGISTRATION_GUARDIAN) {
             // TODO
-        }
-
-        unchecked {
-            ++_resumeCounts[currentEpoch][actor];
         }
     }
 
@@ -351,37 +386,6 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             Constants.REGISTRATION_SENTINEL_STAKING,
             amount
         );
-    }
-
-    function _increaseSentinelStakedAmount(address owner, uint256 amount) internal {
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        address sentinel = _ownersSentinel[owner];
-
-        Registration storage registration = _sentinelRegistrations[sentinel];
-        bytes1 registrationKind = registration.kind;
-        uint16 registrationEndEpoch = registration.endEpoch;
-
-        if (registrationKind != Constants.REGISTRATION_SENTINEL_STAKING || registrationEndEpoch < currentEpoch) {
-            revert Errors.InvalidRegistration();
-        }
-
-        uint24 truncatedAmount = Helpers.truncate(amount);
-        for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
-            _sentinelsEpochsTotalStakedAmount[epoch] += truncatedAmount;
-            _sentinelsEpochsStakedAmount[sentinel][epoch] += truncatedAmount;
-            unchecked {
-                ++epoch;
-            }
-        }
-
-        IERC20Upgradeable(token).safeTransferFrom(owner, address(this), amount);
-        IERC20Upgradeable(token).approve(stakingManager, amount);
-        // NOTE: since this fx will be called by staking sentinels that would want to increase their amount
-        // at stake for example after a slashing in order to be resumable, they wont be able to do it
-        // if the remaining staking time is less than 7 days in order to avoid abuses.
-        IStakingManagerPermissioned(stakingManager).increaseAmount(owner, amount);
-
-        emit StakedAmountIncreased(sentinel, amount);
     }
 
     function _increaseSentinelRegistrationDuration(address owner, uint64 duration) internal {

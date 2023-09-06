@@ -19,7 +19,7 @@ const constants = {
     hardhat: '0x244ebbfe',
     interim: '0xffffffff',
     polygonMainnet: '0x0075dd4c',
-    sepolia: '0x953835d9',
+    sepolia: '0x953835d9'
   },
   PNT_ADDRESS: '0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD',
   PNT_HOLDER_1_ADDRESS: '0xaeaa8c6ebb17db8056fa30a08fd3097de555f571',

@@ -68,11 +68,18 @@ interface IRegistrationManager {
     );
 
     /**
-     * @dev Emitted when a sentinel is resumed.
+     * @dev Emitted when a sentinel is hard-resumed.
      *
      * @param sentinel The sentinel
      */
-    event SentinelResumed(address indexed sentinel);
+    event SentinelHardResumed(address indexed sentinel);
+
+    /**
+     * @dev Emitted when a sentinel is light-resumed.
+     *
+     * @param sentinel The sentinel
+     */
+    event SentinelLightResumed(address indexed sentinel);
 
     /**
      * @dev Emitted when a staking sentinel increased its amount at stake.
@@ -108,23 +115,23 @@ interface IRegistrationManager {
     function guardianRegistration(address guardian) external view returns (Registration memory);
 
     /*
-     * @notice Increase the sentinel staked amount without changhing the timelock.
+     * @notice Resume a sentinel that was hard-slashed that means that its amount went below 200k PNT
+     *         and its address was removed from the merkle tree. In order to be able to hard-resume a
+     *         sentinel, when the function is called, StakingManager.increaseAmount is also called in
+     *         order to increase the amount at stake.
      *
      * @param amount
+     * @param sentinels
+     * @param owner
+     * @param signature
      *
-     * @return Registration representing the guardian registration.
      */
-    function increaseSentinelStakedAmount(uint256 amount) external;
-
-    /*
-     * @notice Increase the sentinel staked amount without changhing the timelock. This function is callable
-     *         only by the Forwarder
-     *
-     * @param amount
-     *
-     * @return Registration representing the guardian registration.
-     */
-    function increaseSentinelStakedAmount(address owner, uint256 amount) external;
+    function hardResumeSentinel(
+        uint256 amount,
+        address[] calldata sentinels,
+        address owner,
+        bytes calldata signature
+    ) external;
 
     /*
      * @notice Increase the duration of a staking sentinel registration.
@@ -141,6 +148,16 @@ interface IRegistrationManager {
      * @param duration
      */
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external;
+
+    /*
+     * @notice Resume a sentinel that was light-slashed that means that its amount remained below 200k PNT
+     *         and its address was not removed from the merkle tree
+     *
+     * @param owner
+     * @param signature
+     *
+     */
+    function lightResumeSentinel(address owner, bytes calldata signature) external;
 
     /*
      * @notice Returns the sentinel of a given owner
@@ -184,16 +201,6 @@ interface IRegistrationManager {
      *
      */
     function setGovernanceMessageEmitter(address governanceMessageEmitter) external;
-
-    /*
-     * @notice Resume a sentinel after a slashing happens. If a staking sentinel does not have enought PNT at stake
-     *         it should call increaseSentinelStakedAmount before calling this fx.
-     *
-     * @param owner
-     * @param signature
-     *
-     */
-    function resumeSentinel(address owner, bytes calldata signature) external;
 
     /*
      * @notice Slash a sentinel or a guardian. This function is callable only by the PNetworkHub

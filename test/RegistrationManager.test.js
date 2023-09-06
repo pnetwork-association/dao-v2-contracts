@@ -33,6 +33,7 @@ let signers,
   owner,
   pntHolder1,
   sentinel1,
+  sentinel2,
   RegistrationManager,
   acl,
   daoRoot,
@@ -83,6 +84,7 @@ describe('RegistrationManager', () => {
     guardianOwner2 = signers[8]
     fakePnetworkHub = signers[9]
     challenger = signers[10]
+    sentinel2 = signers[11]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
@@ -1111,7 +1113,7 @@ describe('RegistrationManager', () => {
       .and.not.to.emit(governanceMessageEmitter, 'GovernanceMessage')
   })
 
-  it('should be able to resume a staking sentinel', async () => {
+  it('should be able to light-resume a staking sentinel', async () => {
     const stakeAmount = ethers.utils.parseEther('400000')
     const slashAmount = ethers.utils.parseEther('10000')
     const duration = EPOCH_DURATION * 5
@@ -1125,13 +1127,13 @@ describe('RegistrationManager', () => {
     const proof = getActorsMerkleProof([sentinel1], sentinel1)
     await registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, proof, slashAmount, challenger.address)
 
-    await expect(registrationManager.connect(sentinel1).resumeSentinel(pntHolder1.address, signature))
-      .to.emit(registrationManager, 'SentinelResumed')
+    await expect(registrationManager.connect(sentinel1).lightResumeSentinel(pntHolder1.address, signature))
+      .to.emit(registrationManager, 'SentinelLightResumed')
       .withArgs(sentinel1.address)
       .and.to.emit(governanceMessageEmitter, 'GovernanceMessage')
   })
 
-  it('should not be able to resume a staking sentinel because the amount left is less than 200k PNT', async () => {
+  it('should not be able to light-resume a staking sentinel because the amount left is less than 200k PNT', async () => {
     const stakeAmount = ethers.utils.parseEther('200000')
     const slashAmount = ethers.utils.parseEther('10000')
     const duration = EPOCH_DURATION * 5
@@ -1145,15 +1147,15 @@ describe('RegistrationManager', () => {
     const proof = getActorsMerkleProof([sentinel1], sentinel1)
     await registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, proof, slashAmount, challenger.address)
 
-    await expect(registrationManager.connect(sentinel1).resumeSentinel(pntHolder1.address, signature)).to.be.revertedWithCustomError(
+    await expect(registrationManager.connect(sentinel1).lightResumeSentinel(pntHolder1.address, signature)).to.be.revertedWithCustomError(
       registrationManager,
-      'AmountNotAvailableInEpoch'
+      'NotResumable'
     )
   })
 
-  it('should not be able to resume a sentinel not registered', async () => {
+  it('should not be able to light-resume a sentinel not registered', async () => {
     const signature = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
-    await expect(registrationManager.connect(sentinel1).resumeSentinel(pntHolder1.address, signature)).to.be.revertedWithCustomError(
+    await expect(registrationManager.connect(sentinel1).lightResumeSentinel(pntHolder1.address, signature)).to.be.revertedWithCustomError(
       registrationManager,
       'InvalidRegistration'
     )
@@ -1233,7 +1235,7 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.totalSentinelStakedAmountByEpoch(4)).to.be.eq('250000')
   })
 
-  it('should be able to resume a staking sentinel after having increase the amount at stake after a slashing', async () => {
+  it('should be able to hard-resume a staking sentinel after having increase the amount at stake after a slashing', async () => {
     //   pntHolder1 - updateSentinelRegistrationByStaking
     //                   200k       200k        200k      200k
     //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|
@@ -1244,7 +1246,7 @@ describe('RegistrationManager', () => {
     //   |----------|----------|ssssssssss|ssssssssss|ssssssssss|----------|----------|
     //   0          1          2          3          4          5          6          7
     //
-    //   pntHolder1 - increaseSentinelStakedAmount
+    //   pntHolder1 - hardResumeSentinel
     //                              20k       20k         20k
     //   |----------|----------|iiiiiiiiiii|iiiiiiiiii|iiiiiiiiii|---------|----------|
     //   0          1           2          3          4          5         6          7
@@ -1257,41 +1259,46 @@ describe('RegistrationManager', () => {
     let stakeAmount = ethers.utils.parseEther('200000')
     const slashAmount = ethers.utils.parseEther('10000')
     let duration = EPOCH_DURATION * 5
+    const sentinels = [sentinel1, sentinel2]
 
-    const signature = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
     await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder1).updateSentinelRegistrationByStaking(pntHolder1.address, stakeAmount, duration, signature)
+    await registrationManager.connect(pntHolder1).updateSentinelRegistrationByStaking(pntHolder1.address, stakeAmount, duration, signature1)
+
+    const signature2 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel2 })
+    await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature2)
 
     await time.increase(EPOCH_DURATION * 2)
 
-    const proof = getActorsMerkleProof([sentinel1], sentinel1)
+    const proof = getActorsMerkleProof(sentinels, sentinel1)
     await registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, proof, slashAmount, challenger.address)
-    await expect(registrationManager.connect(sentinel1).resumeSentinel(pntHolder1.address, signature)).to.be.revertedWithCustomError(
-      registrationManager,
-      'AmountNotAvailableInEpoch'
-    )
 
     const increaseAmount = ethers.utils.parseEther('20000')
     await pnt.connect(pntHolder1).approve(registrationManager.address, increaseAmount)
-    await expect(registrationManager.connect(pntHolder1)['increaseSentinelStakedAmount(uint256)'](increaseAmount))
-      .to.emit(registrationManager, 'StakedAmountIncreased')
-      .withArgs(sentinel1.address, increaseAmount)
+    await expect(
+      registrationManager.connect(pntHolder1).hardResumeSentinel(
+        increaseAmount,
+        sentinels.map(({ address }) => address),
+        pntHolder1.address,
+        signature1
+      )
+    )
+      .to.emit(registrationManager, 'SentinelHardResumed')
+      .withArgs(sentinel1.address)
+      .and.to.emit(governanceMessageEmitter, 'GovernanceMessage')
 
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 1)).to.be.eq('200000')
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 2)).to.be.eq('210000')
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 3)).to.be.eq('210000')
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 4)).to.be.eq('210000')
-    expect(await registrationManager.totalSentinelStakedAmountByEpoch(1)).to.be.eq('200000')
-    expect(await registrationManager.totalSentinelStakedAmountByEpoch(2)).to.be.eq('210000')
-    expect(await registrationManager.totalSentinelStakedAmountByEpoch(3)).to.be.eq('210000')
-    expect(await registrationManager.totalSentinelStakedAmountByEpoch(4)).to.be.eq('210000')
-
-    await expect(registrationManager.connect(sentinel1).resumeSentinel(pntHolder1.address, signature))
-      .to.emit(registrationManager, 'SentinelResumed')
-      .withArgs(sentinel1.address)
+    expect(await registrationManager.totalSentinelStakedAmountByEpoch(1)).to.be.eq('400000')
+    expect(await registrationManager.totalSentinelStakedAmountByEpoch(2)).to.be.eq('410000')
+    expect(await registrationManager.totalSentinelStakedAmountByEpoch(3)).to.be.eq('410000')
+    expect(await registrationManager.totalSentinelStakedAmountByEpoch(4)).to.be.eq('410000')
   })
 
-  it('should be able to resume a borrowing sentinel after a slashing', async () => {
+  it('should be able to light-resume a borrowing sentinel after a slashing', async () => {
     const stakeAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 5
 
@@ -1308,8 +1315,84 @@ describe('RegistrationManager', () => {
     const proof = getActorsMerkleProof([sentinel1], sentinel1)
     await registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, proof, 0, challenger.address)
 
-    await expect(registrationManager.connect(sentinel1).resumeSentinel(pntHolder1.address, signature))
-      .to.emit(registrationManager, 'SentinelResumed')
+    await expect(registrationManager.connect(sentinel1).lightResumeSentinel(pntHolder1.address, signature))
+      .to.emit(registrationManager, 'SentinelLightResumed')
       .withArgs(sentinel1.address)
+  })
+
+  it('should not be able to hard-resume a staking sentinel after having increase the amount at stake after a slashing if the new amount at stake is less than 200k PNT', async () => {
+    //   pntHolder1 - updateSentinelRegistrationByStaking
+    //                   200k       200k        200k      200k
+    //   |-----xxxxx|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|----------|
+    //   0          1           2          3          4           5           6          7
+    //
+    //   slash
+    //                              10k        10k       10k
+    //   |----------|----------|ssssssssss|ssssssssss|ssssssssss|----------|----------|
+    //   0          1          2          3          4          5          6          7
+    //
+    //   pntHolder1 - hardResumeSentinel
+    //                               5k         5k         5k
+    //   |----------|----------|iiiiiiiiiii|iiiiiiiiii|iiiiiiiiii|---------|----------|
+    //   0          1           2          3          4          5         6          7
+    //
+    //   result
+    //                   200k        195K       195K       195K
+    //   |----------|vvvvvvvvvvv|vvvvvvvvvvv|vvvvvvvvvvv|vvvvvvvvv|---------|----------|
+    //   0          1           2          3          4          5         6          7
+
+    let stakeAmount = ethers.utils.parseEther('200000')
+    const slashAmount = ethers.utils.parseEther('10000')
+    let duration = EPOCH_DURATION * 5
+    const sentinels = [sentinel1, sentinel2]
+
+    const signature1 = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
+    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await registrationManager.connect(pntHolder1).updateSentinelRegistrationByStaking(pntHolder1.address, stakeAmount, duration, signature1)
+
+    const signature2 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel2 })
+    await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature2)
+
+    await time.increase(EPOCH_DURATION * 2)
+
+    const proof = getActorsMerkleProof(sentinels, sentinel1)
+    await registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, proof, slashAmount, challenger.address)
+
+    const increaseAmount = ethers.utils.parseEther('5000')
+    await pnt.connect(pntHolder1).approve(registrationManager.address, increaseAmount)
+    await expect(
+      registrationManager.connect(pntHolder1).hardResumeSentinel(
+        increaseAmount,
+        sentinels.map(({ address }) => address),
+        pntHolder1.address,
+        signature1
+      )
+    ).to.be.revertedWithCustomError(registrationManager, 'AmountNotAvailableInEpoch')
+  })
+
+  it('should not be able to hard-resume a staking sentinel after having increase the amount at stake after a slashing if the new amount at stake is less than 200k PNT', async () => {
+    let stakeAmount = ethers.utils.parseEther('200000')
+    const slashAmount = ethers.utils.parseEther('10000')
+    let duration = EPOCH_DURATION * 5
+    const sentinels = [sentinel1, sentinel2]
+
+    const signature1 = await getSentinelIdentity(pntHolder1.address, { sentinel: sentinel1 })
+    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await registrationManager.connect(pntHolder1).updateSentinelRegistrationByStaking(pntHolder1.address, stakeAmount, duration, signature1)
+
+    await time.increase(EPOCH_DURATION * 2)
+
+    const proof = getActorsMerkleProof(sentinels, sentinel1)
+    await registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, proof, slashAmount, challenger.address)
+
+    await expect(
+      registrationManager.connect(pntHolder1).hardResumeSentinel(
+        0,
+        sentinels.map(({ address }) => address),
+        pntHolder1.address,
+        signature1
+      )
+    ).to.be.revertedWithCustomError(registrationManager, 'InvalidAmount')
   })
 })
