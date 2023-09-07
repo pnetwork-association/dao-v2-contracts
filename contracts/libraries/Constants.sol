@@ -15,4 +15,5 @@ library Constants {
     bytes1 public constant REGISTRATION_SENTINEL_STAKING = 0x01;
     bytes1 public constant REGISTRATION_SENTINEL_BORROWING = 0x02;
     bytes1 public constant REGISTRATION_GUARDIAN = 0x03;
+    uint16 public constant NUMBER_OF_ALLOWED_SLASHES = 3;
 }

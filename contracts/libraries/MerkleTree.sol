@@ -59,14 +59,6 @@ library MerkleTree {
         return nodes[layer][0];
     }
 
-    function getRootByProofAndLeaf(bytes32 leaf, bytes32[] calldata proof) internal pure returns (bytes32) {
-        bytes32 computedHash = leaf;
-        for (uint256 i = 0; i < proof.length; i++) {
-            computedHash = _hashPair(computedHash, proof[i]);
-        }
-        return computedHash;
-    }
-
     function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
         return a < b ? _efficientHash(a, b) : _efficientHash(b, a);
     }

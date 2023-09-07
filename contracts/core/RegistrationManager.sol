@@ -37,7 +37,8 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     mapping(address => Registration) private _guardianRegistrations;
     mapping(address => address) private _ownersGuardian;
     mapping(uint16 => uint16) private _epochsTotalNumberOfGuardians;
-    mapping(uint16 => mapping(address => uint16)) private _lightResumeCounts;
+    mapping(uint16 => mapping(address => uint16)) private _pendingLightResumes;
+    mapping(uint16 => mapping(address => uint16)) private _slashes;
     address public feesManager;
     address public governanceMessageEmitter;
 
@@ -80,12 +81,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function hardResumeSentinel(
-        uint256 amount,
-        address[] calldata sentinels,
-        address owner,
-        bytes calldata signature
-    ) external {
+    function hardResumeSentinel(uint256 amount, address owner, bytes calldata signature) external {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         address sentinel = getSentinelAddressFromSignature(owner, signature);
 
@@ -126,7 +122,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         // if the remaining staking time is less than 7 days in order to avoid abuses.
         IStakingManagerPermissioned(stakingManager).increaseAmount(owner, amount);
 
-        IGovernanceMessageEmitter(governanceMessageEmitter).hardResumeSentinel(sentinel, sentinels);
+        IGovernanceMessageEmitter(governanceMessageEmitter).resumeSentinel(sentinel);
         emit SentinelHardResumed(sentinel);
     }
 
@@ -138,6 +134,31 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     /// @inheritdoc IRegistrationManager
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external onlyForwarder {
         _increaseSentinelRegistrationDuration(owner, duration);
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function lightResumeGuardian() external {
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        address guardian = _msgSender();
+
+        Registration storage registration = _guardianRegistrations[guardian];
+        uint16 registrationEndEpoch = registration.endEpoch;
+
+        // NOTE: avoid to resume a guardian whose registration is expired or null
+        if (registrationEndEpoch < currentEpoch || registrationEndEpoch == 0) {
+            revert Errors.InvalidRegistration();
+        }
+
+        if (_pendingLightResumes[currentEpoch][guardian] == 0) {
+            revert Errors.NotResumable();
+        }
+
+        unchecked {
+            --_pendingLightResumes[currentEpoch][guardian];
+        }
+
+        IGovernanceMessageEmitter(governanceMessageEmitter).resumeGuardian(guardian);
+        emit GuardianLightResumed(guardian);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -153,15 +174,15 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             revert Errors.InvalidRegistration();
         }
 
-        if (_lightResumeCounts[currentEpoch][sentinel] == 0) {
+        if (_pendingLightResumes[currentEpoch][sentinel] == 0) {
             revert Errors.NotResumable();
         }
 
         unchecked {
-            --_lightResumeCounts[currentEpoch][sentinel];
+            --_pendingLightResumes[currentEpoch][sentinel];
         }
 
-        IGovernanceMessageEmitter(governanceMessageEmitter).lightResumeSentinel(sentinel);
+        IGovernanceMessageEmitter(governanceMessageEmitter).resumeSentinel(sentinel);
         emit SentinelLightResumed(sentinel);
     }
 
@@ -181,6 +202,11 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
+    function slashesByEpochOf(uint16 epoch, address actor) external view returns (uint16) {
+        return _slashes[epoch][actor];
+    }
+
+    /// @inheritdoc IRegistrationManager
     function setFeesManager(address feesManager_) external onlyRole(Roles.SET_FEES_MANAGER_ROLE) {
         feesManager = feesManager_;
     }
@@ -193,12 +219,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function slash(
-        address actor,
-        bytes32[] calldata proof,
-        uint256 amount,
-        address challenger
-    ) external onlyRole(Roles.SLASH_ROLE) {
+    function slash(address actor, uint256 amount, address challenger) external onlyRole(Roles.SLASH_ROLE) {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
 
         Registration storage registration = _sentinelRegistrations[actor];
@@ -206,10 +227,11 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
 
         if (registrationOwner == address(0)) {
             registration = _guardianRegistrations[actor];
+            registrationOwner = registration.owner;
+        }
 
-            if (registrationOwner == address(0)) {
-                revert Errors.InvalidActor(actor);
-            }
+        unchecked {
+            ++_slashes[currentEpoch][actor];
         }
 
         bytes1 registrationKind = registration.kind;
@@ -235,32 +257,64 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
                 }
             }
 
-            if (stakeAmount - amountToSlash < Constants.STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION) {
-                // NOTE: remove the sentinel from the tree and propagate the message on all chains
-                // in order to trigger the lock down mode on all of them. The lock down mode will be already
-                // triggered on the chains where the challenge that led to the slashing started
-                IGovernanceMessageEmitter(governanceMessageEmitter).hardSlashSentinel(actor, proof);
-            } else {
+            if (stakeAmount - amountToSlash >= Constants.STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION) {
                 unchecked {
-                    ++_lightResumeCounts[currentEpoch][actor];
+                    ++_pendingLightResumes[currentEpoch][actor];
                 }
+            } else {
+                // NOTE: in order to avoid to light-resume an hard-slashed sentinel
+                _pendingLightResumes[currentEpoch][actor] == 0;
             }
 
             IStakingManagerPermissioned(stakingManager).slash(registrationOwner, amountToSlash, challenger);
+            IGovernanceMessageEmitter(governanceMessageEmitter).slashSentinel(actor);
             emit StakingSentinelSlashed(actor, amount);
-        }
+        } else if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+            uint16 actorSlashes = _slashes[currentEpoch][actor];
+            if (actorSlashes == Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
+                IFeesManager(feesManager).redirectClaimToChallengerByEpoch(actor, challenger, currentEpoch);
 
-        if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
-            // TODO: define better what to do with slashed borrowing sentinels.
-            IFeesManager(feesManager).redirectClaimToChallengerByEpoch(actor, challenger, currentEpoch);
-            unchecked {
-                ++_lightResumeCounts[currentEpoch][actor];
+                uint16 registrationEndEpoch = registration.endEpoch;
+                for (uint16 epoch = currentEpoch + 1; epoch <= registrationEndEpoch; ) {
+                    ILendingManager(lendingManager).release(
+                        actor,
+                        epoch,
+                        Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION
+                    );
+                    unchecked {
+                        ++epoch;
+                    }
+                }
+
+                registration.endEpoch = currentEpoch; // NOTE: Registration ends here
+                _pendingLightResumes[currentEpoch][actor] = 0;
+            } else if (actorSlashes < Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
+                unchecked {
+                    ++_pendingLightResumes[currentEpoch][actor];
+                }
+            } else {
+                return;
             }
+            IGovernanceMessageEmitter(governanceMessageEmitter).slashSentinel(actor);
             emit BorrowingSentinelSlashed(actor);
-        }
+        } else if (registrationKind == Constants.REGISTRATION_GUARDIAN) {
+            uint16 actorSlashes = _slashes[currentEpoch][actor];
+            if (actorSlashes == Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
+                IFeesManager(feesManager).redirectClaimToChallengerByEpoch(actor, challenger, currentEpoch);
+                registration.endEpoch = currentEpoch; // NOTE: Registration ends here
+                _pendingLightResumes[currentEpoch][actor] = 0;
+            } else if (actorSlashes < Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
+                unchecked {
+                    ++_pendingLightResumes[currentEpoch][actor];
+                }
+            } else {
+                return;
+            }
 
-        if (registrationKind == Constants.REGISTRATION_GUARDIAN) {
-            // TODO
+            IGovernanceMessageEmitter(governanceMessageEmitter).slashGuardian(actor);
+            emit GuardianSlashed(actor);
+        } else {
+            revert Errors.InvalidRegistration();
         }
     }
 

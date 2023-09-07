@@ -32,6 +32,13 @@ interface IRegistrationManager {
     event DurationIncreased(address indexed sentinel, uint16 endEpoch);
 
     /**
+     * @dev Emitted when a guardian is slashed.
+     *
+     * @param guardian The guardian
+     */
+    event GuardianSlashed(address indexed guardian);
+
+    /**
      * @dev Emitted when a guardian is registered.
      *
      * @param owner The sentinel owner
@@ -47,6 +54,13 @@ interface IRegistrationManager {
         address guardian,
         bytes1 kind
     );
+
+    /**
+     * @dev Emitted when a guardian is light-resumed.
+     *
+     * @param guardian The guardian
+     */
+    event GuardianLightResumed(address indexed guardian);
 
     /**
      * @dev Emitted when a sentinel registration is completed.
@@ -130,17 +144,11 @@ interface IRegistrationManager {
      *         order to increase the amount at stake.
      *
      * @param amount
-     * @param sentinels
      * @param owner
      * @param signature
      *
      */
-    function hardResumeSentinel(
-        uint256 amount,
-        address[] calldata sentinels,
-        address owner,
-        bytes calldata signature
-    ) external;
+    function hardResumeSentinel(uint256 amount, address owner, bytes calldata signature) external;
 
     /*
      * @notice Increase the duration of a staking sentinel registration.
@@ -159,8 +167,14 @@ interface IRegistrationManager {
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external;
 
     /*
-     * @notice Resume a sentinel that was light-slashed that means that its amount remained below 200k PNT
-     *         and its address was not removed from the merkle tree
+     * @notice Resume a guardian that was light-slashed
+     *
+     *
+     */
+    function lightResumeGuardian() external;
+
+    /*
+     * @notice Resume a sentinel that was light-slashed
      *
      * @param owner
      * @param signature
@@ -196,6 +210,16 @@ interface IRegistrationManager {
     function sentinelStakedAmountByEpochOf(address sentinel, uint16 epoch) external view returns (uint256);
 
     /*
+     * @notice Return the number of times an actor (sentinel or guardian) has been slashed in an epoch.
+     *
+     * @param epoch
+     * @param actor
+     *
+     * @return uint16 representing the number of times an actor has been slashed in an epoch.
+     */
+    function slashesByEpochOf(uint16 epoch, address actor) external view returns (uint16);
+
+    /*
      * @notice Set FeesManager
      *
      * @param feesManager
@@ -215,12 +239,11 @@ interface IRegistrationManager {
      * @notice Slash a sentinel or a guardian. This function is callable only by the PNetworkHub
      *
      * @param actor
-     * @param proof
      * @param amount
      * @param challenger
      *
      */
-    function slash(address actor, bytes32[] calldata proof, uint256 amount, address challenger) external;
+    function slash(address actor, uint256 amount, address challenger) external;
 
     /*
      * @notice Return the total number of guardians in a specific epoch.

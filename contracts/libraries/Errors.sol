@@ -17,6 +17,5 @@ library Errors {
     error NotPartecipatedInGovernanceAtEpoch(uint16 epoch);
     error GuardianAlreadyRegistered(address guardian);
     error InvalidNumberOfEpochs(uint16 numberOfEpochs);
-    error InvalidActor(address actor);
     error NotResumable();
 }
