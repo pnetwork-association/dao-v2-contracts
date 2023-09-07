@@ -30,6 +30,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
     // v.1.1.0
     mapping(address => mapping(uint16 => address)) _challengersEpochsClaimRedirect;
+    mapping(uint256 => mapping(address => uint256)) _epochsGuardiansAssetsFee;
 
     function initialize(
         address _epochsManager,
@@ -73,16 +74,20 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     }
 
     /// @inheritdoc IFeesManager
-    function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) public view returns (uint256) {
-        if (_ownersEpochsAssetsClaim[sentinel][asset][epoch]) {
+    function claimableFeeByEpochOf(address actor, address asset, uint16 epoch) public view returns (uint256) {
+        if (_ownersEpochsAssetsClaim[actor][asset][epoch]) {
             return 0;
         }
 
         IRegistrationManager.Registration memory registration = IRegistrationManager(registrationManager)
-            .sentinelRegistration(sentinel);
+            .sentinelRegistration(actor);
+        if (registration.kind == Constants.REGISTRATION_NULL) {
+            registration = IRegistrationManager(registrationManager).guardianRegistration(actor);
+        }
 
+        bytes1 registrationKind = registration.kind;
         uint256 fee = 0;
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
+        if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {
             uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
                 epoch
             );
@@ -92,21 +97,33 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
             uint256 sentinelStakingAssetFee = _epochsSentinelsStakingAssetsFee[epoch][asset];
             uint256 stakedAmount = IRegistrationManager(registrationManager).sentinelStakedAmountByEpochOf(
-                sentinel,
+                actor,
                 epoch
             );
 
             fee = (stakedAmount * sentinelStakingAssetFee) / totalStakedAmount;
         }
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+        if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             uint256 totalBorrowedAmount = ILendingManager(lendingManager).totalBorrowedAmountByEpoch(epoch);
             if (totalBorrowedAmount == 0) {
                 return 0;
             }
 
             uint256 sentinelsBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
-            uint256 borrowedAmount = ILendingManager(lendingManager).borrowedAmountByEpochOf(sentinel, epoch);
+            uint256 borrowedAmount = ILendingManager(lendingManager).borrowedAmountByEpochOf(actor, epoch);
             fee = (borrowedAmount * sentinelsBorrowingAssetFee) / totalBorrowedAmount;
+        }
+        if (registrationKind == Constants.REGISTRATION_GUARDIAN) {
+            uint256 totalNumberOfGuardians = IRegistrationManager(registrationManager).totalNumberOfGuardiansByEpoch(
+                epoch
+            );
+            uint256 totalGuardiansAmount = totalNumberOfGuardians * Constants.GUARDIAN_AMOUNT;
+            if (totalGuardiansAmount == 0) {
+                return 0;
+            }
+
+            uint256 guardiansAssetFee = _epochsGuardiansAssetsFee[epoch][asset];
+            fee = (Constants.GUARDIAN_AMOUNT * guardiansAssetFee) / totalGuardiansAmount;
         }
 
         return fee;
@@ -134,25 +151,27 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             revert Errors.InvalidEpoch();
         }
 
-        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
-        if (sentinel == address(0)) {
-            revert Errors.SentinelNotRegistered();
+        address actor = IRegistrationManager(registrationManager).sentinelOf(owner);
+        if (actor == address(0)) {
+            actor = IRegistrationManager(registrationManager).guardianOf(owner);
+            if (actor == address(0)) {
+                revert Errors.NothingToClaim();
+            }
         }
 
-        uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
+        uint256 fee = claimableFeeByEpochOf(actor, asset, epoch);
         if (fee == 0) {
             revert Errors.NothingToClaim();
         }
 
-        // NOTE: if a borrowing sentinel has been slashed (aka redirectClaimToChallengerByEpoch)
-        // the fees earned until the slashing can be claimed by the challenger for the epoch in
-        // which the slashing happened
-        address challenger = _challengersEpochsClaimRedirect[sentinel][epoch];
+        // NOTE: if a borrowing sentinel or a guardian have been slashed (aka redirectClaimToChallengerByEpoch)
+        // the fees earned until the slashing can be claimed by the challenger for the epoch in which the slashing happened
+        address challenger = _challengersEpochsClaimRedirect[actor][epoch];
         address receiver = challenger != address(0) ? challenger : owner;
 
-        _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
+        _ownersEpochsAssetsClaim[actor][asset][epoch] = true;
         IERC20Upgradeable(asset).safeTransfer(receiver, fee);
-        emit FeeClaimed(receiver, sentinel, epoch, asset, fee);
+        emit FeeClaimed(receiver, actor, epoch, asset, fee);
     }
 
     /// @inheritdoc IFeesManager
@@ -176,10 +195,16 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
             currentEpoch
         );
-        uint256 totalAmount = totalStakedAmount + totalBorrowedAmount;
-
+        uint256 totalNumberOfGuardians = IRegistrationManager(registrationManager).totalNumberOfGuardiansByEpoch(
+            currentEpoch
+        );
+        uint256 totalGuardiansAmount = totalNumberOfGuardians * Constants.GUARDIAN_AMOUNT;
+        uint256 totalAmount = totalStakedAmount + totalBorrowedAmount + totalGuardiansAmount;
         uint256 sentinelsStakingFeesAmount = totalAmount > 0 ? (amount * totalStakedAmount) / totalAmount : 0;
-        uint256 sentinelsBorrowingFeesAndLendersRewardsAmount = amount - sentinelsStakingFeesAmount;
+        uint256 guardiansFeesAmount = totalAmount > 0 ? (amount * totalGuardiansAmount) / totalAmount : 0;
+        uint256 sentinelsBorrowingFeesAndLendersRewardsAmount = amount -
+            sentinelsStakingFeesAmount -
+            guardiansFeesAmount;
         uint256 lendersRewardsAmount = (sentinelsBorrowingFeesAndLendersRewardsAmount * kByEpoch(currentEpoch)) /
             Constants.DECIMALS_PRECISION;
         uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersRewardsAmount - lendersRewardsAmount;
@@ -195,6 +220,10 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
         if (sentinelsBorrowingFeesAmount > 0) {
             _epochsSentinelsBorrowingAssetsFee[currentEpoch][asset] += sentinelsBorrowingFeesAmount;
+        }
+
+        if (guardiansFeesAmount > 0) {
+            _epochsGuardiansAssetsFee[currentEpoch][asset] += guardiansFeesAmount;
         }
 
         emit FeeDeposited(asset, currentEpoch, amount);

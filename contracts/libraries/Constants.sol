@@ -6,6 +6,7 @@ library Constants {
     uint256 public constant BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION = 200000 * 10 ** 18;
     uint256 public constant STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION = 200000 * 10 ** 18;
     uint256 public constant STAKING_MIN_AMOUT_FOR_SENTINEL_REGISTRATION_TRUNCATED = 200000;
+    uint256 public constant GUARDIAN_AMOUNT = 10000;
     uint256 public constant AVAILABLE_EPOCHS = 48;
     uint64 public constant MIN_STAKE_DURATION = 604800;
     uint24 public constant DECIMALS_PRECISION = 10 ** 6;
