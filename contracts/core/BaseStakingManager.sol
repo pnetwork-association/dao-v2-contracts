@@ -51,7 +51,7 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         Stake storage stake = _stakes[owner];
         uint256 stakedAmount = stake.amount;
 
-        if (amount > stakedAmount) {
+        if (amount > stakedAmount || amount == 0) {
             revert Errors.InvalidAmount();
         }
 

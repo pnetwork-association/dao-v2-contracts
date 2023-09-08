@@ -266,7 +266,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
                 _pendingLightResumes[currentEpoch][actor] == 0;
             }
 
-            IStakingManagerPermissioned(stakingManager).slash(registrationOwner, amountToSlash, challenger);
+            if (amount > 0) {
+                IStakingManagerPermissioned(stakingManager).slash(registrationOwner, amountToSlash, challenger);
+            }
+
             IGovernanceMessageEmitter(governanceMessageEmitter).slashSentinel(actor);
             emit StakingSentinelSlashed(actor, amount);
         } else if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
