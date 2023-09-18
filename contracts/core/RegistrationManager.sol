@@ -392,7 +392,12 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
 
         // TODO: What does it happen if an user updateSentinelRegistrationByStaking in behalf of someone else using a wrong signature?
 
-        Registration storage registration = _sentinelRegistrations[sentinel];
+        Registration storage registration = _guardianRegistrations[sentinel];
+        if (registration.kind != Constants.REGISTRATION_NULL) {
+            revert Errors.InvalidRegistration();
+        }
+
+        registration = _sentinelRegistrations[sentinel];
         if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             revert Errors.InvalidRegistration();
         }
@@ -498,8 +503,13 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
         }
 
+        Registration storage currentRegistration = _sentinelRegistrations[guardian];
+        if (currentRegistration.endEpoch != 0) {
+            revert Errors.InvalidRegistration();
+        }
+
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        Registration storage currentRegistration = _guardianRegistrations[guardian];
+        currentRegistration = _guardianRegistrations[guardian];
 
         uint16 currentRegistrationEndEpoch = currentRegistration.endEpoch;
         uint16 startEpoch = currentEpoch + 1;
@@ -540,7 +550,12 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
 
         address sentinel = getSentinelAddressFromSignature(owner, signature);
 
-        Registration storage registration = _sentinelRegistrations[sentinel];
+        Registration storage registration = _guardianRegistrations[sentinel];
+        if (registration.kind != Constants.REGISTRATION_NULL) {
+            revert Errors.InvalidRegistration();
+        }
+
+        registration = _sentinelRegistrations[sentinel];
         if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
             revert Errors.InvalidRegistration();
         }
