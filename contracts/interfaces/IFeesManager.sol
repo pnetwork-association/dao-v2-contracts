@@ -68,18 +68,18 @@ interface IFeesManager {
     /*
      * @notice Indicates the claimable asset fee amount in a specific epoch.
      *
-     * @paran sentinel
+     * @paran actor
      * @param asset
      * @param epoch
      *
      * @return uint256 an integer representing the claimable asset fee amount in a specific epoch.
      */
-    function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) external view returns (uint256);
+    function claimableFeeByEpochOf(address actor, address asset, uint16 epoch) external view returns (uint256);
 
     /*
      * @notice Indicates the claimable asset fee amount in an epochs range.
      *
-     * @paran sentinel
+     * @paran actor
      * @param assets
      * @param startEpoch
      * @param endEpoch
@@ -87,7 +87,7 @@ interface IFeesManager {
      * @return uint256 an integer representing the claimable asset fee amount in an epochs range.
      */
     function claimableFeesByEpochsRangeOf(
-        address sentinel,
+        address actor,
         address[] calldata assets,
         uint16 startEpoch,
         uint16 endEpoch
@@ -96,14 +96,14 @@ interface IFeesManager {
     /*
      * @notice returns the addresses of the challengers who are entitled to claim the fees in the event of slashing.
      *
-     * @param sentinel
+     * @param actor
      * @param startEpoch
      * @params endEpoch
      *
      * @return address[] representing the addresses of the challengers who are entitled to claim the fees in the event of slashing.
      */
     function challengerClaimRedirectByEpochsRangeOf(
-        address sentinel,
+        address actor,
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (address[] memory);
@@ -111,12 +111,12 @@ interface IFeesManager {
     /*
      * @notice returns the address of the challenger who are entitled to claim the fees in the event of slashing.
      *
-     * @param sentinel
+     * @param actor
      * @params epoch
      *
      * @return address[] representing the address of the challenger who are entitled to claim the fees in the event of slashing.
      */
-    function challengerClaimRedirectByEpochOf(address sentinel, uint16 epoch) external returns (address);
+    function challengerClaimRedirectByEpochOf(address actor, uint16 epoch) external returns (address);
 
     /*
      * @notice Deposit an asset fee amount in the current epoch.
@@ -147,14 +147,14 @@ interface IFeesManager {
     function kByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint256[] memory);
 
     /*
-     * @notice Redirect the fees claiming to the challenger who succesfully slashed the sentinel for a given epoch.
+     * @notice Redirect the fees claiming to the challenger who succesfully slashed the sentinel/guardian for a given epoch.
      *         This function potentially allows to be called also for staking sentinel so it is up to who call it (RegistrationManager)
      *         to call it only for the borrowing sentinels.
      *
-     * @param sentinel
+     * @param actor
      * @params challenger
      * @params epoch
      *
      */
-    function redirectClaimToChallengerByEpoch(address sentinel, address challenger, uint16 epoch) external;
+    function redirectClaimToChallengerByEpoch(address actor, address challenger, uint16 epoch) external;
 }

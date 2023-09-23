@@ -23,7 +23,6 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     mapping(address => mapping(address => mapping(uint16 => bool))) _ownersEpochsAssetsClaim;
 
     uint24 public minimumBorrowingFee;
-
     address public epochsManager;
     address public lendingManager;
     address public registrationManager;
@@ -54,13 +53,13 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
     /// @inheritdoc IFeesManager
     function challengerClaimRedirectByEpochsRangeOf(
-        address sentinel,
+        address actor,
         uint16 startEpoch,
         uint16 endEpoch
     ) external view returns (address[] memory) {
         address[] memory result = new address[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            result[epoch] = challengerClaimRedirectByEpochOf(sentinel, epoch);
+            result[epoch] = challengerClaimRedirectByEpochOf(actor, epoch);
             unchecked {
                 ++epoch;
             }
@@ -69,8 +68,8 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     }
 
     /// @inheritdoc IFeesManager
-    function challengerClaimRedirectByEpochOf(address sentinel, uint16 epoch) public view returns (address) {
-        return _challengersEpochsClaimRedirect[sentinel][epoch];
+    function challengerClaimRedirectByEpochOf(address actor, uint16 epoch) public view returns (address) {
+        return _challengersEpochsClaimRedirect[actor][epoch];
     }
 
     /// @inheritdoc IFeesManager
@@ -131,7 +130,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
     /// @inheritdoc IFeesManager
     function claimableFeesByEpochsRangeOf(
-        address sentinel,
+        address actor,
         address[] calldata assets,
         uint16 startEpoch,
         uint16 endEpoch
@@ -139,7 +138,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         uint256[] memory result = new uint256[](((endEpoch + 1) - startEpoch) * assets.length);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             for (uint8 i = 0; i < assets.length; i++) {
-                result[((epoch - startEpoch) * assets.length) + i] = claimableFeeByEpochOf(sentinel, assets[i], epoch);
+                result[((epoch - startEpoch) * assets.length) + i] = claimableFeeByEpochOf(actor, assets[i], epoch);
             }
         }
         return result;
@@ -178,7 +177,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     function claimFeeByEpochsRange(address owner, address asset, uint16 startEpoch, uint16 endEpoch) external {
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             // NOTE: impossible to use the cumulative claim since in an epoch the fees
-            // could be claimed by a challenger that slashed a sentinel
+            // could be claimed by a challenger that slashed a sentinel/guardian
             claimFeeByEpoch(owner, asset, epoch);
             unchecked {
                 ++epoch;
@@ -251,12 +250,12 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
     /// @inheritdoc IFeesManager
     function redirectClaimToChallengerByEpoch(
-        address sentinel,
+        address actor,
         address challenger,
         uint16 epoch
     ) external onlyRole(Roles.REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE) {
-        _challengersEpochsClaimRedirect[sentinel][epoch] = challenger;
-        emit ClaimRedirectedToChallenger(sentinel, challenger, epoch);
+        _challengersEpochsClaimRedirect[actor][epoch] = challenger;
+        emit ClaimRedirectedToChallenger(actor, challenger, epoch);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
