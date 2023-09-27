@@ -10,10 +10,8 @@ error InvalidSentinelRegistration(bytes1 kind);
 error NotRegistrationManager();
 
 contract MockGovernanceMessageEmitter {
-    bytes32 public constant GOVERNANCE_MESSAGE_SLASH_SENTINEL = keccak256("GOVERNANCE_MESSAGE_SLASH_SENTINEL");
-    bytes32 public constant GOVERNANCE_MESSAGE_SLASH_GUARDIAN = keccak256("GOVERNANCE_MESSAGE_SLASH_GUARDIAN");
-    bytes32 public constant GOVERNANCE_MESSAGE_RESUME_SENTINEL = keccak256("GOVERNANCE_MESSAGE_RESUME_SENTINEL");
-    bytes32 public constant GOVERNANCE_MESSAGE_RESUME_GUARDIAN = keccak256("GOVERNANCE_MESSAGE_RESUME_GUARDIAN");
+    bytes32 public constant GOVERNANCE_MESSAGE_SLASH_ACTOR = keccak256("GOVERNANCE_MESSAGE_SLASH_ACTOR");
+    bytes32 public constant GOVERNANCE_MESSAGE_RESUME_ACTOR = keccak256("GOVERNANCE_MESSAGE_RESUME_ACTOR");
 
     address public immutable epochsManager;
     address public immutable registrationManager;
@@ -33,39 +31,15 @@ contract MockGovernanceMessageEmitter {
         registrationManager = registrationManager_;
     }
 
-    function resumeGuardian(address guardian) external onlyRegistrationManager {
+    function resumeActor(address actor) external onlyRegistrationManager {
         emit GovernanceMessage(
-            abi.encode(
-                GOVERNANCE_MESSAGE_RESUME_GUARDIAN,
-                abi.encode(IEpochsManager(epochsManager).currentEpoch(), guardian)
-            )
+            abi.encode(GOVERNANCE_MESSAGE_RESUME_ACTOR, abi.encode(IEpochsManager(epochsManager).currentEpoch(), actor))
         );
     }
 
-    function resumeSentinel(address sentinel) external onlyRegistrationManager {
+    function slashActor(address actor) external onlyRegistrationManager {
         emit GovernanceMessage(
-            abi.encode(
-                GOVERNANCE_MESSAGE_RESUME_SENTINEL,
-                abi.encode(IEpochsManager(epochsManager).currentEpoch(), sentinel)
-            )
-        );
-    }
-
-    function slashGuardian(address guardian) external onlyRegistrationManager {
-        emit GovernanceMessage(
-            abi.encode(
-                GOVERNANCE_MESSAGE_SLASH_GUARDIAN,
-                abi.encode(IEpochsManager(epochsManager).currentEpoch(), guardian)
-            )
-        );
-    }
-
-    function slashSentinel(address sentinel) external onlyRegistrationManager {
-        emit GovernanceMessage(
-            abi.encode(
-                GOVERNANCE_MESSAGE_SLASH_SENTINEL,
-                abi.encode(IEpochsManager(epochsManager).currentEpoch(), sentinel)
-            )
+            abi.encode(GOVERNANCE_MESSAGE_SLASH_ACTOR, abi.encode(IEpochsManager(epochsManager).currentEpoch(), actor))
         );
     }
 }

@@ -122,7 +122,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         // if the remaining staking time is less than 7 days in order to avoid abuses.
         IStakingManagerPermissioned(stakingManager).increaseAmount(owner, amount);
 
-        IGovernanceMessageEmitter(governanceMessageEmitter).resumeSentinel(sentinel);
+        IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(sentinel);
         emit SentinelHardResumed(sentinel);
     }
 
@@ -157,7 +157,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             --_pendingLightResumes[currentEpoch][guardian];
         }
 
-        IGovernanceMessageEmitter(governanceMessageEmitter).resumeGuardian(guardian);
+        IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(guardian);
         emit GuardianLightResumed(guardian);
     }
 
@@ -182,7 +182,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             --_pendingLightResumes[currentEpoch][sentinel];
         }
 
-        IGovernanceMessageEmitter(governanceMessageEmitter).resumeSentinel(sentinel);
+        IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(sentinel);
         emit SentinelLightResumed(sentinel);
     }
 
@@ -270,7 +270,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
                 IStakingManagerPermissioned(stakingManager).slash(registrationOwner, amountToSlash, challenger);
             }
 
-            IGovernanceMessageEmitter(governanceMessageEmitter).slashSentinel(actor);
+            IGovernanceMessageEmitter(governanceMessageEmitter).slashActor(actor);
             emit StakingSentinelSlashed(actor, amount);
         } else if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             uint16 actorSlashes = _slashes[currentEpoch][actor];
@@ -298,7 +298,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             } else {
                 return;
             }
-            IGovernanceMessageEmitter(governanceMessageEmitter).slashSentinel(actor);
+            IGovernanceMessageEmitter(governanceMessageEmitter).slashActor(actor);
             emit BorrowingSentinelSlashed(actor);
         } else if (registrationKind == Constants.REGISTRATION_GUARDIAN) {
             uint16 actorSlashes = _slashes[currentEpoch][actor];
@@ -314,7 +314,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
                 return;
             }
 
-            IGovernanceMessageEmitter(governanceMessageEmitter).slashGuardian(actor);
+            IGovernanceMessageEmitter(governanceMessageEmitter).slashActor(actor);
             emit GuardianSlashed(actor);
         } else {
             revert Errors.InvalidRegistration();
