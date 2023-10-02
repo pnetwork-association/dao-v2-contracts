@@ -31,15 +31,36 @@ contract MockGovernanceMessageEmitter {
         registrationManager = registrationManager_;
     }
 
-    function resumeActor(address actor) external onlyRegistrationManager {
+    function resumeActor(address actor, bytes1 registrationKind) external onlyRegistrationManager {
         emit GovernanceMessage(
-            abi.encode(GOVERNANCE_MESSAGE_RESUME_ACTOR, abi.encode(IEpochsManager(epochsManager).currentEpoch(), actor))
+            abi.encode(
+                GOVERNANCE_MESSAGE_RESUME_ACTOR,
+                abi.encode(
+                    IEpochsManager(epochsManager).currentEpoch(),
+                    actor,
+                    _getActorTypeByRegistrationKind(registrationKind)
+                )
+            )
         );
     }
 
-    function slashActor(address actor) external onlyRegistrationManager {
+    function slashActor(address actor, bytes1 registrationKind) external onlyRegistrationManager {
         emit GovernanceMessage(
-            abi.encode(GOVERNANCE_MESSAGE_SLASH_ACTOR, abi.encode(IEpochsManager(epochsManager).currentEpoch(), actor))
+            abi.encode(
+                GOVERNANCE_MESSAGE_SLASH_ACTOR,
+                abi.encode(
+                    IEpochsManager(epochsManager).currentEpoch(),
+                    actor,
+                    _getActorTypeByRegistrationKind(registrationKind)
+                )
+            )
         );
+    }
+
+    function _getActorTypeByRegistrationKind(bytes1 registrationKind) internal pure returns (uint8) {
+        if (registrationKind == 0x01) return 1;
+        if (registrationKind == 0x02) return 1;
+        if (registrationKind == 0x03) return 2;
+        return 0;
     }
 }

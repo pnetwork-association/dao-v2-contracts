@@ -3,9 +3,9 @@
 pragma solidity ^0.8.17;
 
 interface IGovernanceMessageEmitter {
-    function resumeActor(address sentinel) external;
+    function resumeActor(address sentinel, bytes1 registrationKind) external;
 
-    function slashActor(address actor) external;
+    function slashActor(address actor, bytes1 registrationKind) external;
 
     function propagateActors(address[] calldata sentinels, address[] calldata guardians) external;
 
