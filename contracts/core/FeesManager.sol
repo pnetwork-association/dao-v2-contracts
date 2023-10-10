@@ -21,22 +21,20 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     mapping(uint256 => mapping(address => uint256)) _epochsSentinelsStakingAssetsFee;
     mapping(uint256 => mapping(address => uint256)) _epochsSentinelsBorrowingAssetsFee;
     mapping(address => mapping(address => mapping(uint16 => bool))) _ownersEpochsAssetsClaim;
+    mapping(address => mapping(uint16 => address)) _challengersEpochsClaimRedirect;
+    mapping(uint256 => mapping(address => uint256)) _epochsGuardiansAssetsFee;
 
-    uint24 public minimumBorrowingFee;
+    uint32 public minimumBorrowingFee;
     address public epochsManager;
     address public lendingManager;
     address public registrationManager;
-
-    // v.1.1.0
-    mapping(address => mapping(uint16 => address)) _challengersEpochsClaimRedirect;
-    mapping(uint256 => mapping(address => uint256)) _epochsGuardiansAssetsFee;
 
     function initialize(
         address _epochsManager,
         address _lendingManager,
         address _registrationManager,
         address _forwarder,
-        uint24 _minimumBorrowingFee
+        uint32 _minimumBorrowingFee
     ) public initializer {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
@@ -79,12 +77,9 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         }
 
         IRegistrationManager.Registration memory registration = IRegistrationManager(registrationManager)
-            .sentinelRegistration(actor);
-        if (registration.kind == Constants.REGISTRATION_NULL) {
-            registration = IRegistrationManager(registrationManager).guardianRegistration(actor);
-        }
-
+            .registrationOf(actor);
         bytes1 registrationKind = registration.kind;
+
         uint256 fee = 0;
         if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {
             uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(

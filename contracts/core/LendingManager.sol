@@ -19,13 +19,13 @@ import {Helpers} from "../libraries/Helpers.sol";
 contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, ForwarderRecipientUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    mapping(address => uint24[]) private _borrowersEpochsBorrowedAmount;
+    mapping(address => uint32[]) private _borrowersEpochsBorrowedAmount;
     mapping(address => uint32[]) private _lendersEpochsWeight;
     mapping(address => mapping(uint256 => mapping(address => bool))) private _lendersEpochsAssetsRewardsClaim;
     mapping(address => mapping(uint256 => uint256)) private _totalEpochsAssetsRewardAmount;
 
-    uint24[] private _epochsTotalLendedAmount;
-    uint24[] private _epochsTotalBorrowedAmount;
+    uint32[] private _epochsTotalLendedAmount;
+    uint32[] private _epochsTotalBorrowedAmount;
     uint32[] private _epochTotalWeight;
 
     address public stakingManager;
@@ -55,20 +55,20 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         dandelionVoting = _dandelionVoting;
         lendMaxEpochs = _lendMaxEpochs;
 
-        _epochsTotalLendedAmount = new uint24[](Constants.AVAILABLE_EPOCHS);
-        _epochsTotalBorrowedAmount = new uint24[](Constants.AVAILABLE_EPOCHS);
+        _epochsTotalLendedAmount = new uint32[](Constants.AVAILABLE_EPOCHS);
+        _epochsTotalBorrowedAmount = new uint32[](Constants.AVAILABLE_EPOCHS);
         _epochTotalWeight = new uint32[](Constants.AVAILABLE_EPOCHS);
     }
 
     /// @inheritdoc ILendingManager
     function borrow(uint256 amount, uint16 epoch, address borrower) external onlyRole(Roles.BORROW_ROLE) {
         if (amount == 0) revert Errors.InvalidAmount();
-        uint24 truncatedAmount = Helpers.truncate(amount);
+        uint32 truncatedAmount = Helpers.truncate(amount);
 
         // TODO: is it possible to borrow in the current epoch?
 
         if (_borrowersEpochsBorrowedAmount[borrower].length == 0) {
-            _borrowersEpochsBorrowedAmount[borrower] = new uint24[](Constants.AVAILABLE_EPOCHS);
+            _borrowersEpochsBorrowedAmount[borrower] = new uint32[](Constants.AVAILABLE_EPOCHS);
         }
 
         if (_epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch] < truncatedAmount) {
@@ -82,12 +82,12 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
     }
 
     /// @inheritdoc ILendingManager
-    function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24) {
+    function borrowableAmountByEpoch(uint16 epoch) external view returns (uint32) {
         return _epochsTotalLendedAmount[epoch] - _epochsTotalBorrowedAmount[epoch];
     }
 
     /// @inheritdoc ILendingManager
-    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24) {
+    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint32) {
         return _borrowersEpochsBorrowedAmount[borrower][epoch];
     }
 
@@ -243,7 +243,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
     }
 
     /// @inheritdoc ILendingManager
-    function totalBorrowedAmountByEpoch(uint16 epoch) external view returns (uint24) {
+    function totalBorrowedAmountByEpoch(uint16 epoch) external view returns (uint32) {
         return _epochsTotalBorrowedAmount[epoch];
     }
 
@@ -251,8 +251,8 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
     function totalBorrowedAmountByEpochsRange(
         uint16 startEpoch,
         uint16 endEpoch
-    ) external view returns (uint24[] memory) {
-        uint24[] memory result = new uint24[]((endEpoch + 1) - startEpoch);
+    ) external view returns (uint32[] memory) {
+        uint32[] memory result = new uint32[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = _epochsTotalBorrowedAmount[epoch];
         }
@@ -260,7 +260,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
     }
 
     /// @inheritdoc ILendingManager
-    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint24) {
+    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint32) {
         return _epochsTotalLendedAmount[epoch];
     }
 
@@ -268,8 +268,8 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
     function totalLendedAmountByEpochsRange(
         uint16 startEpoch,
         uint16 endEpoch
-    ) external view returns (uint24[] memory) {
-        uint24[] memory result = new uint24[]((endEpoch + 1) - startEpoch);
+    ) external view returns (uint32[] memory) {
+        uint32[] memory result = new uint32[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = _epochsTotalLendedAmount[epoch];
         }
@@ -278,7 +278,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
 
     /// @inheritdoc ILendingManager
     function release(address borrower, uint16 epoch, uint256 amount) external onlyRole(Roles.RELEASE_ROLE) {
-        uint24 truncatedAmount = uint24(Helpers.truncate(amount));
+        uint32 truncatedAmount = uint32(Helpers.truncate(amount));
         _epochsTotalBorrowedAmount[epoch] -= truncatedAmount;
         _borrowersEpochsBorrowedAmount[borrower][epoch] -= truncatedAmount;
         emit Released(borrower, epoch, amount);
@@ -304,15 +304,15 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
     }
 
     /// @inheritdoc ILendingManager
-    function utilizationRatioByEpoch(uint16 epoch) public view returns (uint24) {
-        uint24 size = _epochsTotalLendedAmount[epoch];
+    function utilizationRatioByEpoch(uint16 epoch) public view returns (uint32) {
+        uint32 size = _epochsTotalLendedAmount[epoch];
         return
-            size > 0 ? uint24((uint256(_epochsTotalBorrowedAmount[epoch]) * Constants.DECIMALS_PRECISION) / size) : 0;
+            size > 0 ? uint32((uint256(_epochsTotalBorrowedAmount[epoch]) * Constants.DECIMALS_PRECISION) / size) : 0;
     }
 
     /// @inheritdoc ILendingManager
-    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory) {
-        uint24[] memory result = new uint24[]((endEpoch + 1) - startEpoch);
+    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory) {
+        uint32[] memory result = new uint32[]((endEpoch + 1) - startEpoch);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             result[epoch - startEpoch] = utilizationRatioByEpoch(epoch);
         }
@@ -350,10 +350,10 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         uint16 numberOfEpochs = uint16((stake.endDate - blockTimestamp) / epochDuration) -
             (stake.startDate == blockTimestamp ? 1 : 0);
         uint16 endEpoch = uint16(startEpoch + numberOfEpochs - 1);
-        uint24 truncatedAmount = Helpers.truncate(stake.amount);
+        uint32 truncatedAmount = Helpers.truncate(stake.amount);
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            uint24 weight = truncatedAmount * ((endEpoch - epoch) + 1);
+            uint32 weight = truncatedAmount * ((endEpoch - epoch) + 1);
 
             // reset old weight in order to update with the new ones or just update the _epochsTotalLendedAmount if the epoch is a "clean" one
             if (_lendersEpochsWeight[lender][epoch] != 0) {
@@ -390,9 +390,9 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
             _lendersEpochsWeight[lender] = new uint32[](Constants.AVAILABLE_EPOCHS);
         }
 
-        uint24 truncatedAmount = Helpers.truncate(amount);
+        uint32 truncatedAmount = Helpers.truncate(amount);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            uint24 weight = truncatedAmount * ((endEpoch - epoch) + 1);
+            uint32 weight = truncatedAmount * ((endEpoch - epoch) + 1);
             _epochTotalWeight[epoch] += weight;
             _lendersEpochsWeight[lender][epoch] += weight;
             _epochsTotalLendedAmount[epoch] += truncatedAmount;

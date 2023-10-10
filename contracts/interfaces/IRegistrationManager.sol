@@ -56,11 +56,11 @@ interface IRegistrationManager {
     );
 
     /**
-     * @dev Emitted when a guardian is light-resumed.
+     * @dev Emitted when a actor is light-resumed.
      *
-     * @param guardian The guardian
+     * @param actor The actor
      */
-    event GuardianLightResumed(address indexed guardian);
+    event LightResumed(address indexed actor, bytes1 registrationKind);
 
     /**
      * @dev Emitted when a sentinel registration is completed.
@@ -89,13 +89,6 @@ interface IRegistrationManager {
     event SentinelHardResumed(address indexed sentinel);
 
     /**
-     * @dev Emitted when a sentinel is light-resumed.
-     *
-     * @param sentinel The sentinel
-     */
-    event SentinelLightResumed(address indexed sentinel);
-
-    /**
      * @dev Emitted when a staking sentinel increased its amount at stake.
      *
      * @param sentinel The sentinel
@@ -117,16 +110,7 @@ interface IRegistrationManager {
      *
      * @return address representing the address of the sentinel.
      */
-    function getSentinelAddressFromSignature(address owner, bytes calldata signature) external pure returns (address);
-
-    /*
-     * @notice Returns a guardian registration.
-     *
-     * @param guardian
-     *
-     * @return Registration representing the guardian registration.
-     */
-    function guardianRegistration(address guardian) external view returns (Registration memory);
+    function getActorAddressFromSignature(address owner, bytes calldata signature) external pure returns (address);
 
     /*
      * @notice Returns a guardian by its owner.
@@ -148,7 +132,7 @@ interface IRegistrationManager {
      * @param signature
      *
      */
-    function hardResumeSentinel(uint256 amount, address owner, bytes calldata signature) external;
+    function hardResume(uint256 amount, bytes calldata signature) external;
 
     /*
      * @notice Increase the duration of a staking sentinel registration.
@@ -167,20 +151,12 @@ interface IRegistrationManager {
     function increaseSentinelRegistrationDuration(address owner, uint64 duration) external;
 
     /*
-     * @notice Resume a guardian that was light-slashed
+     * @notice Resume an actor that was light-slashed
      *
-     *
-     */
-    function lightResumeGuardian() external;
-
-    /*
-     * @notice Resume a sentinel that was light-slashed
-     *
-     * @param owner
      * @param signature
      *
      */
-    function lightResumeSentinel(address owner, bytes calldata signature) external;
+    function lightResume(bytes calldata signature) external;
 
     /*
      * @notice Returns the sentinel of a given owner
@@ -192,13 +168,13 @@ interface IRegistrationManager {
     function sentinelOf(address owner) external view returns (address);
 
     /*
-     * @notice Returns the sentinel registration
+     * @notice Returns the actor registration
      *
-     * @param sentinel
+     * @param actor
      *
-     * @return address representing the sentinel registration data.
+     * @return address representing the actor registration data.
      */
-    function sentinelRegistration(address sentinel) external view returns (Registration memory);
+    function registrationOf(address actor) external view returns (Registration memory);
 
     /*
      * @notice Return the staked amount by a sentinel in a given epoch.
