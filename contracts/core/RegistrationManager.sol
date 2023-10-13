@@ -25,6 +25,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     mapping(address => Registration) private _registrations;
     mapping(address => address) private _ownersSentinel;
     mapping(address => address) private _ownersGuardian;
+    mapping(address => uint256) private _ownersSignatureNonces;
     uint32[] private _sentinelsEpochsTotalStakedAmount;
     mapping(address => uint32[]) private _sentinelsEpochsStakedAmount;
     mapping(uint16 => uint16) private _epochsTotalNumberOfGuardians;
@@ -60,11 +61,9 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         _sentinelsEpochsTotalStakedAmount = new uint32[](Constants.AVAILABLE_EPOCHS);
     }
 
-    /// @inheritdoc IRegistrationManager
-    function getActorAddressFromSignature(address owner, bytes calldata signature) public pure returns (address) {
-        // TODO: How to prevent signature reuse?
-        bytes32 message = ECDSA.toEthSignedMessageHash(keccak256(abi.encode(owner)));
-        return ECDSA.recover(message, signature);
+    // @inheritdoc IRegistrationManager
+    function getSignatureNonceByOwner(address owner) external view returns (uint256) {
+        return _ownersSignatureNonces[owner];
     }
 
     /// @inheritdoc IRegistrationManager
@@ -73,10 +72,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function hardResume(uint256 amount, bytes calldata signature) external {
+    function hardResume(uint256 amount, bytes calldata signature, uint256 nonce) external {
         address owner = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        address sentinel = getActorAddressFromSignature(owner, signature);
+        address sentinel = _getActorAddressFromSignatureAndIncreaseSignatureNonce(owner, signature, nonce);
 
         Registration storage registration = _registrations[sentinel];
         bytes1 registrationKind = registration.kind;
@@ -133,9 +132,9 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function lightResume(bytes calldata signature) external {
+    function lightResume(bytes calldata signature, uint256 nonce) external {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        address actor = getActorAddressFromSignature(_msgSender(), signature);
+        address actor = _getActorAddressFromSignatureAndIncreaseSignatureNonce(_msgSender(), signature, nonce);
 
         Registration storage registration = _registrations[actor];
         uint16 registrationEndEpoch = registration.endEpoch;
@@ -344,14 +343,15 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     function updateSentinelRegistrationByBorrowing(
         address owner,
         uint16 numberOfEpochs,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) external onlyForwarder {
-        _updateSentinelRegistrationByBorrowing(owner, numberOfEpochs, signature);
+        _updateSentinelRegistrationByBorrowing(owner, numberOfEpochs, signature, nonce);
     }
 
     /// @inheritdoc IRegistrationManager
-    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external {
-        _updateSentinelRegistrationByBorrowing(_msgSender(), numberOfEpochs, signature);
+    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature, uint256 nonce) external {
+        _updateSentinelRegistrationByBorrowing(_msgSender(), numberOfEpochs, signature, nonce);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -359,9 +359,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         address owner,
         uint256 amount,
         uint64 duration,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) external {
-        address sentinel = getActorAddressFromSignature(owner, signature);
+        address sentinel = _getActorAddressFromSignatureAndIncreaseSignatureNonce(owner, signature, nonce);
 
         // TODO: What does it happen if an user updateSentinelRegistrationByStaking in behalf of someone else using a wrong signature?
 
@@ -474,6 +475,25 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         emit DurationIncreased(sentinel, endEpoch);
     }
 
+    function _getActorAddressFromSignatureAndIncreaseSignatureNonce(
+        address owner,
+        bytes memory signature,
+        uint256 nonce
+    ) internal returns (address) {
+        uint256 expectedNonce =  _ownersSignatureNonces[owner];
+        if (nonce != expectedNonce) {
+            revert Errors.InvalidSignatureNonce(nonce, expectedNonce);
+        }
+
+        bytes32 message = ECDSA.toEthSignedMessageHash(keccak256(abi.encode(owner, nonce)));
+        address actor = ECDSA.recover(message, signature);
+        unchecked {
+            ++_ownersSignatureNonces[owner];
+        }
+
+        return actor;
+    }
+
     function _updateGuardianRegistration(address owner, uint16 numberOfEpochs, address guardian) internal {
         if (numberOfEpochs == 0) {
             revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
@@ -521,14 +541,14 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     function _updateSentinelRegistrationByBorrowing(
         address owner,
         uint16 numberOfEpochs,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) internal {
         if (numberOfEpochs == 0) {
             revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
         }
 
-        address sentinel = getActorAddressFromSignature(owner, signature);
-
+        address sentinel = _getActorAddressFromSignatureAndIncreaseSignatureNonce(owner, signature, nonce);
         Registration storage registration = _registrations[sentinel];
         bytes1 registrationKind = registration.kind;
         if (

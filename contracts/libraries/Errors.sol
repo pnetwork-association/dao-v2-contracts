@@ -18,4 +18,5 @@ library Errors {
     error GuardianAlreadyRegistered(address guardian);
     error InvalidNumberOfEpochs(uint16 numberOfEpochs);
     error NotResumable();
+    error InvalidSignatureNonce(uint256 signatureNonce, uint256 expectedSignatureNonce);
 }

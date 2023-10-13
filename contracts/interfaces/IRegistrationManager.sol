@@ -104,13 +104,12 @@ interface IRegistrationManager {
     event StakingSentinelSlashed(address indexed sentinel, uint256 amount);
 
     /*
-     * @notice Returns the sentinel address given the owner and the signature.
+     * @notice Return the current signature nonce by the actor owner
      *
-     * @param sentinel
+     * @param owner
      *
-     * @return address representing the address of the sentinel.
      */
-    function getActorAddressFromSignature(address owner, bytes calldata signature) external pure returns (address);
+    function getSignatureNonceByOwner(address owner) external view returns (uint256);
 
     /*
      * @notice Returns a guardian by its owner.
@@ -130,9 +129,10 @@ interface IRegistrationManager {
      * @param amount
      * @param owner
      * @param signature
+     * @param nonce
      *
      */
-    function hardResume(uint256 amount, bytes calldata signature) external;
+    function hardResume(uint256 amount, bytes calldata signature, uint256 nonce) external;
 
     /*
      * @notice Increase the duration of a staking sentinel registration.
@@ -154,9 +154,10 @@ interface IRegistrationManager {
      * @notice Resume an actor that was light-slashed
      *
      * @param signature
+     * @param nonce
      *
      */
-    function lightResume(bytes calldata signature) external;
+    function lightResume(bytes calldata signature, uint256 nonce) external;
 
     /*
      * @notice Returns the sentinel of a given owner
@@ -282,12 +283,14 @@ interface IRegistrationManager {
      * @params owner
      * @param numberOfEpochs
      * @param signature
+     * @param nonce
      *
      */
     function updateSentinelRegistrationByBorrowing(
         address owner,
         uint16 numberOfEpochs,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) external;
 
     /*
@@ -295,9 +298,14 @@ interface IRegistrationManager {
      *
      * @param numberOfEpochs
      * @param signature
+     * @param nonce
      *
      */
-    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external;
+    function updateSentinelRegistrationByBorrowing(
+        uint16 numberOfEpochs,
+        bytes calldata signature,
+        uint256 nonce
+    ) external;
 
     /*
      * @notice Registers/Renew a sentinel for a given duration in behalf of owner
@@ -306,12 +314,14 @@ interface IRegistrationManager {
      * @param duration
      * @param signature
      * @param owner
+     * @param nonce
      *
      */
     function updateSentinelRegistrationByStaking(
         address owner,
         uint256 amount,
         uint64 duration,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) external;
 }

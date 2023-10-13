@@ -3,8 +3,9 @@ const { MerkleTree } = require('merkletreejs')
 
 module.exports.getRole = (_message) => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_message))
 
-module.exports.getSentinelIdentity = async (_ownerAddress, { actor }) => {
-  const messageHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address'], [_ownerAddress]))
+module.exports.getSentinelIdentity = async (_ownerAddress, { actor, registrationManager }) => {
+  const signatureNonce = await registrationManager.getSignatureNonceByOwner(_ownerAddress)
+  const messageHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(['address', 'uint256'], [_ownerAddress, signatureNonce]))
   return actor.signMessage(ethers.utils.arrayify(messageHash))
 }
 
