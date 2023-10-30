@@ -472,7 +472,14 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         }
         registration.endEpoch = endEpoch;
 
-        emit DurationIncreased(sentinel, endEpoch);
+        emit SentinelRegistrationUpdated(
+            owner,
+            registration.startEpoch,
+            registration.endEpoch,
+            sentinel,
+            Constants.REGISTRATION_SENTINEL_STAKING,
+            stake.amount
+        );
     }
 
     function _getActorAddressFromSignatureAndIncreaseSignatureNonce(
