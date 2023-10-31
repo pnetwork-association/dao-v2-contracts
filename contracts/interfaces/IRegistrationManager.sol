@@ -24,14 +24,6 @@ interface IRegistrationManager {
     event BorrowingSentinelSlashed(address indexed sentinel);
 
     /**
-     * @dev Emitted when an user increases his staking sentinel registration position by increasing his lock time within the Staking Manager.
-     *
-     * @param sentinel The sentinel
-     * @param endEpoch The new end epoch
-     */
-    event DurationIncreased(address indexed sentinel, uint16 endEpoch);
-
-    /**
      * @dev Emitted when a guardian is slashed.
      *
      * @param guardian The guardian

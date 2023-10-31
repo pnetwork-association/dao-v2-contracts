@@ -616,8 +616,8 @@ describe('RegistrationManager', () => {
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
     duration = EPOCH_DURATION * 4
     await expect(registrationManager.connect(pntHolder1)['increaseSentinelRegistrationDuration(uint64)'](duration))
-      .to.emit(registrationManager, 'DurationIncreased')
-      .withArgs(sentinel1.address, 10)
+      .to.emit(registrationManager, 'SentinelRegistrationUpdated')
+      .withArgs(pntHolder1.address, 3, 10, sentinel1.address, REGISTRATION_SENTINEL_STAKING, amount)
 
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(truncateWithPrecision(amount))
@@ -721,8 +721,8 @@ describe('RegistrationManager', () => {
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
     duration = EPOCH_DURATION * 4
     await expect(registrationManager.connect(pntHolder1)['increaseSentinelRegistrationDuration(uint64)'](duration))
-      .to.emit(registrationManager, 'DurationIncreased')
-      .withArgs(sentinel1.address, 9)
+      .to.emit(registrationManager, 'SentinelRegistrationUpdated')
+      .withArgs(pntHolder1.address, 3, 9, sentinel1.address, REGISTRATION_SENTINEL_STAKING, amount)
 
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 4)).to.be.eq(truncateWithPrecision(amount))
@@ -811,8 +811,8 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 5)
     expect(await epochsManager.currentEpoch()).to.be.equal(7)
     await expect(registrationManager.connect(pntHolder1)['increaseSentinelRegistrationDuration(uint64)'](duration))
-      .to.emit(registrationManager, 'DurationIncreased')
-      .withArgs(sentinel1.address, 10)
+      .to.emit(registrationManager, 'SentinelRegistrationUpdated')
+      .withArgs(pntHolder1.address, 8, 10, sentinel1.address, REGISTRATION_SENTINEL_STAKING, amount)
 
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 8)).to.be.eq(truncateWithPrecision(amount))
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 9)).to.be.eq(truncateWithPrecision(amount))
