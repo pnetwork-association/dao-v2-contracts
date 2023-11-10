@@ -31,6 +31,8 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     mapping(uint16 => uint16) private _epochsTotalNumberOfGuardians;
     mapping(uint16 => mapping(address => uint16)) private _pendingLightResumes;
     mapping(uint16 => mapping(address => uint16)) private _slashes;
+    mapping(address => uint256) private _lastSlashTimestamp;
+    mapping(address => uint256) private _lastResumeTimestamp;
 
     address public stakingManager;
     address public token;
@@ -152,6 +154,9 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             --_pendingLightResumes[currentEpoch][actor];
         }
 
+        _lastSlashTimestamp[actor] = 0;
+        _lastResumeTimestamp[actor] = block.timestamp;
+
         bytes1 registrationKind = registration.kind;
         IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(actor, registrationKind);
         emit LightResumed(actor, registrationKind);
@@ -190,8 +195,21 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function slash(address actor, uint256 amount, address challenger) external onlyRole(Roles.SLASH_ROLE) {
+    function slash(
+        address actor,
+        uint256 amount,
+        address challenger,
+        uint256 slashTimestamp
+    ) external onlyRole(Roles.SLASH_ROLE) {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+
+        if (_lastSlashTimestamp[actor] != uint256(0) && slashTimestamp < _lastSlashTimestamp[actor] + 1 hours)
+            revert Errors.ActorAlreadySlashed(_lastSlashTimestamp[actor], slashTimestamp);
+
+        if (_lastResumeTimestamp[actor] != uint256(0) && slashTimestamp < _lastResumeTimestamp[actor])
+            revert Errors.ActorAlreadyResumed(_lastResumeTimestamp[actor], slashTimestamp);
+
+        _lastSlashTimestamp[actor] = slashTimestamp;
 
         Registration storage registration = _registrations[actor];
         address registrationOwner = registration.owner;
@@ -350,7 +368,11 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature, uint256 nonce) external {
+    function updateSentinelRegistrationByBorrowing(
+        uint16 numberOfEpochs,
+        bytes calldata signature,
+        uint256 nonce
+    ) external {
         _updateSentinelRegistrationByBorrowing(_msgSender(), numberOfEpochs, signature, nonce);
     }
 
@@ -487,7 +509,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         bytes memory signature,
         uint256 nonce
     ) internal returns (address) {
-        uint256 expectedNonce =  _ownersSignatureNonces[owner];
+        uint256 expectedNonce = _ownersSignatureNonces[owner];
         if (nonce != expectedNonce) {
             revert Errors.InvalidSignatureNonce(nonce, expectedNonce);
         }

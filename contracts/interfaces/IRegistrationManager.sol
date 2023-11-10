@@ -212,7 +212,7 @@ interface IRegistrationManager {
      * @param challenger
      *
      */
-    function slash(address actor, uint256 amount, address challenger) external;
+    function slash(address actor, uint256 amount, address challenger, uint256 slashTimestamp) external;
 
     /*
      * @notice Return the total number of guardians in a specific epoch.
