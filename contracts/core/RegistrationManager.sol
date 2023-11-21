@@ -202,12 +202,14 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint256 slashTimestamp
     ) external onlyRole(Roles.SLASH_ROLE) {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint256 lastSlashTimestamp = _lastSlashTimestamp[actor];
+        uint256 lastResumeTimestamp = _lastResumeTimestamp[actor];
 
-        if (_lastSlashTimestamp[actor] != uint256(0) && slashTimestamp < _lastSlashTimestamp[actor] + 1 hours)
-            revert Errors.ActorAlreadySlashed(_lastSlashTimestamp[actor], slashTimestamp);
+        if (lastSlashTimestamp != 0 && slashTimestamp < lastSlashTimestamp + 1 hours)
+            revert Errors.ActorAlreadySlashed(lastSlashTimestamp, slashTimestamp);
 
-        if (_lastResumeTimestamp[actor] != uint256(0) && slashTimestamp < _lastResumeTimestamp[actor])
-            revert Errors.ActorAlreadyResumed(_lastResumeTimestamp[actor], slashTimestamp);
+        if (lastResumeTimestamp != 0 && slashTimestamp < lastResumeTimestamp)
+            revert Errors.ActorAlreadyResumed(lastResumeTimestamp, slashTimestamp);
 
         _lastSlashTimestamp[actor] = slashTimestamp;
 
