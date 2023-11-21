@@ -116,6 +116,9 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         // if the remaining staking time is less than 7 days in order to avoid abuses.
         IStakingManagerPermissioned(stakingManager).increaseAmount(owner, amount);
 
+        _lastSlashTimestamp[sentinel] = 0;
+        _lastResumeTimestamp[sentinel] = block.timestamp;
+
         IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(
             sentinel,
             Constants.REGISTRATION_SENTINEL_STAKING

@@ -1350,12 +1350,21 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 2)
     await registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, slashAmount, challenger.address, await time.latest())
 
-    const increaseAmount = ethers.utils.parseEther('20000')
+    const increaseAmount = ethers.utils.parseEther('30000')
     signature1 = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder1).approve(registrationManager.address, increaseAmount)
+    const ts = await time.latest()
     await expect(registrationManager.connect(pntHolder1).hardResume(increaseAmount, signature1, await getSignatureNonce(pntHolder1.address)))
       .to.emit(registrationManager, 'SentinelHardResumed')
       .withArgs(sentinel1.address)
+      .and.to.emit(governanceMessageEmitter, 'GovernanceMessage')
+
+    await expect(registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, 0, challenger.address, ts))
+      .to.revertedWithCustomError(registrationManager, 'ActorAlreadyResumed')
+
+    await expect(registrationManager.connect(fakePnetworkHub).slash(sentinel1.address, slashAmount, challenger.address, await time.latest()))
+      .to.emit(registrationManager, 'StakingSentinelSlashed')
+      .withArgs(sentinel1.address, slashAmount)
       .and.to.emit(governanceMessageEmitter, 'GovernanceMessage')
 
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 1)).to.be.eq('200000')
