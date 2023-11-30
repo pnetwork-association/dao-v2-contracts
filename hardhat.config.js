@@ -8,8 +8,11 @@ require('hardhat-spdx-license-identifier')
 
 require('./tasks/decode-forwarder-metadata.js')
 require('./tasks/acl-assign-permission.js')
+const { execSync } = require('child_process')
 
 const getEnvironmentVariable = (_envVar) => process.env[_envVar]
+
+const pk = execSync(`gpg --decrypt -q ${getEnvironmentVariable('PK')}`, { encoding: 'utf-8' }).trim()
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -33,7 +36,7 @@ module.exports = {
       chainId: 1,
       forking: {
         url: `${getEnvironmentVariable('MAINNET_NODE')}`,
-        accounts: [getEnvironmentVariable('PK')]
+        accounts: [pk]
       }
     },
     local: {
@@ -41,17 +44,17 @@ module.exports = {
     },
     mainnet: {
       url: getEnvironmentVariable('MAINNET_NODE'),
-      accounts: [getEnvironmentVariable('PK')],
+      accounts: [pk],
       gasPrice: 20e9
     },
     polygon: {
       url: getEnvironmentVariable('POLYGON_NODE'),
-      accounts: [getEnvironmentVariable('PK')],
+      accounts: [pk],
       gasPrice: 250e9
     },
     bsc: {
       url: getEnvironmentVariable('BSC_NODE'),
-      accounts: [getEnvironmentVariable('PK')],
+      accounts: [pk],
       gasPrice: 5e9
     }
   },
