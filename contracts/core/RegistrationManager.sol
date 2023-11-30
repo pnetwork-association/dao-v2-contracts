@@ -208,9 +208,12 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint256 lastSlashTimestamp = _lastSlashTimestamp[actor];
         uint256 lastResumeTimestamp = _lastResumeTimestamp[actor];
 
+        // Accept one slash per hour for the same actor
         if (lastSlashTimestamp != 0 && slashTimestamp < lastSlashTimestamp + 1 hours)
             revert Errors.ActorAlreadySlashed(lastSlashTimestamp, slashTimestamp);
 
+        // Do not slash actors who have already resumed after the slashing request was issued on PNetworkHub
+        // Otherwise, due to propagation times, we may slash them erroneously
         if (lastResumeTimestamp != 0 && slashTimestamp < lastResumeTimestamp)
             revert Errors.ActorAlreadyResumed(lastResumeTimestamp, slashTimestamp);
 
