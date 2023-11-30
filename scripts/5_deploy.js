@@ -4,13 +4,11 @@ const {
   ACL_ADDRESS,
   DANDELION_VOTING_ADDRESS,
   EPOCH_DURATION,
-  FORWARDER_ON_BSC,
-  FORWARDER_ON_MAINNET,
-  FORWARDER_ON_POLYGON,
+  FORWARDER_ON_GNOSIS,
   LEND_MAX_EPOCHS,
   MINIMUM_BORROWING_FEE,
   PNT_MAX_TOTAL_SUPPLY,
-  PNT_ON_POLYGON_ADDRESS,
+  PNT_ON_GNOSIS_ADDRESS,
   TOKEN_MANAGER_ADDRESS
 } = require('./config')
 
@@ -24,15 +22,13 @@ const main = async () => {
   const LendingManager = await ethers.getContractFactory('LendingManager')
   const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
   const FeesManager = await ethers.getContractFactory('FeesManager')
-  const Forwarder = await ethers.getContractFactory('Forwarder')
 
-  const acl = await ACL.attach(ACL_ADDRESS)
-  const forwarder = await Forwarder.attach(FORWARDER_ON_POLYGON)
+  const acl = ACL.attach(ACL_ADDRESS)
 
   console.info('StakingManager ...')
   const stakingManager = await upgrades.deployProxy(
     StakingManager,
-    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
+    [PNT_ON_GNOSIS_ADDRESS, TOKEN_MANAGER_ADDRESS, FORWARDER_ON_GNOSIS, PNT_MAX_TOTAL_SUPPLY],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -42,7 +38,7 @@ const main = async () => {
   console.info('StakingManager LM ...')
   const stakingManagerLM = await upgrades.deployProxy(
     StakingManagerPermissioned,
-    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
+    [PNT_ON_GNOSIS_ADDRESS, TOKEN_MANAGER_ADDRESS, FORWARDER_ON_GNOSIS, PNT_MAX_TOTAL_SUPPLY],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -52,7 +48,7 @@ const main = async () => {
   console.info('StakingManager RM ...')
   const stakingManagerRM = await upgrades.deployProxy(
     StakingManagerPermissioned,
-    [PNT_ON_POLYGON_ADDRESS, TOKEN_MANAGER_ADDRESS, forwarder.address, PNT_MAX_TOTAL_SUPPLY],
+    [PNT_ON_GNOSIS_ADDRESS, TOKEN_MANAGER_ADDRESS, FORWARDER_ON_GNOSIS, PNT_MAX_TOTAL_SUPPLY],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -68,7 +64,7 @@ const main = async () => {
   console.info('LendingManager ...')
   const lendingManager = await upgrades.deployProxy(
     LendingManager,
-    [PNT_ON_POLYGON_ADDRESS, stakingManagerLM.address, epochsManager.address, forwarder.address, DANDELION_VOTING_ADDRESS, LEND_MAX_EPOCHS],
+    [PNT_ON_GNOSIS_ADDRESS, stakingManagerLM.address, epochsManager.address, FORWARDER_ON_GNOSIS, DANDELION_VOTING_ADDRESS, LEND_MAX_EPOCHS],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -78,7 +74,7 @@ const main = async () => {
   console.info('RegistrationManager ...')
   const registrationManager = await upgrades.deployProxy(
     RegistrationManager,
-    [PNT_ON_POLYGON_ADDRESS, stakingManagerRM.address, epochsManager.address, lendingManager.address, forwarder.address],
+    [PNT_ON_GNOSIS_ADDRESS, stakingManagerRM.address, epochsManager.address, lendingManager.address, FORWARDER_ON_GNOSIS],
     {
       initializer: 'initialize',
       kind: 'uups'
@@ -88,11 +84,23 @@ const main = async () => {
   console.info('FeesManager ...')
   const feesManager = await upgrades.deployProxy(
     FeesManager,
-    [epochsManager.address, lendingManager.address, registrationManager.address, forwarder.address, MINIMUM_BORROWING_FEE],
+    [epochsManager.address, lendingManager.address, registrationManager.address, FORWARDER_ON_GNOSIS, MINIMUM_BORROWING_FEE],
     {
       initializer: 'initialize',
       kind: 'uups'
     }
+  )
+
+  console.log(
+    JSON.stringify({
+      stakingManager: stakingManager.address,
+      stakingManagerLM: stakingManagerLM.address,
+      stakingManagerRM: stakingManagerRM.address,
+      lendingManager: lendingManager.address,
+      epochsManager: epochsManager.address,
+      registrationManager: registrationManager.address,
+      feesManager: feesManager.address
+    })
   )
 
   console.log('Setting ACL permissions ...')
@@ -111,8 +119,8 @@ const main = async () => {
 
   console.log('Assigning roles and whitelisting origin addresses ...')
   await lendingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.address)
-  await forwarder.whitelistOriginAddress(FORWARDER_ON_MAINNET)
-  await forwarder.whitelistOriginAddress(FORWARDER_ON_BSC)
+  // await forwarder.whitelistOriginAddress(FORWARDER_ON_MAINNET)
+  // await forwarder.whitelistOriginAddress(FORWARDER_ON_BSC)
 
   // NOTE: remember to send 1 pnt to FORWARDER_ON_MAINNET and FORWARDER_ON_BSC
 

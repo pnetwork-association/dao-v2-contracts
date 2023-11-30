@@ -52,6 +52,11 @@ module.exports = {
       accounts: [pk],
       gasPrice: 250e9
     },
+    gnosis: {
+      url: getEnvironmentVariable('GNOSIS_NODE'),
+      accounts: [pk],
+      gasPrice: 10e9
+    },
     bsc: {
       url: getEnvironmentVariable('BSC_NODE'),
       accounts: [pk],
@@ -61,7 +66,8 @@ module.exports = {
   etherscan: {
     apiKey: {
       mainnet: getEnvironmentVariable('ETHERSCAN_API_KEY'),
-      polygon: getEnvironmentVariable('POLYGONSCAN_API_KEY')
+      polygon: getEnvironmentVariable('POLYGONSCAN_API_KEY'),
+      gnosis: getEnvironmentVariable('GNOSISSCAN_API_KEY')
     },
     customChains: [
       {
