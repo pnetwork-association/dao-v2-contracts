@@ -22,23 +22,22 @@ import {Helpers} from "../libraries/Helpers.sol";
 contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgradeable, ForwarderRecipientUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    mapping(address => Registration) private _sentinelRegistrations;
+    mapping(address => Registration) private _registrations;
     mapping(address => address) private _ownersSentinel;
-
-    uint24[] private _sentinelsEpochsTotalStakedAmount;
-    mapping(address => uint24[]) private _sentinelsEpochsStakedAmount;
+    mapping(address => address) private _ownersGuardian;
+    mapping(address => uint256) private _ownersSignatureNonces;
+    uint32[] private _sentinelsEpochsTotalStakedAmount;
+    mapping(address => uint32[]) private _sentinelsEpochsStakedAmount;
+    mapping(uint16 => uint16) private _epochsTotalNumberOfGuardians;
+    mapping(uint16 => mapping(address => uint16)) private _pendingLightResumes;
+    mapping(uint16 => mapping(address => uint16)) private _slashes;
+    mapping(address => uint256) private _lastSlashTimestamp;
+    mapping(address => uint256) private _lastResumeTimestamp;
 
     address public stakingManager;
     address public token;
     address public epochsManager;
     address public lendingManager;
-
-    //v1.1.0
-    mapping(address => Registration) private _guardianRegistrations;
-    mapping(address => address) private _ownersGuardian;
-    mapping(uint16 => uint16) private _epochsTotalNumberOfGuardians;
-    mapping(uint16 => mapping(address => uint16)) private _pendingLightResumes;
-    mapping(uint16 => mapping(address => uint16)) private _slashes;
     address public feesManager;
     address public governanceMessageEmitter;
 
@@ -61,18 +60,12 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         epochsManager = _epochsManager;
         lendingManager = _lendingManager;
 
-        _sentinelsEpochsTotalStakedAmount = new uint24[](Constants.AVAILABLE_EPOCHS);
+        _sentinelsEpochsTotalStakedAmount = new uint32[](Constants.AVAILABLE_EPOCHS);
     }
 
-    /// @inheritdoc IRegistrationManager
-    function getSentinelAddressFromSignature(address owner, bytes calldata signature) public pure returns (address) {
-        bytes32 message = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(owner)));
-        return ECDSA.recover(message, signature);
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function guardianRegistration(address guardian) external view returns (Registration memory) {
-        return _guardianRegistrations[guardian];
+    // @inheritdoc IRegistrationManager
+    function getSignatureNonceByOwner(address owner) external view returns (uint256) {
+        return _ownersSignatureNonces[owner];
     }
 
     /// @inheritdoc IRegistrationManager
@@ -81,11 +74,12 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function hardResumeSentinel(uint256 amount, address owner, bytes calldata signature) external {
+    function hardResume(uint256 amount, bytes calldata signature, uint256 nonce) external {
+        address owner = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        address sentinel = getSentinelAddressFromSignature(owner, signature);
+        address sentinel = _getActorAddressFromSignatureAndIncreaseSignatureNonce(owner, signature, nonce);
 
-        Registration storage registration = _sentinelRegistrations[sentinel];
+        Registration storage registration = _registrations[sentinel];
         bytes1 registrationKind = registration.kind;
         uint16 registrationEndEpoch = registration.endEpoch;
 
@@ -97,7 +91,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             revert Errors.InvalidAmount();
         }
 
-        uint24 truncatedAmount = Helpers.truncate(amount);
+        uint32 truncatedAmount = Helpers.truncate(amount);
         for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
             _sentinelsEpochsStakedAmount[sentinel][epoch] += truncatedAmount;
 
@@ -122,6 +116,9 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         // if the remaining staking time is less than 7 days in order to avoid abuses.
         IStakingManagerPermissioned(stakingManager).increaseAmount(owner, amount);
 
+        _lastSlashTimestamp[sentinel] = 0;
+        _lastResumeTimestamp[sentinel] = block.timestamp;
+
         IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(
             sentinel,
             Constants.REGISTRATION_SENTINEL_STAKING
@@ -140,58 +137,37 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function lightResumeGuardian() external {
+    function lightResume(bytes calldata signature, uint256 nonce) external {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        address guardian = _msgSender();
+        address actor = _getActorAddressFromSignatureAndIncreaseSignatureNonce(_msgSender(), signature, nonce);
 
-        Registration storage registration = _guardianRegistrations[guardian];
+        Registration storage registration = _registrations[actor];
         uint16 registrationEndEpoch = registration.endEpoch;
 
-        // NOTE: avoid to resume a guardian whose registration is expired or null
+        // NOTE: avoid to resume a actor whose registration is expired or null
         if (registrationEndEpoch < currentEpoch || registrationEndEpoch == 0) {
             revert Errors.InvalidRegistration();
         }
 
-        if (_pendingLightResumes[currentEpoch][guardian] == 0) {
+        if (_pendingLightResumes[currentEpoch][actor] == 0) {
             revert Errors.NotResumable();
         }
 
         unchecked {
-            --_pendingLightResumes[currentEpoch][guardian];
+            --_pendingLightResumes[currentEpoch][actor];
         }
 
-        IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(guardian, Constants.REGISTRATION_GUARDIAN);
-        emit GuardianLightResumed(guardian);
+        _lastSlashTimestamp[actor] = 0;
+        _lastResumeTimestamp[actor] = block.timestamp;
+
+        bytes1 registrationKind = registration.kind;
+        IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(actor, registrationKind);
+        emit LightResumed(actor, registrationKind);
     }
 
     /// @inheritdoc IRegistrationManager
-    function lightResumeSentinel(address owner, bytes calldata signature) external {
-        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        address sentinel = getSentinelAddressFromSignature(owner, signature);
-
-        Registration storage registration = _sentinelRegistrations[sentinel];
-        uint16 registrationEndEpoch = registration.endEpoch;
-
-        // NOTE: avoid to resume a sentinel whose registration is expired or null
-        if (registrationEndEpoch < currentEpoch || registrationEndEpoch == 0) {
-            revert Errors.InvalidRegistration();
-        }
-
-        if (_pendingLightResumes[currentEpoch][sentinel] == 0) {
-            revert Errors.NotResumable();
-        }
-
-        unchecked {
-            --_pendingLightResumes[currentEpoch][sentinel];
-        }
-
-        IGovernanceMessageEmitter(governanceMessageEmitter).resumeActor(sentinel, registration.kind);
-        emit SentinelLightResumed(sentinel);
-    }
-
-    /// @inheritdoc IRegistrationManager
-    function sentinelRegistration(address sentinel) external view returns (Registration memory) {
-        return _sentinelRegistrations[sentinel];
+    function registrationOf(address actor) external view returns (Registration memory) {
+        return _registrations[actor];
     }
 
     /// @inheritdoc IRegistrationManager
@@ -222,16 +198,29 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     }
 
     /// @inheritdoc IRegistrationManager
-    function slash(address actor, uint256 amount, address challenger) external onlyRole(Roles.SLASH_ROLE) {
+    function slash(
+        address actor,
+        uint256 amount,
+        address challenger,
+        uint256 slashTimestamp
+    ) external onlyRole(Roles.SLASH_ROLE) {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint256 lastSlashTimestamp = _lastSlashTimestamp[actor];
+        uint256 lastResumeTimestamp = _lastResumeTimestamp[actor];
 
-        Registration storage registration = _sentinelRegistrations[actor];
+        // Accept one slash per hour for the same actor
+        if (lastSlashTimestamp != 0 && slashTimestamp < lastSlashTimestamp + 1 hours)
+            revert Errors.ActorAlreadySlashed(lastSlashTimestamp, slashTimestamp);
+
+        // Do not slash actors who have already resumed after the slashing request was issued on PNetworkHub
+        // Otherwise, due to propagation times, we may slash them erroneously
+        if (lastResumeTimestamp != 0 && slashTimestamp < lastResumeTimestamp)
+            revert Errors.ActorAlreadyResumed(lastResumeTimestamp, slashTimestamp);
+
+        _lastSlashTimestamp[actor] = slashTimestamp;
+
+        Registration storage registration = _registrations[actor];
         address registrationOwner = registration.owner;
-
-        if (registrationOwner == address(0)) {
-            registration = _guardianRegistrations[actor];
-            registrationOwner = registration.owner;
-        }
 
         unchecked {
             ++_slashes[currentEpoch][actor];
@@ -250,7 +239,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             }
 
             uint16 registrationEndEpoch = registration.endEpoch;
-            uint24 truncatedAmount = Helpers.truncate(amountToSlash);
+            uint32 truncatedAmount = Helpers.truncate(amountToSlash);
 
             for (uint16 epoch = currentEpoch; epoch <= registrationEndEpoch; ) {
                 _sentinelsEpochsTotalStakedAmount[epoch] -= truncatedAmount;
@@ -380,14 +369,19 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     function updateSentinelRegistrationByBorrowing(
         address owner,
         uint16 numberOfEpochs,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) external onlyForwarder {
-        _updateSentinelRegistrationByBorrowing(owner, numberOfEpochs, signature);
+        _updateSentinelRegistrationByBorrowing(owner, numberOfEpochs, signature, nonce);
     }
 
     /// @inheritdoc IRegistrationManager
-    function updateSentinelRegistrationByBorrowing(uint16 numberOfEpochs, bytes calldata signature) external {
-        _updateSentinelRegistrationByBorrowing(_msgSender(), numberOfEpochs, signature);
+    function updateSentinelRegistrationByBorrowing(
+        uint16 numberOfEpochs,
+        bytes calldata signature,
+        uint256 nonce
+    ) external {
+        _updateSentinelRegistrationByBorrowing(_msgSender(), numberOfEpochs, signature, nonce);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -395,19 +389,19 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         address owner,
         uint256 amount,
         uint64 duration,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) external {
-        address sentinel = getSentinelAddressFromSignature(owner, signature);
+        address sentinel = _getActorAddressFromSignatureAndIncreaseSignatureNonce(owner, signature, nonce);
 
         // TODO: What does it happen if an user updateSentinelRegistrationByStaking in behalf of someone else using a wrong signature?
 
-        Registration storage registration = _guardianRegistrations[sentinel];
-        if (registration.kind != Constants.REGISTRATION_NULL) {
-            revert Errors.InvalidRegistration();
-        }
-
-        registration = _sentinelRegistrations[sentinel];
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+        Registration storage registration = _registrations[sentinel];
+        bytes1 registrationKind = registration.kind;
+        if (
+            registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING ||
+            registrationKind == Constants.REGISTRATION_GUARDIAN
+        ) {
             revert Errors.InvalidRegistration();
         }
 
@@ -422,10 +416,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 registrationEndEpoch = registration.endEpoch;
 
         if (_sentinelsEpochsStakedAmount[sentinel].length == 0) {
-            _sentinelsEpochsStakedAmount[sentinel] = new uint24[](Constants.AVAILABLE_EPOCHS);
+            _sentinelsEpochsStakedAmount[sentinel] = new uint32[](Constants.AVAILABLE_EPOCHS);
         }
 
-        uint24 truncatedAmount = Helpers.truncate(amount);
+        uint32 truncatedAmount = Helpers.truncate(amount);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             _sentinelsEpochsStakedAmount[sentinel][epoch] += truncatedAmount;
             if (
@@ -469,8 +463,12 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
 
     function _increaseSentinelRegistrationDuration(address owner, uint64 duration) internal {
         address sentinel = _ownersSentinel[owner];
-        Registration storage registration = _sentinelRegistrations[sentinel];
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+        Registration storage registration = _registrations[sentinel];
+        bytes1 registrationKind = registration.kind;
+        if (
+            registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING ||
+            registrationKind == Constants.REGISTRATION_GUARDIAN
+        ) {
             revert Errors.InvalidRegistration();
         }
 
@@ -486,7 +484,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 numberOfEpochs = uint16((stake.endDate - blockTimestamp) / epochDuration) -
             (stake.startDate == blockTimestamp ? 1 : 0);
         uint16 endEpoch = uint16(startEpoch + numberOfEpochs - 1);
-        uint24 truncatedAmount = Helpers.truncate(stake.amount);
+        uint32 truncatedAmount = Helpers.truncate(stake.amount);
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             if (_sentinelsEpochsStakedAmount[sentinel][epoch] == 0) {
@@ -504,7 +502,33 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         }
         registration.endEpoch = endEpoch;
 
-        emit DurationIncreased(sentinel, endEpoch);
+        emit SentinelRegistrationUpdated(
+            owner,
+            registration.startEpoch,
+            registration.endEpoch,
+            sentinel,
+            Constants.REGISTRATION_SENTINEL_STAKING,
+            stake.amount
+        );
+    }
+
+    function _getActorAddressFromSignatureAndIncreaseSignatureNonce(
+        address owner,
+        bytes memory signature,
+        uint256 nonce
+    ) internal returns (address) {
+        uint256 expectedNonce = _ownersSignatureNonces[owner];
+        if (nonce != expectedNonce) {
+            revert Errors.InvalidSignatureNonce(nonce, expectedNonce);
+        }
+
+        bytes32 message = ECDSA.toEthSignedMessageHash(keccak256(abi.encode(owner, nonce)));
+        address actor = ECDSA.recover(message, signature);
+        unchecked {
+            ++_ownersSignatureNonces[owner];
+        }
+
+        return actor;
     }
 
     function _updateGuardianRegistration(address owner, uint16 numberOfEpochs, address guardian) internal {
@@ -512,13 +536,16 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
         }
 
-        Registration storage currentRegistration = _sentinelRegistrations[guardian];
-        if (currentRegistration.endEpoch != 0) {
+        Registration storage currentRegistration = _registrations[guardian];
+        bytes1 registrationKind = currentRegistration.kind;
+        if (
+            registrationKind == Constants.REGISTRATION_SENTINEL_STAKING ||
+            registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING
+        ) {
             revert Errors.InvalidRegistration();
         }
 
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
-        currentRegistration = _guardianRegistrations[guardian];
 
         uint16 currentRegistrationEndEpoch = currentRegistration.endEpoch;
         uint16 startEpoch = currentEpoch + 1;
@@ -536,7 +563,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         }
 
         _ownersGuardian[owner] = guardian;
-        _guardianRegistrations[guardian] = Registration(owner, startEpoch, endEpoch, Constants.REGISTRATION_GUARDIAN);
+        _registrations[guardian] = Registration(owner, startEpoch, endEpoch, Constants.REGISTRATION_GUARDIAN);
 
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
             unchecked {
@@ -551,21 +578,20 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     function _updateSentinelRegistrationByBorrowing(
         address owner,
         uint16 numberOfEpochs,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 nonce
     ) internal {
         if (numberOfEpochs == 0) {
             revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
         }
 
-        address sentinel = getSentinelAddressFromSignature(owner, signature);
-
-        Registration storage registration = _guardianRegistrations[sentinel];
-        if (registration.kind != Constants.REGISTRATION_NULL) {
-            revert Errors.InvalidRegistration();
-        }
-
-        registration = _sentinelRegistrations[sentinel];
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
+        address sentinel = _getActorAddressFromSignatureAndIncreaseSignatureNonce(owner, signature, nonce);
+        Registration storage registration = _registrations[sentinel];
+        bytes1 registrationKind = registration.kind;
+        if (
+            registrationKind == Constants.REGISTRATION_SENTINEL_STAKING ||
+            registrationKind == Constants.REGISTRATION_GUARDIAN
+        ) {
             revert Errors.InvalidRegistration();
         }
 
@@ -615,7 +641,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         bytes1 kind
     ) internal {
         _ownersSentinel[owner] = sentinel;
-        _sentinelRegistrations[sentinel] = Registration(owner, startEpoch, endEpoch, kind);
+        _registrations[sentinel] = Registration(owner, startEpoch, endEpoch, kind);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}

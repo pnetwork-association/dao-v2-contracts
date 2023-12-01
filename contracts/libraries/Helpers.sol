@@ -20,7 +20,7 @@ library Helpers {
         else return bytes1(uint8(b) + 0x57);
     }
 
-    function truncate(uint256 value) internal pure returns (uint24) {
-        return uint24((value / 10 ** 18) & 0xFFFFFF);
+    function truncate(uint256 value) internal pure returns (uint32) {
+        return uint32((value / 10 ** 18) & 0xFFFFFF);
     }
 }
