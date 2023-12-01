@@ -12,14 +12,14 @@ contract EpochsManager is IEpochsManager, Initializable, UUPSUpgradeable, Access
     uint256 private _epochDuration;
     uint256 private _startFirstEpochTimestamp;
 
-    function initialize(uint256 epochDuration_) public initializer {
+    function initialize(uint256 epochDuration_, uint256 startFirstEpochTimestamp_) public initializer {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
         _epochDuration = epochDuration_;
-        _startFirstEpochTimestamp = block.timestamp;
+        _startFirstEpochTimestamp = startFirstEpochTimestamp_ == 0 ? block.timestamp : startFirstEpochTimestamp_;
     }
 
     /// @inheritdoc IEpochsManager
