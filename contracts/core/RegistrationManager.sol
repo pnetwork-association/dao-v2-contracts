@@ -551,15 +551,10 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 startEpoch = currentEpoch + 1;
         uint16 endEpoch = startEpoch + numberOfEpochs - 1;
 
-        // NOTE: reset _epochsTotalNumberOfGuardians if the guardian was already registered and if the current epoch is less than the
-        // epoch in which the current registration ends.
+        // NOTE: don't consider the epochs where the Guardian is
+        // registered already, but start from the new added ones
         if (currentRegistration.owner != address(0) && currentEpoch < currentRegistrationEndEpoch) {
-            for (uint16 epoch = startEpoch; epoch <= currentRegistrationEndEpoch; ) {
-                unchecked {
-                    --_epochsTotalNumberOfGuardians[epoch];
-                    ++epoch;
-                }
-            }
+          startEpoch = currentRegistrationEndEpoch;
         }
 
         _ownersGuardian[owner] = guardian;
