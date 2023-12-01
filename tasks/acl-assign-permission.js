@@ -1,4 +1,4 @@
-const { ACL_ADDRESS } = require('../scripts/config')
+const { ACL_ADDRESS } = require('../tasks/config')
 
 task('acl-assign-permission', 'Assing an ACL permission')
   .addParam('entity', 'The entity receiving the permission', undefined, types.string, true)
