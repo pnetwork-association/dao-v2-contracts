@@ -16,6 +16,14 @@ interface IBaseStakingManager {
     }
 
     /**
+     * @dev Emitted when an user increases his stake amount.
+     *
+     * @param owner The owner
+     * @param amount The amount to add to the current one
+     */
+    event AmountIncreased(address indexed owner, uint256 amount);
+
+    /**
      * @dev Emitted when an user increases his stake duration.
      *
      * @param owner The owner
@@ -29,6 +37,15 @@ interface IBaseStakingManager {
      * @param maxTotalSupply The maximun total supply
      */
     event MaxTotalSupplyChanged(uint256 maxTotalSupply);
+
+    /**
+     * @dev Emitted when a staker is slashed
+     *
+     * @param owner The slashed user
+     * @param amount The slashed amount
+     * @param receiver The receiver of the released collateral
+     */
+    event Slashed(address indexed owner, uint256 amount, address indexed receiver);
 
     /**
      * @dev Emitted when an user stakes some tokens
@@ -53,6 +70,16 @@ interface IBaseStakingManager {
      *
      */
     function changeMaxTotalSupply(uint256 maxTotalSupply) external;
+
+    /*
+     * @notice Slash a given staker. Burn the corresponding amount of daoPNT and send the collateral (PNT) to the receiver
+     *
+     * @param owner
+     * @param amount
+     * @param receiver
+     *
+     */
+    function slash(address owner, uint256 amount, address receiver) external;
 
     /*
      * @notice Returns the owner's stake data

@@ -25,13 +25,18 @@ contract StakingManager is IStakingManager, Initializable, UUPSUpgradeable, Base
     }
 
     /// @inheritdoc IStakingManager
-    function stake(address receiver, uint256 amount, uint64 duration) external {
-        _stake(receiver, amount, duration);
+    function increaseAmount(uint256 amount) external {
+        _increaseAmount(_msgSender(), amount);
     }
 
     /// @inheritdoc IStakingManager
     function increaseDuration(uint64 duration) external {
         _increaseDuration(_msgSender(), duration);
+    }
+
+    /// @inheritdoc IStakingManager
+    function stake(address receiver, uint256 amount, uint64 duration) external {
+        _stake(receiver, amount, duration);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}

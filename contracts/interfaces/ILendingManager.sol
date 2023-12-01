@@ -79,9 +79,9 @@ interface ILendingManager {
      *
      * @param epoch
      *
-     * @return uint24 an integer representing the borrowable amount for the given epoch.
+     * @return uint32 an integer representing the borrowable amount for the given epoch.
      */
-    function borrowableAmountByEpoch(uint16 epoch) external view returns (uint24);
+    function borrowableAmountByEpoch(uint16 epoch) external view returns (uint32);
 
     /*
      * @notice Returns the borrowed amount of a given user in a given epoch
@@ -89,9 +89,9 @@ interface ILendingManager {
      * @param borrower
      * @param epoch
      *
-     * @return uint24 an integer representing the borrowed amount of a given user in a given epoch.
+     * @return uint32 an integer representing the borrowed amount of a given user in a given epoch.
      */
-    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint24);
+    function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint32);
 
     /*
      * @notice Returns the lender's claimable amount for a given asset in a specifich epoch.
@@ -196,9 +196,9 @@ interface ILendingManager {
      *
      * @param epoch
      *
-     * @return uint24 representing an integer representing the borrowed amount for a given epoch.
+     * @return uint32 representing an integer representing the borrowed amount for a given epoch.
      */
-    function totalBorrowedAmountByEpoch(uint16 epoch) external view returns (uint24);
+    function totalBorrowedAmountByEpoch(uint16 epoch) external view returns (uint32);
 
     /*
      * @notice Returns the borrowed amount in an epochs range.
@@ -206,12 +206,12 @@ interface ILendingManager {
      * @param startEpoch
      * @param endEpoch
      *
-     * @return uint24[] representing an integer representing the borrowed amount in an epochs range.
+     * @return uint32[] representing an integer representing the borrowed amount in an epochs range.
      */
     function totalBorrowedAmountByEpochsRange(
         uint16 startEpoch,
         uint16 endEpoch
-    ) external view returns (uint24[] memory);
+    ) external view returns (uint32[] memory);
 
     /*
      * @notice Returns the lended amount for a given epoch.
@@ -220,7 +220,7 @@ interface ILendingManager {
      *
      * @return uint256 an integer representing the lended amount for a given epoch.
      */
-    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint24);
+    function totalLendedAmountByEpoch(uint16 epoch) external view returns (uint32);
 
     /*
      * @notice Returns the maximum lended amount for the selected epochs.
@@ -228,9 +228,9 @@ interface ILendingManager {
      * @param startEpoch
      * @param endEpoch
      *
-     * @return uint24[] representing an array of integers representing the maximum lended amount for a given epoch.
+     * @return uint32[] representing an array of integers representing the maximum lended amount for a given epoch.
      */
-    function totalLendedAmountByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory);
+    function totalLendedAmountByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory);
 
     /*
      * @notice Delete the borrower for a given epoch.
@@ -278,9 +278,9 @@ interface ILendingManager {
      *
      * @param epoch
      *
-     * @return uint24 an integer representing the utilization rate in a given epoch.
+     * @return uint32 an integer representing the utilization rate in a given epoch.
      */
-    function utilizationRatioByEpoch(uint16 epoch) external view returns (uint24);
+    function utilizationRatioByEpoch(uint16 epoch) external view returns (uint32);
 
     /*
      * @notice Returns the utilization rate (percentage of borrowed tokens compared to the lended ones) given the start end the end epoch
@@ -288,9 +288,9 @@ interface ILendingManager {
      * @param startEpoch
      * @param endEpoch
      *
-     * @return uint24 an integer representing the utilization rate in a given the start end the end epoch.
+     * @return uint32 an integer representing the utilization rate in a given the start end the end epoch.
      */
-    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint24[] memory);
+    function utilizationRatioByEpochsRange(uint16 startEpoch, uint16 endEpoch) external view returns (uint32[] memory);
 
     /*
      * @notice Returns the user weight in a given epoch. The user weight is calculated with

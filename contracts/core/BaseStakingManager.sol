@@ -47,6 +47,26 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     }
 
     /// @inheritdoc IBaseStakingManager
+    function slash(address owner, uint256 amount, address receiver) external onlyRole(Roles.SLASH_ROLE) {
+        Stake storage stake = _stakes[owner];
+        uint256 stakedAmount = stake.amount;
+
+        if (amount > stakedAmount || amount == 0) {
+            revert Errors.InvalidAmount();
+        }
+
+        stake.amount -= amount;
+
+        if (stakedAmount - amount == 0) {
+            delete _stakes[owner];
+        }
+
+        ITokenManager(tokenManager).burn(owner, amount);
+        IERC20Upgradeable(token).safeTransfer(receiver, amount);
+        emit Slashed(owner, amount, receiver);
+    }
+
+    /// @inheritdoc IBaseStakingManager
     function stakeOf(address owner) external view returns (Stake memory) {
         return _stakes[owner];
     }
@@ -62,6 +82,38 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     function unstake(address owner, uint256 amount, bytes4 chainId) external onlyForwarder {
         _unstake(owner, amount);
         _finalizeUnstake(owner, amount, chainId);
+    }
+
+    function _checkTotalSupply() internal {
+        address minime = ITokenManager(tokenManager).token();
+        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
+            revert Errors.MaxTotalSupplyExceeded();
+        }
+    }
+
+    function _increaseAmount(address owner, uint256 amount) internal {
+        if (amount == 0) {
+            revert Errors.InvalidAmount();
+        }
+
+        Stake storage st = _stakes[owner];
+        if (st.amount == 0) {
+            revert Errors.NothingAtStake();
+        }
+
+        uint64 endDate = st.endDate;
+        uint64 blockTimestamp = uint64(block.timestamp);
+
+        if (endDate <= blockTimestamp || endDate - blockTimestamp < Constants.MIN_STAKE_DURATION) {
+            revert Errors.InvalidDuration();
+        }
+        st.amount += amount;
+
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+        ITokenManager(tokenManager).mint(owner, amount);
+
+        _checkTotalSupply();
+        emit AmountIncreased(owner, amount);
     }
 
     function _increaseDuration(address owner, uint64 duration) internal {
@@ -92,8 +144,6 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
             revert Errors.InvalidAmount();
         }
 
-        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
-
         Stake storage st = _stakes[receiver];
         uint64 blockTimestamp = uint64(block.timestamp);
         uint64 currentEndDate = st.endDate;
@@ -103,13 +153,10 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         st.endDate = newEndDate >= currentEndDate ? newEndDate : currentEndDate;
         st.startDate = blockTimestamp;
 
+        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
         ITokenManager(tokenManager).mint(receiver, amount);
 
-        address minime = ITokenManager(tokenManager).token();
-        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
-            revert Errors.MaxTotalSupplyExceeded();
-        }
-
+        _checkTotalSupply();
         emit Staked(receiver, amount, duration);
     }
 
@@ -127,9 +174,7 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
 
         uint256 newStakeAmount = stAmount -= amount;
         if (newStakeAmount == 0) {
-            delete st.startDate;
-            delete st.endDate;
-            delete st.amount;
+            delete _stakes[owner];
         } else {
             st.amount = newStakeAmount;
         }

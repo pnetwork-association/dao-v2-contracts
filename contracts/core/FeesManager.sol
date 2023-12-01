@@ -21,9 +21,10 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     mapping(uint256 => mapping(address => uint256)) _epochsSentinelsStakingAssetsFee;
     mapping(uint256 => mapping(address => uint256)) _epochsSentinelsBorrowingAssetsFee;
     mapping(address => mapping(address => mapping(uint16 => bool))) _ownersEpochsAssetsClaim;
+    mapping(address => mapping(uint16 => address)) _challengersEpochsClaimRedirect;
+    mapping(uint256 => mapping(address => uint256)) _epochsGuardiansAssetsFee;
 
-    uint24 public minimumBorrowingFee;
-
+    uint32 public minimumBorrowingFee;
     address public epochsManager;
     address public lendingManager;
     address public registrationManager;
@@ -33,7 +34,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         address _lendingManager,
         address _registrationManager,
         address _forwarder,
-        uint24 _minimumBorrowingFee
+        uint32 _minimumBorrowingFee
     ) public initializer {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
@@ -49,16 +50,38 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     }
 
     /// @inheritdoc IFeesManager
-    function claimableFeeByEpochOf(address sentinel, address asset, uint16 epoch) public view returns (uint256) {
-        if (_ownersEpochsAssetsClaim[sentinel][asset][epoch]) {
+    function challengerClaimRedirectByEpochsRangeOf(
+        address actor,
+        uint16 startEpoch,
+        uint16 endEpoch
+    ) external view returns (address[] memory) {
+        address[] memory result = new address[]((endEpoch + 1) - startEpoch);
+        for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
+            result[epoch] = challengerClaimRedirectByEpochOf(actor, epoch);
+            unchecked {
+                ++epoch;
+            }
+        }
+        return result;
+    }
+
+    /// @inheritdoc IFeesManager
+    function challengerClaimRedirectByEpochOf(address actor, uint16 epoch) public view returns (address) {
+        return _challengersEpochsClaimRedirect[actor][epoch];
+    }
+
+    /// @inheritdoc IFeesManager
+    function claimableFeeByEpochOf(address actor, address asset, uint16 epoch) public view returns (uint256) {
+        if (_ownersEpochsAssetsClaim[actor][asset][epoch]) {
             return 0;
         }
 
         IRegistrationManager.Registration memory registration = IRegistrationManager(registrationManager)
-            .sentinelRegistration(sentinel);
+            .registrationOf(actor);
+        bytes1 registrationKind = registration.kind;
 
         uint256 fee = 0;
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_STAKING) {
+        if (registrationKind == Constants.REGISTRATION_SENTINEL_STAKING) {
             uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
                 epoch
             );
@@ -68,21 +91,33 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
             uint256 sentinelStakingAssetFee = _epochsSentinelsStakingAssetsFee[epoch][asset];
             uint256 stakedAmount = IRegistrationManager(registrationManager).sentinelStakedAmountByEpochOf(
-                sentinel,
+                actor,
                 epoch
             );
 
             fee = (stakedAmount * sentinelStakingAssetFee) / totalStakedAmount;
         }
-        if (registration.kind == Constants.REGISTRATION_SENTINEL_BORROWING) {
+        if (registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING) {
             uint256 totalBorrowedAmount = ILendingManager(lendingManager).totalBorrowedAmountByEpoch(epoch);
             if (totalBorrowedAmount == 0) {
                 return 0;
             }
 
             uint256 sentinelsBorrowingAssetFee = _epochsSentinelsBorrowingAssetsFee[epoch][asset];
-            uint256 borrowedAmount = ILendingManager(lendingManager).borrowedAmountByEpochOf(sentinel, epoch);
+            uint256 borrowedAmount = ILendingManager(lendingManager).borrowedAmountByEpochOf(actor, epoch);
             fee = (borrowedAmount * sentinelsBorrowingAssetFee) / totalBorrowedAmount;
+        }
+        if (registrationKind == Constants.REGISTRATION_GUARDIAN) {
+            uint256 totalNumberOfGuardians = IRegistrationManager(registrationManager).totalNumberOfGuardiansByEpoch(
+                epoch
+            );
+            uint256 totalGuardiansAmount = totalNumberOfGuardians * Constants.GUARDIAN_AMOUNT;
+            if (totalGuardiansAmount == 0) {
+                return 0;
+            }
+
+            uint256 guardiansAssetFee = _epochsGuardiansAssetsFee[epoch][asset];
+            fee = (Constants.GUARDIAN_AMOUNT * guardiansAssetFee) / totalGuardiansAmount;
         }
 
         return fee;
@@ -90,7 +125,7 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
     /// @inheritdoc IFeesManager
     function claimableFeesByEpochsRangeOf(
-        address sentinel,
+        address actor,
         address[] calldata assets,
         uint16 startEpoch,
         uint16 endEpoch
@@ -98,68 +133,51 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         uint256[] memory result = new uint256[](((endEpoch + 1) - startEpoch) * assets.length);
         for (uint16 epoch = startEpoch; epoch <= endEpoch; epoch++) {
             for (uint8 i = 0; i < assets.length; i++) {
-                result[((epoch - startEpoch) * assets.length) + i] = claimableFeeByEpochOf(sentinel, assets[i], epoch);
+                result[((epoch - startEpoch) * assets.length) + i] = claimableFeeByEpochOf(actor, assets[i], epoch);
             }
         }
         return result;
     }
 
     /// @inheritdoc IFeesManager
-    function claimFeeByEpoch(address asset, uint16 epoch) external {
-        address owner = _msgSender();
-
+    function claimFeeByEpoch(address owner, address asset, uint16 epoch) public {
         if (epoch >= IEpochsManager(epochsManager).currentEpoch()) {
             revert Errors.InvalidEpoch();
         }
 
-        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
-        if (sentinel == address(0)) {
-            revert Errors.SentinelNotRegistered();
+        address actor = IRegistrationManager(registrationManager).sentinelOf(owner);
+        if (actor == address(0)) {
+            actor = IRegistrationManager(registrationManager).guardianOf(owner);
+            if (actor == address(0)) {
+                revert Errors.NothingToClaim();
+            }
         }
 
-        uint256 fee = claimableFeeByEpochOf(sentinel, asset, epoch);
+        uint256 fee = claimableFeeByEpochOf(actor, asset, epoch);
         if (fee == 0) {
             revert Errors.NothingToClaim();
         }
 
-        _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
-        IERC20Upgradeable(asset).safeTransfer(owner, fee);
-        emit FeeClaimed(owner, sentinel, epoch, asset, fee);
+        // NOTE: if a borrowing sentinel or a guardian have been slashed (aka redirectClaimToChallengerByEpoch)
+        // the fees earned until the slashing can be claimed by the challenger for the epoch in which the slashing happened
+        address challenger = _challengersEpochsClaimRedirect[actor][epoch];
+        address receiver = challenger != address(0) ? challenger : owner;
+
+        _ownersEpochsAssetsClaim[actor][asset][epoch] = true;
+        IERC20Upgradeable(asset).safeTransfer(receiver, fee);
+        emit FeeClaimed(receiver, actor, epoch, asset, fee);
     }
 
     /// @inheritdoc IFeesManager
-    function claimFeeByEpochsRange(address asset, uint16 startEpoch, uint16 endEpoch) external {
-        address owner = _msgSender();
-
-        if (endEpoch > IEpochsManager(epochsManager).currentEpoch()) {
-            revert Errors.InvalidEpoch();
-        }
-
-        address sentinel = IRegistrationManager(registrationManager).sentinelOf(owner);
-        if (sentinel == address(0)) {
-            revert Errors.SentinelNotRegistered();
-        }
-
-        uint256 cumulativeFee = 0;
-        uint256 fee = 0;
+    function claimFeeByEpochsRange(address owner, address asset, uint16 startEpoch, uint16 endEpoch) external {
         for (uint16 epoch = startEpoch; epoch <= endEpoch; ) {
-            fee = claimableFeeByEpochOf(sentinel, asset, epoch);
-            if (fee > 0) {
-                _ownersEpochsAssetsClaim[sentinel][asset][epoch] = true;
-                cumulativeFee += fee;
-                emit FeeClaimed(owner, sentinel, epoch, asset, fee);
-            }
-
+            // NOTE: impossible to use the cumulative claim since in an epoch the fees
+            // could be claimed by a challenger that slashed a sentinel/guardian
+            claimFeeByEpoch(owner, asset, epoch);
             unchecked {
                 ++epoch;
             }
         }
-
-        if (cumulativeFee == 0) {
-            revert Errors.NothingToClaim();
-        }
-
-        IERC20Upgradeable(asset).safeTransfer(owner, cumulativeFee);
     }
 
     /// @inheritdoc IFeesManager
@@ -171,10 +189,16 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
         uint256 totalStakedAmount = IRegistrationManager(registrationManager).totalSentinelStakedAmountByEpoch(
             currentEpoch
         );
-        uint256 totalAmount = totalStakedAmount + totalBorrowedAmount;
-
+        uint256 totalNumberOfGuardians = IRegistrationManager(registrationManager).totalNumberOfGuardiansByEpoch(
+            currentEpoch
+        );
+        uint256 totalGuardiansAmount = totalNumberOfGuardians * Constants.GUARDIAN_AMOUNT;
+        uint256 totalAmount = totalStakedAmount + totalBorrowedAmount + totalGuardiansAmount;
         uint256 sentinelsStakingFeesAmount = totalAmount > 0 ? (amount * totalStakedAmount) / totalAmount : 0;
-        uint256 sentinelsBorrowingFeesAndLendersRewardsAmount = amount - sentinelsStakingFeesAmount;
+        uint256 guardiansFeesAmount = totalAmount > 0 ? (amount * totalGuardiansAmount) / totalAmount : 0;
+        uint256 sentinelsBorrowingFeesAndLendersRewardsAmount = amount -
+            sentinelsStakingFeesAmount -
+            guardiansFeesAmount;
         uint256 lendersRewardsAmount = (sentinelsBorrowingFeesAndLendersRewardsAmount * kByEpoch(currentEpoch)) /
             Constants.DECIMALS_PRECISION;
         uint256 sentinelsBorrowingFeesAmount = sentinelsBorrowingFeesAndLendersRewardsAmount - lendersRewardsAmount;
@@ -190,6 +214,10 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
 
         if (sentinelsBorrowingFeesAmount > 0) {
             _epochsSentinelsBorrowingAssetsFee[currentEpoch][asset] += sentinelsBorrowingFeesAmount;
+        }
+
+        if (guardiansFeesAmount > 0) {
+            _epochsGuardiansAssetsFee[currentEpoch][asset] += guardiansFeesAmount;
         }
 
         emit FeeDeposited(asset, currentEpoch, amount);
@@ -213,6 +241,16 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
             result[epoch - startEpoch] = kByEpoch(epoch);
         }
         return result;
+    }
+
+    /// @inheritdoc IFeesManager
+    function redirectClaimToChallengerByEpoch(
+        address actor,
+        address challenger,
+        uint16 epoch
+    ) external onlyRole(Roles.REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE) {
+        _challengersEpochsClaimRedirect[actor][epoch] = challenger;
+        emit ClaimRedirectedToChallenger(actor, challenger, epoch);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}

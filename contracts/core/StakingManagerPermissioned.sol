@@ -25,13 +25,18 @@ contract StakingManagerPermissioned is IStakingManagerPermissioned, Initializabl
     }
 
     /// @inheritdoc IStakingManagerPermissioned
-    function stake(address receiver, uint256 amount, uint64 duration) external onlyRole(Roles.STAKE_ROLE) {
-        _stake(receiver, amount, duration);
+    function increaseAmount(address owner, uint256 amount) external onlyRole(Roles.INCREASE_AMOUNT_ROLE) {
+        _increaseAmount(owner, amount);
     }
 
     /// @inheritdoc IStakingManagerPermissioned
     function increaseDuration(address owner, uint64 duration) external onlyRole(Roles.INCREASE_DURATION_ROLE) {
         _increaseDuration(owner, duration);
+    }
+
+    /// @inheritdoc IStakingManagerPermissioned
+    function stake(address receiver, uint256 amount, uint64 duration) external onlyRole(Roles.STAKE_ROLE) {
+        _stake(receiver, amount, duration);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}

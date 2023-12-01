@@ -22,5 +22,6 @@ jobs:
           release_name: Release ${{ github.ref }}
           body: |
             Changes in this Release:
+              - Added Guardians registration.
           draft: false
           prerelease: false

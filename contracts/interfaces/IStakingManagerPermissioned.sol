@@ -13,6 +13,14 @@ import {IBaseStakingManager} from "./IBaseStakingManager.sol";
  */
 interface IStakingManagerPermissioned is IBaseStakingManager {
     /*
+     * @notice Increase the amount at stake.
+     *
+     * @param owner
+     * @param amount
+     */
+    function increaseAmount(address owner, uint256 amount) external;
+
+    /*
      * @notice Increase the duration of a stake.
      *
      * @param owner
