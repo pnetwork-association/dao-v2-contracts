@@ -578,7 +578,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
 
         uint16 currentRegistrationEndEpoch = currentRegistration.endEpoch;
-        uint16 startEpoch = currentEpoch + 1;
+        uint16 startEpoch = currentEpoch;
         uint16 endEpoch = startEpoch + numberOfEpochs - 1;
 
         // NOTE: reset _epochsTotalNumberOfGuardians if the guardian was already registered and if the current epoch is less than the
