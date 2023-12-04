@@ -314,6 +314,25 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
 
             IGovernanceMessageEmitter(governanceMessageEmitter).slashActor(actor, Constants.REGISTRATION_GUARDIAN);
             emit GuardianSlashed(actor);
+        } else if (registrationKind == Constants.REGISTRATION_SENTINEL_VOTED) {
+            uint16 actorSlashes = _slashes[currentEpoch][actor];
+            if (actorSlashes == Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
+                IFeesManager(feesManager).redirectClaimToChallengerByEpoch(actor, challenger, currentEpoch);
+                registration.endEpoch = currentEpoch; // NOTE: Registration ends here
+                _pendingLightResumes[currentEpoch][actor] = 0;
+            } else if (actorSlashes < Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
+                unchecked {
+                    ++_pendingLightResumes[currentEpoch][actor];
+                }
+            } else {
+                return;
+            }
+
+            IGovernanceMessageEmitter(governanceMessageEmitter).slashActor(
+                actor,
+                Constants.REGISTRATION_SENTINEL_VOTED
+            );
+            emit VotedSentinelSlashed(actor);
         } else {
             revert Errors.InvalidRegistration();
         }
@@ -363,6 +382,16 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         address guardian
     ) external onlyRole(Roles.UPDATE_GUARDIAN_REGISTRATION_ROLE) {
         _updateGuardianRegistration(owner, numberOfEpochs, guardian);
+    }
+
+    /// @inheritdoc IRegistrationManager
+    function updateSentinelRegistrationByVoting(
+        address owner,
+        uint16 numberOfEpochs,
+        bytes calldata signature,
+        uint256 nonce
+    ) external onlyRole(Roles.UPDATE_SENTINEL_REGISTRATION_ROLE) {
+        _updateSentinelRegistrationByVoting(owner, numberOfEpochs, signature, nonce);
     }
 
     /// @inheritdoc IRegistrationManager
@@ -467,6 +496,7 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         bytes1 registrationKind = registration.kind;
         if (
             registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING ||
+            registrationKind == Constants.REGISTRATION_SENTINEL_VOTED ||
             registrationKind == Constants.REGISTRATION_GUARDIAN
         ) {
             revert Errors.InvalidRegistration();
@@ -630,6 +660,43 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             sentinel,
             Constants.REGISTRATION_SENTINEL_BORROWING,
             Constants.BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION
+        );
+    }
+
+    function _updateSentinelRegistrationByVoting(
+        address owner,
+        uint16 numberOfEpochs,
+        bytes calldata signature,
+        uint256 nonce
+    ) internal {
+        if (numberOfEpochs == 0) {
+            revert Errors.InvalidNumberOfEpochs(numberOfEpochs);
+        }
+
+        address sentinel = _getActorAddressFromSignatureAndIncreaseSignatureNonce(owner, signature, nonce);
+        Registration storage registration = _registrations[sentinel];
+        bytes1 registrationKind = registration.kind;
+        if (
+            registrationKind == Constants.REGISTRATION_SENTINEL_STAKING ||
+            registrationKind == Constants.REGISTRATION_SENTINEL_BORROWING ||
+            registrationKind == Constants.REGISTRATION_GUARDIAN
+        ) {
+            revert Errors.InvalidRegistration();
+        }
+
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        uint16 startEpoch = currentEpoch;
+        uint16 endEpoch = startEpoch + numberOfEpochs - 1;
+
+        _updateSentinelRegistration(sentinel, owner, startEpoch, endEpoch, Constants.REGISTRATION_SENTINEL_VOTED);
+
+        emit SentinelRegistrationUpdated(
+            owner,
+            startEpoch,
+            endEpoch,
+            sentinel,
+            Constants.REGISTRATION_SENTINEL_VOTED,
+            0
         );
     }
 

@@ -95,6 +95,13 @@ interface IRegistrationManager {
      */
     event StakingSentinelSlashed(address indexed sentinel, uint256 amount);
 
+    /**
+     * @dev Emitted when a voted sentinel is slashed.
+     *
+     * @param sentinel The sentinel
+     */
+    event VotedSentinelSlashed(address indexed sentinel);
+
     /*
      * @notice Return the current signature nonce by the actor owner
      *
@@ -313,6 +320,23 @@ interface IRegistrationManager {
         address owner,
         uint256 amount,
         uint64 duration,
+        bytes calldata signature,
+        uint256 nonce
+    ) external;
+
+    /*
+     * @notice Registers/Renew a sentinel for a given duration in behalf of owner
+     *
+     * @param amount
+     * @param duration
+     * @param signature
+     * @param owner
+     * @param nonce
+     *
+     */
+    function updateSentinelRegistrationByVoting(
+        address owner,
+        uint16 numberOfEpochs,
         bytes calldata signature,
         uint256 nonce
     ) external;
