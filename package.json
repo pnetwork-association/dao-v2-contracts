@@ -20,7 +20,7 @@
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@nomiclabs/hardhat-etherscan": "3.1.6",
     "@nomiclabs/hardhat-web3": "2.0.0",
-    "@openzeppelin/contracts": "4.7.3",
+    "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-upgradeable": "4.7.3",
     "@openzeppelin/hardhat-upgrades": "1.22.1",
     "@openzeppelin/upgrades-core": "^1.24.1",
