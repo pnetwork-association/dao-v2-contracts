@@ -14,6 +14,7 @@ require('./tasks/deploy_forwarder_gnosis.js')
 require('./tasks/deploy_forwarder_mainnet.js')
 require('./tasks/deploy_forwarder_polygon.js')
 require('./tasks/set_permissions.js')
+require('./tasks/upgrade.js')
 
 const { execSync } = require('child_process')
 
