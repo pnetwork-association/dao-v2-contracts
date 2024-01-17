@@ -5,6 +5,7 @@ require('@openzeppelin/hardhat-upgrades')
 require('hardhat-gas-reporter')
 require('@nomicfoundation/hardhat-chai-matchers')
 require('hardhat-spdx-license-identifier')
+require("hardhat-tracer")
 
 require('./tasks/decode-forwarder-metadata.js')
 require('./tasks/acl-assign-permission.js')
