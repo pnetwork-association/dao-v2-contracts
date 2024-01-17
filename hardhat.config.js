@@ -41,9 +41,9 @@ module.exports = {
   },
   networks: {
     hardhat: {
-      chainId: 1,
+      chainId: 100,
       forking: {
-        url: `${getEnvironmentVariable('MAINNET_NODE')}`,
+        url: `${getEnvironmentVariable('GNOSIS_NODE')}`,
         accounts: [pk]
       }
     },
