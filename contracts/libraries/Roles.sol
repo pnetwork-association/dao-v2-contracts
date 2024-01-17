@@ -12,6 +12,7 @@ library Roles {
     bytes32 public constant INCREASE_DURATION_ROLE = keccak256("INCREASE_DURATION_ROLE");
     bytes32 public constant UPGRADE_ROLE = keccak256("UPGRADE_ROLE");
     bytes32 public constant CHANGE_MAX_TOTAL_SUPPLY_ROLE = keccak256("CHANGE_MAX_TOTAL_SUPPLY_ROLE");
+    bytes32 public constant CHANGE_TOKEN_ROLE = keccak256("CHANGE_TOKEN_ROLE");
     bytes32 public constant UPDATE_GUARDIAN_REGISTRATION_ROLE = keccak256("UPDATE_GUARDIAN_REGISTRATION_ROLE");
     bytes32 public constant UPDATE_SENTINEL_REGISTRATION_ROLE = keccak256("UPDATE_SENTINEL_REGISTRATION_ROLE");
     bytes32 public constant REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE =

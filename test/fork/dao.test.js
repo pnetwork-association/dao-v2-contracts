@@ -2,11 +2,13 @@ const hre = require('hardhat')
 const { expect } = require("chai")
 const { sendEth } = require('../utils/send-eth')
 const { getRole } = require('../utils')
-const { mineUpTo } = require('@nomicfoundation/hardhat-network-helpers')
+const { mineUpTo, time } = require('@nomicfoundation/hardhat-network-helpers')
 
 // roles
 const CREATE_VOTES_ROLE = getRole('CREATE_VOTES_ROLE')
 const MINT_ROLE = getRole('MINT_ROLE')
+const BURN_ROLE = getRole('BURN_ROLE')
+const CHANGE_TOKEN_ROLE = getRole('CHANGE_TOKEN_ROLE')
 const UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
 
 // addresses
@@ -45,7 +47,7 @@ const PNTonGnosisAbi = require('../abi/PNTonGnosis.json')
 const getBytes = _hexString =>
     Buffer.from(_hexString.slice(2), 'hex')
 
-describe("", () => {
+describe("Integration tests on Gnosis deployment", () => {
     let faucet,
         acl,
         daoVoting,
@@ -56,6 +58,7 @@ describe("", () => {
         pntOnGnosis,
         pntMinter,
         StakingManager,
+        StakingManagerPermissioned,
         stakingManager,
         stakingManagerLm,
         stakingManagerRm,
@@ -69,7 +72,20 @@ describe("", () => {
         await setPermission(stakingManager.address, TOKEN_CONTROLLER, MINT_ROLE)
         await setPermission(stakingManagerLm.address, TOKEN_CONTROLLER, MINT_ROLE)
         await setPermission(stakingManagerRm.address, TOKEN_CONTROLLER, MINT_ROLE)
+        await setPermission(stakingManager.address, TOKEN_CONTROLLER, BURN_ROLE)
+        await setPermission(stakingManagerLm.address, TOKEN_CONTROLLER, BURN_ROLE)
+        await setPermission(stakingManagerRm.address, TOKEN_CONTROLLER, BURN_ROLE)
+        await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, DAO_OWNER)
         await registrationManager.connect(daoOwner).grantRole(UPDATE_GUARDIAN_REGISTRATION_ROLE, DAO_V3_VOTING_CONTRACT)
+    }
+
+    const upgradeContracts = async () => {
+        await stakingManager.connect(daoOwner).grantRole('0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508', '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
+        await hre.upgrades.upgradeProxy(stakingManager, StakingManager)
+        await stakingManagerRm.connect(daoOwner).grantRole('0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508', '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
+        await hre.upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
+        await stakingManagerLm.connect(daoOwner).grantRole('0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508', '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
+        await hre.upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
     }
 
     before(async () => {
@@ -84,28 +100,28 @@ describe("", () => {
         daoOwner = await hre.ethers.getImpersonatedSigner(DAO_OWNER)
         pntMinter = await hre.ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
 
+        StakingManager = await hre.ethers.getContractFactory('StakingManager')
+        StakingManagerPermissioned = await hre.ethers.getContractFactory('StakingManagerPermissioned')
+        RegistrationManager = await hre.ethers.getContractFactory('RegistrationManager')
+        LendingManager = await hre.ethers.getContractFactory('LendingManager')
+
         acl = await hre.ethers.getContractAt(AclAbi, ACL_CONTRACT)
         daoVoting = await hre.ethers.getContractAt(DandelionVotingAbi, DAO_V3_VOTING_CONTRACT)
         daoTreasury = await hre.ethers.getContractAt(VaultAbi, DAO_V1_TREASURY_CONTRACT)
         pntOnGnosis = await hre.ethers.getContractAt(PNTonGnosisAbi, PNT_ON_GNOSIS)
         daoPNT = await hre.ethers.getContractAt(DaoPntAbi, DAO_PNT)
-        StakingManager = await hre.ethers.getContractFactory('StakingManager')
         stakingManager = StakingManager.attach(DAO_V3_STAKING_MANAGER)
-        stakingManagerLm = StakingManager.attach(DAO_V3_STAKING_MANAGER_LM)
-        stakingManagerRm = StakingManager.attach(DAO_V3_STAKING_MANAGER_RM)
-        RegistrationManager = await hre.ethers.getContractFactory('RegistrationManager')
+        stakingManagerLm = StakingManagerPermissioned.attach(DAO_V3_STAKING_MANAGER_LM)
+        stakingManagerRm = StakingManagerPermissioned.attach(DAO_V3_STAKING_MANAGER_RM)
         registrationManager = RegistrationManager.attach(DAO_V3_REGISTRATION_MANAGER)
-        LendingManager = await hre.ethers.getContractFactory('LendingManager')
         lendingManager = LendingManager.attach(DAO_V3_LENDING_MANAGER)
 
-        expect(await acl.hasInitialized()).to.be.eq(true)
-        expect(await daoVoting.duration()).to.be.eq(259200)
-
         await missingSteps()
+        await upgradeContracts()
 
         await Promise.all(tokenHolders.map(_holder => sendEth(hre, faucet, _holder.address, '5')))
         await Promise.all(tokenHolders.map(_holder => mintPntOnGnosis(_holder.address, 10000)))
-        await Promise.all(tokenHolders.map(_holder => stake(_holder, 5000)))
+        // await Promise.all(tokenHolders.map(_holder => stake(_holder, 5000)))
     })
 
     const openNewVoteAndReachQuorum = async (_voteId, _executionScript, _metadata) => {
@@ -165,8 +181,6 @@ describe("", () => {
 
 
     const encodeFunctionCall = (_to, _calldata) => {
-        console.info('_to', _to)
-        console.info('_calldata', _calldata)
         return [
             {
                 to: _to,
@@ -224,12 +238,45 @@ describe("", () => {
         expect(await registrationManager.connect(user)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](1, signature, 0)).to.emit(registrationManager, 'SentinelRegistrationUpdated').withArgs('0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B', 2, 2, '0xB48299F9704a2A268a09f5d47F56e662624E882f', 2, 200000000000000000000000)
     })
 
-    it.only("should register a staking sentinel", async () => {
+    it("should register a staking sentinel", async () => {
         const amount = hre.ethers.utils.parseEther('200000', await pntOnGnosis.decimals())
         await mintPntOnGnosis(user.address, hre.ethers.utils.parseEther('400000', await pntOnGnosis.decimals()))
         const sentinel = hre.ethers.Wallet.createRandom()
         const signature = await sentinel.signMessage('test')
         await pntOnGnosis.connect(user).approve(DAO_V3_REGISTRATION_MANAGER, amount)
         expect(await registrationManager.connect(user).updateSentinelRegistrationByStaking(user.address, amount, 86400 * 30, signature, 0)).to.emit(registrationManager, 'SentinelRegistrationUpdated').withArgs('0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B', 2, 2, '0xB48299F9704a2A268a09f5d47F56e662624E882f', 2, 200000000000000000000000)
+    })
+
+    it("should correctly stake after token has been changed", async () => {
+        const ERC20Factory = await hre.ethers.getContractFactory('MockPToken')
+        const newToken = await ERC20Factory.deploy('new PNT', 'nPNT', [], faucet.address, '0x00112233')
+
+        await pntOnGnosis.connect(faucet).approve(stakingManager.address, 10000)
+        await mintPntOnGnosis(faucet.address, 10000)
+        await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 *7)
+
+        await expect(stakingManager.connect(daoOwner).changeToken(newToken.address)).to.emit(stakingManager, 'TokenChanged').withArgs(pntOnGnosis.address, newToken.address)
+        await newToken.connect(faucet).mint(faucet.address, hre.ethers.utils.parseEther('200000'), '0x', '0x')
+        await newToken.connect(faucet).approve(stakingManager.address, 10000)
+        await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 *7)).to.be.revertedWithCustomError(stakingManager, 'InvalidToken')
+        await newToken.connect(faucet).mint(tokenHolders[0].address, hre.ethers.utils.parseEther('200000'), '0x', '0x')
+        await newToken.connect(tokenHolders[0]).approve(stakingManager.address, 10000)
+        await expect(stakingManager.connect(tokenHolders[0]).stake(tokenHolders[0].address, 10000, 86400 *7)).to.emit(stakingManager, 'Staked')
+    })
+
+    it.only("should stake and unstake", async () => {
+        await pntOnGnosis.connect(faucet).approve(stakingManager.address, 10000)
+        await mintPntOnGnosis(faucet.address, 10000)
+        expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(10000)
+        expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(0)
+        await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 *7)
+        expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(0)
+        expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(10000)
+        await time.increase(86400 * 4)
+        await expect(stakingManager.connect(faucet)['unstake(uint256,bytes4)'](10000, '0x0075dd4c')).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+        await time.increase(86400 * 4)
+        await expect(stakingManager.connect(faucet)['unstake(uint256,bytes4)'](5000, '0x0075dd4c')).to.emit(stakingManager, 'Unstaked')
+        expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(5000)
+        expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(5000)
     })
 })

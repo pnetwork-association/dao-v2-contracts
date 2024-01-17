@@ -64,6 +64,14 @@ interface ILendingManager {
      */
     event Released(address indexed borrower, uint256 indexed epoch, uint256 amount);
 
+    /**
+     * @dev Emitted when the token changes
+     *
+     * @param previousToken the previous token
+     * @param newToken the new token
+     */
+    event TokenChanged(address previousToken, address newToken);
+
     /*
      * @notice Borrow a certain amount of tokens in a given epoch
      *
@@ -92,6 +100,14 @@ interface ILendingManager {
      * @return uint32 an integer representing the borrowed amount of a given user in a given epoch.
      */
     function borrowedAmountByEpochOf(address borrower, uint16 epoch) external view returns (uint32);
+
+
+    /* @notice Change token
+     *
+     * @param token
+     *
+     */
+    function changeToken(address token) external;
 
     /*
      * @notice Returns the lender's claimable amount for a given asset in a specifich epoch.

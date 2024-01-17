@@ -41,6 +41,12 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     }
 
     /// @inheritdoc IBaseStakingManager
+    function changeToken(address token_) external onlyRole(Roles.CHANGE_TOKEN_ROLE) {
+        address previousToken = token;
+        token = token_;
+        emit TokenChanged(previousToken, token);
+    }
+
     function changeMaxTotalSupply(uint256 _maxTotalSupply) external onlyRole(Roles.CHANGE_MAX_TOTAL_SUPPLY_ROLE) {
         maxTotalSupply = _maxTotalSupply;
         emit MaxTotalSupplyChanged(_maxTotalSupply);
@@ -50,6 +56,7 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     function slash(address owner, uint256 amount, address receiver) external onlyRole(Roles.SLASH_ROLE) {
         Stake storage stake = _stakes[owner];
         uint256 stakedAmount = stake.amount;
+        address stakedToken = stake.token;
 
         if (amount > stakedAmount || amount == 0) {
             revert Errors.InvalidAmount();
@@ -62,7 +69,7 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         }
 
         ITokenManager(tokenManager).burn(owner, amount);
-        IERC20Upgradeable(token).safeTransfer(receiver, amount);
+        IERC20Upgradeable(stakedToken).safeTransfer(receiver, amount);
         emit Slashed(owner, amount, receiver);
     }
 
@@ -74,14 +81,12 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     /// @inheritdoc IBaseStakingManager
     function unstake(uint256 amount, bytes4 chainId) external {
         address msgSender = _msgSender();
-        _unstake(msgSender, amount);
-        _finalizeUnstake(msgSender, amount, chainId);
+        _unstake(msgSender, amount, chainId);
     }
 
     /// @inheritdoc IBaseStakingManager
     function unstake(address owner, uint256 amount, bytes4 chainId) external onlyForwarder {
-        _unstake(owner, amount);
-        _finalizeUnstake(owner, amount, chainId);
+        _unstake(owner, amount, chainId);
     }
 
     function _checkTotalSupply() internal {
@@ -109,7 +114,8 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         }
         st.amount += amount;
 
-        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+        if (st.token != token) revert Errors.InvalidToken(token, st.token);
+        IERC20Upgradeable(st.token).safeTransferFrom(_msgSender(), address(this), amount);
         ITokenManager(tokenManager).mint(owner, amount);
 
         _checkTotalSupply();
@@ -147,22 +153,29 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         Stake storage st = _stakes[receiver];
         uint64 blockTimestamp = uint64(block.timestamp);
         uint64 currentEndDate = st.endDate;
+        address currentToken = st.token;
         uint64 newEndDate = blockTimestamp + duration;
+
+        if (currentToken == address(0)) {
+            st.token = token;
+        } else if (currentToken != token)
+            revert Errors.InvalidToken(token, currentToken);
 
         st.amount += amount;
         st.endDate = newEndDate >= currentEndDate ? newEndDate : currentEndDate;
         st.startDate = blockTimestamp;
 
-        IERC20Upgradeable(token).safeTransferFrom(_msgSender(), address(this), amount);
+        IERC20Upgradeable(st.token).safeTransferFrom(_msgSender(), address(this), amount);
         ITokenManager(tokenManager).mint(receiver, amount);
 
         _checkTotalSupply();
         emit Staked(receiver, amount, duration);
     }
 
-    function _unstake(address owner, uint256 amount) internal {
+    function _unstake(address owner, uint256 amount, bytes4 chainId) internal {
         Stake storage st = _stakes[owner];
         uint256 stAmount = st.amount;
+        address stToken = st.token;
 
         if (st.endDate > block.timestamp) {
             revert Errors.UnfinishedStakingPeriod();
@@ -180,15 +193,13 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
         }
 
         ITokenManager(tokenManager).burn(owner, amount);
-        emit Unstaked(owner, amount);
-    }
 
-    function _finalizeUnstake(address receiver, uint256 amount, bytes4 chainId) internal {
         if (chainId == 0x0075dd4c) {
-            IERC20Upgradeable(token).safeTransfer(receiver, amount);
+            IERC20Upgradeable(stToken).safeTransfer(owner, amount);
         } else {
-            IPToken(token).redeem(amount, "", Helpers.addressToAsciiString(receiver), chainId);
+            IPToken(stToken).redeem(amount, "", Helpers.addressToAsciiString(owner), chainId);
         }
+        emit Unstaked(owner, amount);
     }
 
     /**

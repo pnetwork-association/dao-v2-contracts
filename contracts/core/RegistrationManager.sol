@@ -63,6 +63,13 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
         _sentinelsEpochsTotalStakedAmount = new uint32[](Constants.AVAILABLE_EPOCHS);
     }
 
+    /// @inheritdoc IRegistrationManager
+    function changeToken(address token_) external onlyRole(Roles.CHANGE_TOKEN_ROLE) {
+        address previousToken = token;
+        token = token_;
+        emit TokenChanged(previousToken, token);
+    }
+
     // @inheritdoc IRegistrationManager
     function getSignatureNonceByOwner(address owner) external view returns (uint256) {
         return _ownersSignatureNonces[owner];

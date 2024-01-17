@@ -13,6 +13,7 @@ interface IBaseStakingManager {
         uint256 amount;
         uint64 startDate;
         uint64 endDate;
+        address token;
     }
 
     /**
@@ -37,6 +38,14 @@ interface IBaseStakingManager {
      * @param maxTotalSupply The maximun total supply
      */
     event MaxTotalSupplyChanged(uint256 maxTotalSupply);
+
+    /**
+     * @dev Emitted when the token changes
+     *
+     * @param previousToken the previous token
+     * @param newToken the new token
+     */
+    event TokenChanged(address previousToken, address newToken);
 
     /**
      * @dev Emitted when a staker is slashed
@@ -70,6 +79,13 @@ interface IBaseStakingManager {
      *
      */
     function changeMaxTotalSupply(uint256 maxTotalSupply) external;
+
+    /* @notice Change token
+     *
+     * @param token
+     *
+     */
+    function changeToken(address token) external;
 
     /*
      * @notice Slash a given staker. Burn the corresponding amount of daoPNT and send the collateral (PNT) to the receiver

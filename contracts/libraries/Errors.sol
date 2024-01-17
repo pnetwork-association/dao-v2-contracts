@@ -7,6 +7,7 @@ library Errors {
     error AmountNotAvailableInEpoch(uint16 epoch);
     error InvalidEpoch();
     error InvalidRegistration();
+    error InvalidToken(address actual, address expected);
     error SentinelNotReleasable(address sentinel);
     error NothingToClaim();
     error LendPeriodTooBig();

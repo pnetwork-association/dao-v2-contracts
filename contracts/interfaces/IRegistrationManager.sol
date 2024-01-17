@@ -54,6 +54,15 @@ interface IRegistrationManager {
      */
     event LightResumed(address indexed actor, bytes1 registrationKind);
 
+
+    /**
+     * @dev Emitted when the token changes
+     *
+     * @param previousToken the previous token
+     * @param newToken the new token
+     */
+    event TokenChanged(address previousToken, address newToken);
+
     /**
      * @dev Emitted when a sentinel registration is completed.
      *
@@ -101,6 +110,14 @@ interface IRegistrationManager {
      * @param sentinel The sentinel
      */
     event VotedSentinelSlashed(address indexed sentinel);
+
+
+    /* @notice Change token
+     *
+     * @param token
+     *
+     */
+    function changeToken(address token) external;
 
     /*
      * @notice Return the current signature nonce by the actor owner
@@ -309,10 +326,10 @@ interface IRegistrationManager {
     /*
      * @notice Registers/Renew a sentinel for a given duration in behalf of owner
      *
+     * @param owner
      * @param amount
      * @param duration
      * @param signature
-     * @param owner
      * @param nonce
      *
      */

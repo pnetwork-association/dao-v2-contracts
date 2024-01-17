@@ -91,6 +91,14 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         return _borrowersEpochsBorrowedAmount[borrower][epoch];
     }
 
+
+    /// @inheritdoc ILendingManager
+    function changeToken(address token_) external onlyRole(Roles.CHANGE_TOKEN_ROLE) {
+        address previousToken = token;
+        token = token_;
+        emit TokenChanged(previousToken, token);
+    }
+
     /// @inheritdoc ILendingManager
     function claimableRewardsByEpochOf(address lender, address asset, uint16 epoch) public view returns (uint256) {
         if (_lendersEpochsAssetsRewardsClaim[lender][epoch][asset]) return 0;
