@@ -309,6 +309,13 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
             uint16 actorSlashes = _slashes[currentEpoch][actor];
             if (actorSlashes == Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
                 IFeesManager(feesManager).redirectClaimToChallengerByEpoch(actor, challenger, currentEpoch);
+                uint16 registrationEndEpoch = registration.endEpoch;
+                for (uint16 epoch = currentEpoch + 1; epoch <= registrationEndEpoch; ) {
+                    _epochsTotalNumberOfGuardians[epoch]--;
+                    unchecked {
+                        ++epoch;
+                    }
+                }
                 registration.endEpoch = currentEpoch; // NOTE: Registration ends here
                 _pendingLightResumes[currentEpoch][actor] = 0;
             } else if (actorSlashes < Constants.NUMBER_OF_ALLOWED_SLASHES + 1) {
