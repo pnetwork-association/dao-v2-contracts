@@ -10,12 +10,19 @@ const {
   LEND_MAX_EPOCHS,
   MINIMUM_BORROWING_FEE,
   PBTC_ADDRESS,
-  PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
   PNT_MAX_TOTAL_SUPPLY,
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
+
+// roles
+const BORROW_ROLE = getRole('BORROW_ROLE')
+const RELEASE_ROLE = getRole('RELEASE_ROLE')
+const STAKE_ROLE = getRole('STAKE_ROLE')
+const INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
+const REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE = getRole('REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE')
+const UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
 
 let stakingManagerLM,
   stakingManagerRM,
@@ -23,9 +30,12 @@ let stakingManagerLM,
   registrationManager,
   feesManager,
   lendingManager,
+  acl,
+  dandelionVoting,
   pnt,
   owner,
   pntHolder1,
+  pntHolder2,
   sentinel1,
   sentinel2,
   sentinel3,
@@ -40,8 +50,6 @@ let stakingManagerLM,
   guardianOwner1,
   guardian2,
   guardianOwner2
-
-let BORROW_ROLE, REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE
 
 describe('FeesManager', () => {
   beforeEach(async () => {
@@ -62,6 +70,7 @@ describe('FeesManager', () => {
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
     const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const ERC20 = await ethers.getContractFactory('ERC20')
+    const TestToken = await ethers.getContractFactory('TestToken')
     const ACL = await ethers.getContractFactory('ACL')
     const MockDandelionVotingContract = await ethers.getContractFactory('MockDandelionVotingContract')
 
@@ -84,23 +93,26 @@ describe('FeesManager', () => {
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
 
-    pnt = await ERC20.attach(PNT_ADDRESS)
-    pbtc = await ERC20.attach(PBTC_ADDRESS)
-    acl = await ACL.attach(ACL_ADDRESS)
+    pnt = await TestToken.deploy('PNT', 'PNT')
+    pbtc = ERC20.attach(PBTC_ADDRESS)
+    acl = ACL.attach(ACL_ADDRESS)
     dandelionVoting = await MockDandelionVotingContract.deploy()
     await dandelionVoting.setTestStartDate(EPOCH_DURATION * 1000) // this is needed to don't break normal tests
 
-    stakingManagerLM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
+    await pnt.connect(owner).transfer(pntHolder1.address, ethers.utils.parseEther('1000000'))
+    await pnt.connect(owner).transfer(pntHolder2.address, ethers.utils.parseEther('1000000'))
+
+    stakingManagerLM = await upgrades.deployProxy(StakingManager, [pnt.address, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })
 
-    stakingManagerRM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
+    stakingManagerRM = await upgrades.deployProxy(StakingManager, [pnt.address, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })
 
-    epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION], {
+    epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION, 0], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -131,14 +143,6 @@ describe('FeesManager', () => {
         kind: 'uups'
       }
     )
-
-    // roles
-    BORROW_ROLE = getRole('BORROW_ROLE')
-    RELEASE_ROLE = getRole('RELEASE_ROLE')
-    STAKE_ROLE = getRole('STAKE_ROLE')
-    INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
-    REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE = getRole('REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE')
-    UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
 
     // grant roles
     await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
@@ -196,12 +200,12 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, EPOCH_DURATION * 10)
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
-    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
-    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature2)
+    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { actor: sentinel2, registrationManager })
+    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](3, signature2, 0)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
@@ -251,9 +255,9 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, EPOCH_DURATION * 10)
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -306,12 +310,12 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, EPOCH_DURATION * 10)
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
-    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
-    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature2)
+    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { actor: sentinel2, registrationManager })
+    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](3, signature2, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -374,15 +378,15 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, EPOCH_DURATION * 10)
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
-    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
-    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature2)
+    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { actor: sentinel2, registrationManager })
+    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](3, signature2, 0)
 
-    const signature3 = await getSentinelIdentity(sentinelBorrowerRegistrator2.address, { sentinel: sentinel3 })
-    await registrationManager.connect(sentinelBorrowerRegistrator2)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature3)
+    const signature3 = await getSentinelIdentity(sentinelBorrowerRegistrator2.address, { actor: sentinel3, registrationManager })
+    await registrationManager.connect(sentinelBorrowerRegistrator2)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](3, signature3, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -414,9 +418,9 @@ describe('FeesManager', () => {
     const stakeAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 4
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -438,9 +442,9 @@ describe('FeesManager', () => {
     const stakeAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 4
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -456,9 +460,9 @@ describe('FeesManager', () => {
     const stakeAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 4
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -483,9 +487,9 @@ describe('FeesManager', () => {
     const stakeAmount = ethers.utils.parseEther('200000')
     const duration = EPOCH_DURATION * 4
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -554,12 +558,12 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, EPOCH_DURATION * 10)
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
-    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
-    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature2)
+    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { actor: sentinel2, registrationManager })
+    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](3, signature2, 0)
 
     await time.increase(EPOCH_DURATION)
 
@@ -625,7 +629,7 @@ describe('FeesManager', () => {
     //
     //
     //
-    //   claim(1): utilizationRatio = 66.6666%, totalStaked = 200k, totalBorrowed = 400k, totalGuardians = 20k (2 * 10k) 
+    //   claim(1): utilizationRatio = 66.6666%, totalStaked = 200k, totalBorrowed = 400k, totalGuardians = 20k (2 * 10k)
     //          -> staking sentinels keep 32.2% (200k / 620k)
     //          -> guardians keep 3.2% (20k / 620k)
     //          -> borrowers and lenders keep  100 - 32.3 - 3.2 = 64.5%
@@ -641,15 +645,15 @@ describe('FeesManager', () => {
     await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, EPOCH_DURATION * 10)
 
-    const signature1 = await getSentinelIdentity(pntHolder2.address, { sentinel: sentinel1 })
+    const signature1 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel1, registrationManager })
     await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
-    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1)
+    await registrationManager.connect(pntHolder2).updateSentinelRegistrationByStaking(pntHolder2.address, stakeAmount, duration, signature1, 0)
 
-    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { sentinel: sentinel2 })
-    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature2)
+    const signature2 = await getSentinelIdentity(sentinelBorrowerRegistrator1.address, { actor: sentinel2, registrationManager })
+    await registrationManager.connect(sentinelBorrowerRegistrator1)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](3, signature2, 0)
 
-    const signature3 = await getSentinelIdentity(sentinelBorrowerRegistrator2.address, { sentinel: sentinel3 })
-    await registrationManager.connect(sentinelBorrowerRegistrator2)['updateSentinelRegistrationByBorrowing(uint16,bytes)'](3, signature3)
+    const signature3 = await getSentinelIdentity(sentinelBorrowerRegistrator2.address, { actor: sentinel3, registrationManager })
+    await registrationManager.connect(sentinelBorrowerRegistrator2)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](3, signature3, 0)
 
     await registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, 3, guardian1.address)
     await registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner2.address, 3, guardian2.address)
