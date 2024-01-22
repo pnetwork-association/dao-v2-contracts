@@ -11,7 +11,6 @@ const {
   LEND_MAX_EPOCHS,
   ONE_DAY,
   PNETWORK_NETWORK_IDS,
-  PNT_ADDRESS,
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
   PNT_MAX_TOTAL_SUPPLY,
@@ -23,14 +22,28 @@ const {
   ONE_HOUR_IN_S,
 } = require('./constants')
 
+const BORROW_ROLE = getRole('BORROW_ROLE')
+const RELEASE_ROLE = getRole('RELEASE_ROLE')
+const SLASH_ROLE = getRole('SLASH_ROLE')
+const STAKE_ROLE = getRole('STAKE_ROLE')
+const INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
+const UPGRADE_ROLE = getRole('UPGRADE_ROLE')
+const UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
+const SET_FEES_MANAGER_ROLE = getRole('SET_FEES_MANAGER_ROLE')
+const SET_GOVERNANCE_MESSAGE_EMITTER_ROLE = getRole('SET_GOVERNANCE_MESSAGE_EMITTER_ROLE')
+const REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE = getRole('REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE')
+const INCREASE_AMOUNT_ROLE = getRole('INCREASE_AMOUNT_ROLE')
+
 let signers,
   stakingManagerRM,
   stakingManagerLM,
   epochsManager,
+  lendingManager,
   registrationManager,
   pnt,
   owner,
   pntHolder1,
+  pntHolder2,
   sentinel1,
   sentinel2,
   RegistrationManager,
@@ -46,8 +59,6 @@ let signers,
   fakePnetworkHub,
   challenger,
   governanceMessageEmitter
-
-let BORROW_ROLE, SLASH_ROLE, UPGRADE_ROLE
 
 describe('RegistrationManager', () => {
   const getSignatureNonce = (_address) => registrationManager.getSignatureNonceByOwner(_address)
@@ -69,7 +80,7 @@ describe('RegistrationManager', () => {
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
     const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const FeesManager = await ethers.getContractFactory('FeesManager')
-    const ERC20 = await ethers.getContractFactory('ERC20')
+    const TestToken = await ethers.getContractFactory('TestToken')
     const ACL = await ethers.getContractFactory('ACL')
     const MockGovernanceMessageEmitter = await ethers.getContractFactory('MockGovernanceMessageEmitter')
 
@@ -90,20 +101,32 @@ describe('RegistrationManager', () => {
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
 
-    pnt = await ERC20.attach(PNT_ADDRESS)
-    acl = await ACL.attach(ACL_ADDRESS)
+    pnt = await TestToken.deploy('PNT', 'PNT')
+    acl = ACL.attach(ACL_ADDRESS)
 
-    stakingManagerLM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
+    await pnt.connect(owner).transfer(pntHolder1.address, ethers.utils.parseEther('500000'))
+    await pnt.connect(owner).transfer(pntHolder2.address, ethers.utils.parseEther('500000'))
+
+    await owner.sendTransaction({
+      to: pntHolder1.address,
+      value: ethers.utils.parseEther('10')
+    })
+    await owner.sendTransaction({
+      to: pntHolder2.address,
+      value: ethers.utils.parseEther('10')
+    })
+
+    stakingManagerLM = await upgrades.deployProxy(StakingManager, [pnt.address, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })
 
-    stakingManagerRM = await upgrades.deployProxy(StakingManager, [PNT_ADDRESS, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
+    stakingManagerRM = await upgrades.deployProxy(StakingManager, [pnt.address, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY], {
       initializer: 'initialize',
       kind: 'uups'
     })
 
-    epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION], {
+    epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION, 0], {
       initializer: 'initialize',
       kind: 'uups'
     })
@@ -136,19 +159,6 @@ describe('RegistrationManager', () => {
     )
 
     governanceMessageEmitter = await MockGovernanceMessageEmitter.deploy(epochsManager.address, registrationManager.address)
-
-    // roles
-    BORROW_ROLE = getRole('BORROW_ROLE')
-    RELEASE_ROLE = getRole('RELEASE_ROLE')
-    SLASH_ROLE = getRole('SLASH_ROLE')
-    STAKE_ROLE = getRole('STAKE_ROLE')
-    INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
-    UPGRADE_ROLE = getRole('UPGRADE_ROLE')
-    UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
-    SET_FEES_MANAGER_ROLE = getRole('SET_FEES_MANAGER_ROLE')
-    SET_GOVERNANCE_MESSAGE_EMITTER_ROLE = getRole('SET_GOVERNANCE_MESSAGE_EMITTER_ROLE')
-    REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE = getRole('REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE')
-    INCREASE_AMOUNT_ROLE = getRole('INCREASE_AMOUNT_ROLE')
 
     // grant roles
     await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
@@ -349,13 +359,12 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 5)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(6)
-    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_NETWORK_IDS.polygonMainnet)).to.not.be
-      .reverted
+    await stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_NETWORK_IDS.gnosisMainnet)
   })
 
   it('should be able to updateSentinelRegistrationByStaking 2 times in order to renew his registration (2)', async () => {
@@ -400,7 +409,7 @@ describe('RegistrationManager', () => {
 
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
-    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.polygonMainnet)).to.not.be.reverted
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)).to.not.be.reverted
 
     duration = EPOCH_DURATION * 3
     signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
@@ -429,12 +438,12 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(7)
-    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.polygonMainnet)).to.not.be.reverted
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)).to.not.be.reverted
   })
 
   it('should be able to updateSentinelRegistrationByBorrowing in order to renew his registration (1)', async () => {
@@ -648,25 +657,25 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 6)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManagerRM.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(11)
-    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet))
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet))
       .to.emit(stakingManagerRM, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })
@@ -751,25 +760,25 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(8)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManagerRM.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
-    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet))
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet))
       .to.emit(stakingManagerRM, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })
@@ -833,19 +842,19 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 3)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManagerRM.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(11)
-    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.polygonMainnet))
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet))
       .to.emit(stakingManagerRM, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })
@@ -861,14 +870,14 @@ describe('RegistrationManager', () => {
       registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + 5, guardian1.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner1.address, currentEpoch, currentEpoch + 4, guardian1.address, REGISTRATON_GUARDIAN)
 
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(1)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(0)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(0)
   })
 
@@ -896,7 +905,7 @@ describe('RegistrationManager', () => {
       registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner1.address, currentEpoch, currentEpoch + numberOfEpochs - 1, guardian1.address, REGISTRATON_GUARDIAN)
 
     await time.increase(EPOCH_DURATION * 3)
     currentEpoch = await epochsManager.currentEpoch()
@@ -907,15 +916,15 @@ describe('RegistrationManager', () => {
       registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner1.address, currentEpoch, currentEpoch + numberOfEpochs - 1, guardian1.address, REGISTRATON_GUARDIAN)
 
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(1)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(0)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
     expect(await registrationManager.guardianOf(guardianOwner1.address)).to.be.eq(guardian1.address)
   })
@@ -944,7 +953,7 @@ describe('RegistrationManager', () => {
       registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner1.address, currentEpoch, currentEpoch + numberOfEpochs - 1, guardian1.address, REGISTRATON_GUARDIAN)
 
     await time.increase(EPOCH_DURATION * 6)
     currentEpoch = await epochsManager.currentEpoch()
@@ -955,17 +964,17 @@ describe('RegistrationManager', () => {
       registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner2.address, numberOfEpochs, guardian2.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner2.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian2.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner2.address, currentEpoch, currentEpoch + numberOfEpochs - 1, guardian2.address, REGISTRATON_GUARDIAN)
 
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(0)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(0)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(1)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(8)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(8)).to.be.equal(0)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(9)).to.be.equal(0)
     expect(await registrationManager.guardianOf(guardianOwner1.address)).to.be.eq(guardian1.address)
   })
@@ -994,7 +1003,7 @@ describe('RegistrationManager', () => {
       registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner1.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian1.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner1.address, currentEpoch, currentEpoch + numberOfEpochs - 1, guardian1.address, REGISTRATON_GUARDIAN)
 
     await time.increase(EPOCH_DURATION * 3)
     currentEpoch = await epochsManager.currentEpoch()
@@ -1005,15 +1014,15 @@ describe('RegistrationManager', () => {
       registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner2.address, numberOfEpochs, guardian2.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner2.address, currentEpoch + 1, currentEpoch + numberOfEpochs, guardian2.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner2.address, currentEpoch, currentEpoch + numberOfEpochs - 1, guardian2.address, REGISTRATON_GUARDIAN)
 
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(1)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(2)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(2)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(2)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(0)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
     expect(await registrationManager.guardianOf(guardianOwner1.address)).to.be.eq(guardian1.address)
   })
@@ -1063,23 +1072,23 @@ describe('RegistrationManager', () => {
 
     await expect(registrationManager.connect(fakeDandelionVoting).updateGuardiansRegistrations(guardiansOwners, numbersOfEpochs, guardians))
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardiansOwners[0], currentEpoch + 1, currentEpoch + numbersOfEpochs[0], guardians[0], REGISTRATON_GUARDIAN)
+      .withArgs(guardiansOwners[0], currentEpoch, currentEpoch + numbersOfEpochs[0] - 1, guardians[0], REGISTRATON_GUARDIAN)
       .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardiansOwners[1], currentEpoch + 1, currentEpoch + numbersOfEpochs[1], guardians[1], REGISTRATON_GUARDIAN)
+      .withArgs(guardiansOwners[1], currentEpoch, currentEpoch + numbersOfEpochs[1] - 1, guardians[1], REGISTRATON_GUARDIAN)
       .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardiansOwners[2], currentEpoch + 1, currentEpoch + numbersOfEpochs[2], guardians[2], REGISTRATON_GUARDIAN)
+      .withArgs(guardiansOwners[2], currentEpoch, currentEpoch + numbersOfEpochs[2] - 1, guardians[2], REGISTRATON_GUARDIAN)
       .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardiansOwners[3], currentEpoch + 1, currentEpoch + numbersOfEpochs[3], guardians[3], REGISTRATON_GUARDIAN)
+      .withArgs(guardiansOwners[3], currentEpoch, currentEpoch + numbersOfEpochs[3] - 1, guardians[3], REGISTRATON_GUARDIAN)
       .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardiansOwners[4], currentEpoch + 1, currentEpoch + numbersOfEpochs[4], guardians[4], REGISTRATON_GUARDIAN)
+      .withArgs(guardiansOwners[4], currentEpoch, currentEpoch + numbersOfEpochs[4] - 1, guardians[4], REGISTRATON_GUARDIAN)
 
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(0)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(5)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(4)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(3)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(5)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(4)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.equal(3)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.equal(2)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.equal(2)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(2)
-    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(5)).to.be.equal(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(6)).to.be.equal(0)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(7)).to.be.equal(0)
 
     expect(await registrationManager.guardianOf(guardiansOwners[0])).to.be.eq(guardians[0])
@@ -1603,11 +1612,15 @@ describe('RegistrationManager', () => {
 
     await registrationManager.connect(fakeDandelionVoting).updateGuardianRegistration(guardianOwner1.address, 4, guardian1.address)
     await time.increase(EPOCH_DURATION)
-
+    expect (await epochsManager.currentEpoch()).to.be.eq(1)
     let registrationOf = await registrationManager.registrationOf(guardian1.address)
-    expect(registrationOf.startEpoch).to.be.eq(1)
-    expect(registrationOf.endEpoch).to.be.eq(4)
-
+    expect(registrationOf.startEpoch).to.be.eq(0)
+    expect(registrationOf.endEpoch).to.be.eq(3)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.eq(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.eq(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.eq(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.eq(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.eq(0)
     const ts = await time.latest()
     await expect(registrationManager.connect(fakePnetworkHub).slash(guardian1.address, 0, challenger.address, ts))
       .to.emit(registrationManager, 'GuardianSlashed')
@@ -1660,7 +1673,12 @@ describe('RegistrationManager', () => {
     ).to.be.revertedWithCustomError(registrationManager, 'NotResumable')
 
     registrationOf = await registrationManager.registrationOf(guardian1.address)
-    expect(registrationOf.startEpoch).to.be.eq(1)
+    expect(registrationOf.startEpoch).to.be.eq(0)
     expect(registrationOf.endEpoch).to.be.eq(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.eq(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.eq(1)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(2)).to.be.eq(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(3)).to.be.eq(0)
+    expect(await registrationManager.totalNumberOfGuardiansByEpoch(4)).to.be.eq(0)
   })
 })
