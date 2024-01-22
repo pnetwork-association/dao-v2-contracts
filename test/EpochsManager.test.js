@@ -1,21 +1,22 @@
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 const { time } = require('@nomicfoundation/hardhat-network-helpers')
-
-let epochsManager, EpochsManager
+const { getRole } = require('./utils')
 
 const EPOCH_DURATION = 86400 // 1 day
 
 describe('EpochsManager', () => {
+  let epochsManager,
+    EpochsManager
+
   beforeEach(async () => {
     EpochsManager = await ethers.getContractFactory('EpochsManager')
-
-    const signers = await ethers.getSigners()
-
-    epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION], {
+    const signer = await ethers.getSigner()
+    epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION, 0], {
       initializer: 'initialize',
       kind: 'uups'
     })
+    await epochsManager.grantRole(getRole('UPGRADE_ROLE'), signer.address)
   })
 
   it('admin should be able to handle correctly a contract upgrade', async () => {
