@@ -194,7 +194,7 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
 
         ITokenManager(tokenManager).burn(owner, amount);
 
-        if (chainId == 0x0075dd4c) {
+        if (chainId == 0x00f1918e) {
             IERC20Upgradeable(stToken).safeTransfer(owner, amount);
         } else {
             IPToken(stToken).redeem(amount, "", Helpers.addressToAsciiString(owner), chainId);
