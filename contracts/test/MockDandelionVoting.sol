@@ -23,9 +23,9 @@ contract MockDandelionVotingContract {
 
     // 0 values are just for testing since here we need to test if a lender voted to one or more votes within an epoch
     function getVote(
-        uint256 voteId
+        uint256
     )
-        external
+        external view
         returns (
             bool open,
             bool executed,
@@ -53,7 +53,7 @@ contract MockDandelionVotingContract {
         script = "";
     }
 
-    function getVoterState(uint256 voteId, address beneficiary) external view returns (uint256) {
+    function getVoterState(uint256, address) external view returns (uint256) {
         return _testVoteState;
     }
 }

@@ -1,5 +1,5 @@
 const hre = require('hardhat')
-const { expect } = require("chai")
+const { expect } = require('chai')
 const { sendEth } = require('../utils/send-eth')
 const { getRole } = require('../utils')
 const { mineUpTo, time } = require('@nomicfoundation/hardhat-network-helpers')
@@ -25,10 +25,10 @@ const DAO_V3_FINANCE_VAULT = '0x6239968e6231164687CB40f8389d933dD7f7e0A5'
 const DAO_V3_FINANCE = '0x3d749Bc0eb27795Da58d2f67a2D6527A95567aEC'
 const DAO_V3_REGISTRATION_MANAGER = '0x08342a325630bE00F55A7Bc5dD64D342B1D3d23D'
 const TOKEN_HOLDERS_ADDRESSES = [
-    '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
-    '0xe8b43e7d55337ab735f6e1932d4a1e98de70eabc',
-    '0x9ad4550759389ca7f0488037daa4332b1f30cdac',
-    '0x100a70b9e50e91367d571332e76cfa70e9307059',
+  '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
+  '0xe8b43e7d55337ab735f6e1932d4a1e98de70eabc',
+  '0x9ad4550759389ca7f0488037daa4332b1f30cdac',
+  '0x100a70b9e50e91367d571332e76cfa70e9307059'
 ]
 const PNT_ON_GNOSIS_MINTER = '0x53d51f8801f40657ca566a1ae25b27eada97413c'
 const DAO_V3_STAKING_MANAGER = '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC'
@@ -46,312 +46,359 @@ const DandelionVotingAbi = require('../abi/DandelionVoting.json')
 const PNTonGnosisAbi = require('../abi/PNTonGnosis.json')
 const FinanceAbi = require('../abi/Finance.json')
 
-const getBytes = _hexString =>
-    Buffer.from(_hexString.slice(2), 'hex')
+const getBytes = (_hexString) => Buffer.from(_hexString.slice(2), 'hex')
 
-const parseEther = _input => hre.ethers.utils.parseEther(_input)
+const parseEther = (_input) => hre.ethers.utils.parseEther(_input)
 
-describe("Integration tests on Gnosis deployment", () => {
-    let faucet,
-        acl,
-        daoVoting,
-        tokenHolders,
-        user,
-        daoCreator,
-        daoOwner,
-        pntOnGnosis,
-        pntMinter,
-        StakingManager,
-        StakingManagerPermissioned,
-        stakingManager,
-        stakingManagerLm,
-        stakingManagerRm,
-        LendingManager,
-        lendingManager,
-        daoPNT,
-        registrationManager,
-        RegistrationManager,
-        daoTreasury,
-        finance
+describe('Integration tests on Gnosis deployment', () => {
+  let faucet,
+    acl,
+    daoVoting,
+    tokenHolders,
+    user,
+    daoCreator,
+    daoOwner,
+    pntOnGnosis,
+    pntMinter,
+    StakingManager,
+    StakingManagerPermissioned,
+    stakingManager,
+    stakingManagerLm,
+    stakingManagerRm,
+    LendingManager,
+    lendingManager,
+    daoPNT,
+    registrationManager,
+    RegistrationManager,
+    daoTreasury,
+    finance
 
-    const missingSteps = async () => {
-        await setPermission(stakingManager.address, TOKEN_CONTROLLER, MINT_ROLE)
-        await setPermission(stakingManagerLm.address, TOKEN_CONTROLLER, MINT_ROLE)
-        await setPermission(stakingManagerRm.address, TOKEN_CONTROLLER, MINT_ROLE)
-        await setPermission(stakingManager.address, TOKEN_CONTROLLER, BURN_ROLE)
-        await setPermission(stakingManagerLm.address, TOKEN_CONTROLLER, BURN_ROLE)
-        await setPermission(stakingManagerRm.address, TOKEN_CONTROLLER, BURN_ROLE)
-        await setPermission(DAO_V3_VOTING_CONTRACT, daoTreasury.address, TRANSFER_ROLE)
-        await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, DAO_OWNER)
-        await registrationManager.connect(daoOwner).grantRole(UPDATE_GUARDIAN_REGISTRATION_ROLE, DAO_V3_VOTING_CONTRACT)
+  const missingSteps = async () => {
+    await setPermission(stakingManager.address, TOKEN_CONTROLLER, MINT_ROLE)
+    await setPermission(stakingManagerLm.address, TOKEN_CONTROLLER, MINT_ROLE)
+    await setPermission(stakingManagerRm.address, TOKEN_CONTROLLER, MINT_ROLE)
+    await setPermission(stakingManager.address, TOKEN_CONTROLLER, BURN_ROLE)
+    await setPermission(stakingManagerLm.address, TOKEN_CONTROLLER, BURN_ROLE)
+    await setPermission(stakingManagerRm.address, TOKEN_CONTROLLER, BURN_ROLE)
+    await setPermission(DAO_V3_VOTING_CONTRACT, daoTreasury.address, TRANSFER_ROLE)
+    await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, DAO_OWNER)
+    await registrationManager.connect(daoOwner).grantRole(UPDATE_GUARDIAN_REGISTRATION_ROLE, DAO_V3_VOTING_CONTRACT)
+  }
+
+  const upgradeContracts = async () => {
+    await stakingManager
+      .connect(daoOwner)
+      .grantRole(
+        '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
+        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+      )
+    await hre.upgrades.upgradeProxy(stakingManager, StakingManager)
+    await stakingManagerRm
+      .connect(daoOwner)
+      .grantRole(
+        '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
+        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+      )
+    await hre.upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
+    await stakingManagerLm
+      .connect(daoOwner)
+      .grantRole(
+        '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
+        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+      )
+    await hre.upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
+  }
+
+  before(async () => {
+    //   const rpc = hre.config.networks.mainnetFork.url
+    //   const blockToForkFrom = 18968470 // before the upgrade
+    //   await hardhatReset(hre, rpc, blockToForkFrom)
+
+    faucet = await hre.ethers.getSigner()
+    tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(hre.ethers.getImpersonatedSigner))
+    user = await hre.ethers.getImpersonatedSigner(USER_ADDRESS)
+    daoCreator = await hre.ethers.getImpersonatedSigner(DAO_CREATOR)
+    daoOwner = await hre.ethers.getImpersonatedSigner(DAO_OWNER)
+    pntMinter = await hre.ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
+
+    StakingManager = await hre.ethers.getContractFactory('StakingManager')
+    StakingManagerPermissioned = await hre.ethers.getContractFactory('StakingManagerPermissioned')
+    RegistrationManager = await hre.ethers.getContractFactory('RegistrationManager')
+    LendingManager = await hre.ethers.getContractFactory('LendingManager')
+
+    acl = await hre.ethers.getContractAt(AclAbi, ACL_CONTRACT)
+    daoVoting = await hre.ethers.getContractAt(DandelionVotingAbi, DAO_V3_VOTING_CONTRACT)
+    daoTreasury = await hre.ethers.getContractAt(VaultAbi, DAO_V3_FINANCE_VAULT)
+    finance = await hre.ethers.getContractAt(FinanceAbi, DAO_V3_FINANCE)
+    pntOnGnosis = await hre.ethers.getContractAt(PNTonGnosisAbi, PNT_ON_GNOSIS)
+    daoPNT = await hre.ethers.getContractAt(DaoPntAbi, DAO_PNT)
+    stakingManager = StakingManager.attach(DAO_V3_STAKING_MANAGER)
+    stakingManagerLm = StakingManagerPermissioned.attach(DAO_V3_STAKING_MANAGER_LM)
+    stakingManagerRm = StakingManagerPermissioned.attach(DAO_V3_STAKING_MANAGER_RM)
+    registrationManager = RegistrationManager.attach(DAO_V3_REGISTRATION_MANAGER)
+    lendingManager = LendingManager.attach(DAO_V3_LENDING_MANAGER)
+
+    await missingSteps()
+    await upgradeContracts()
+
+    await Promise.all(tokenHolders.map((_holder) => sendEth(hre, faucet, _holder.address, '5')))
+    await Promise.all(tokenHolders.map((_holder) => mintPntOnGnosis(_holder.address, 10000)))
+    await Promise.all(tokenHolders.map((_holder) => stake(_holder, 5000)))
+  })
+
+  const openNewVoteAndReachQuorum = async (_voteId, _executionScript, _metadata) => {
+    const supports = true
+    const voteCreator = tokenHolders[0]
+    const executionScriptBytes = getBytes(_executionScript)
+
+    await grantCreateVotesPermission(voteCreator.address)
+    daoVoting = daoVoting.connect(voteCreator)
+
+    await expect(daoVoting.newVote(executionScriptBytes, _metadata, supports))
+      .to.emit(daoVoting, 'StartVote')
+      .withArgs(_voteId, voteCreator.address, _metadata)
+
+    for (const tokenHolder of tokenHolders) {
+      if (tokenHolder === voteCreator) {
+        await expect(daoVoting.vote(_voteId, supports)).to.be.revertedWith('DANDELION_VOTING_CAN_NOT_VOTE')
+      } else {
+        await expect(daoVoting.connect(tokenHolder).vote(_voteId, supports)).to.emit(daoVoting, 'CastVote')
+      }
     }
 
-    const upgradeContracts = async () => {
-        await stakingManager.connect(daoOwner).grantRole('0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508', '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
-        await hre.upgrades.upgradeProxy(stakingManager, StakingManager)
-        await stakingManagerRm.connect(daoOwner).grantRole('0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508', '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
-        await hre.upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
-        await stakingManagerLm.connect(daoOwner).grantRole('0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508', '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
-        await hre.upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
-    }
+    const vote = await daoVoting.getVote(_voteId)
+    const executionBlock = vote[3]
+    await mineUpTo(executionBlock.add(1))
+  }
 
-    before(async () => {
-        //   const rpc = hre.config.networks.mainnetFork.url
-        //   const blockToForkFrom = 18968470 // before the upgrade
-        //   await hardhatReset(hre, rpc, blockToForkFrom)
+  const hasPermission = (who, where, what) => acl['hasPermission(address,address,bytes32)'](who, where, what)
 
-        faucet = await hre.ethers.getSigner()
-        tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(hre.ethers.getImpersonatedSigner))
-        user = await hre.ethers.getImpersonatedSigner(USER_ADDRESS)
-        daoCreator = await hre.ethers.getImpersonatedSigner(DAO_CREATOR)
-        daoOwner = await hre.ethers.getImpersonatedSigner(DAO_OWNER)
-        pntMinter = await hre.ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
+  const setPermission = async (entity, app, role) => acl.connect(daoCreator).grantPermission(entity, app, role)
 
-        StakingManager = await hre.ethers.getContractFactory('StakingManager')
-        StakingManagerPermissioned = await hre.ethers.getContractFactory('StakingManagerPermissioned')
-        RegistrationManager = await hre.ethers.getContractFactory('RegistrationManager')
-        LendingManager = await hre.ethers.getContractFactory('LendingManager')
+  const grantCreateVotesPermission = async (_who) => {
+    let hasPerm = await hasPermission(_who, DAO_V3_VOTING_CONTRACT, CREATE_VOTES_ROLE)
+    expect(hasPerm).to.be.false
+    await setPermission(_who, DAO_V3_VOTING_CONTRACT, CREATE_VOTES_ROLE)
+    hasPerm = await hasPermission(_who, DAO_V3_VOTING_CONTRACT, CREATE_VOTES_ROLE)
+    expect(hasPerm).to.be.true
+  }
 
-        acl = await hre.ethers.getContractAt(AclAbi, ACL_CONTRACT)
-        daoVoting = await hre.ethers.getContractAt(DandelionVotingAbi, DAO_V3_VOTING_CONTRACT)
-        daoTreasury = await hre.ethers.getContractAt(VaultAbi, DAO_V3_FINANCE_VAULT)
-        finance = await hre.ethers.getContractAt(FinanceAbi, DAO_V3_FINANCE)
-        pntOnGnosis = await hre.ethers.getContractAt(PNTonGnosisAbi, PNT_ON_GNOSIS)
-        daoPNT = await hre.ethers.getContractAt(DaoPntAbi, DAO_PNT)
-        stakingManager = StakingManager.attach(DAO_V3_STAKING_MANAGER)
-        stakingManagerLm = StakingManagerPermissioned.attach(DAO_V3_STAKING_MANAGER_LM)
-        stakingManagerRm = StakingManagerPermissioned.attach(DAO_V3_STAKING_MANAGER_RM)
-        registrationManager = RegistrationManager.attach(DAO_V3_REGISTRATION_MANAGER)
-        lendingManager = LendingManager.attach(DAO_V3_LENDING_MANAGER)
+  const mintPntOnGnosis = async (receiver, amount) => {
+    const balance = await pntOnGnosis.balanceOf(receiver)
+    await pntOnGnosis.connect(pntMinter)['mint(address,uint256)'](receiver, amount)
+    expect(await pntOnGnosis.balanceOf(receiver)).to.be.eq(balance + amount)
+  }
 
-        await missingSteps()
-        await upgradeContracts()
+  const stake = async (pntOwner, amount, duration = 604800) => {
+    await pntOnGnosis.connect(pntOwner).approve(DAO_V3_STAKING_MANAGER, amount)
+    await stakingManager.connect(pntOwner).stake(pntOwner.address, amount, duration)
+  }
 
-        await Promise.all(tokenHolders.map(_holder => sendEth(hre, faucet, _holder.address, '5')))
-        await Promise.all(tokenHolders.map(_holder => mintPntOnGnosis(_holder.address, 10000)))
-        await Promise.all(tokenHolders.map(_holder => stake(_holder, 5000)))
-    })
+  const encodeUpdateGuardianRegistrationFunctionData = (owner, duration, guardian) =>
+    registrationManager.interface.encodeFunctionData('updateGuardianRegistration', [owner, duration, guardian])
 
-    const openNewVoteAndReachQuorum = async (_voteId, _executionScript, _metadata) => {
-        const supports = true
-        const voteCreator = tokenHolders[0]
-        const executionScriptBytes = getBytes(_executionScript)
+  const encodeVaultTransfer = (token, to, value) =>
+    daoTreasury.interface.encodeFunctionData('transfer', [token, to, value])
 
-        await grantCreateVotesPermission(voteCreator.address)
-        daoVoting = daoVoting.connect(voteCreator)
+  const encodeFunctionCall = (_to, _calldata) => ({
+    to: _to,
+    calldata: _calldata
+  })
 
-        await expect(daoVoting.newVote(executionScriptBytes, _metadata, supports))
-            .to.emit(daoVoting, 'StartVote')
-            .withArgs(_voteId, voteCreator.address, _metadata)
+  const createExecutorId = (id) => `0x${String(id).padStart(8, '0')}`
 
-        for (let tokenHolder of tokenHolders) {
-            if (tokenHolder === voteCreator) {
-                await expect(daoVoting.vote(_voteId, supports))
-                    .to.be.revertedWith('DANDELION_VOTING_CAN_NOT_VOTE')
-            } else {
-                await expect(daoVoting.connect(tokenHolder).vote(_voteId, supports))
-                    .to.emit(daoVoting, 'CastVote')
-            }
-        }
+  const encodeCallScript = (actions, specId = 1) =>
+    actions.reduce((script, { to, calldata }) => {
+      const encoder = new hre.ethers.utils.AbiCoder()
+      const addr = encoder.encode(['address'], [to])
+      const length = encoder.encode(['uint256'], [(calldata.length - 2) / 2])
+      // Remove 12 first 0s of padding for addr and 28 0s for uint32
+      return script + addr.slice(26) + length.slice(58) + calldata.slice(2)
+    }, createExecutorId(specId))
 
-        const vote = await daoVoting.getVote(_voteId)
-        const executionBlock = vote[3]
-        await mineUpTo(executionBlock.add(1))
-    }
+  it('it should open a vote for registering a guardian and execute it', async () => {
+    const voteId = 1
+    const metadata = 'Should we register a new guardian?'
+    const executionScript = encodeCallScript(
+      [
+        [DAO_V3_REGISTRATION_MANAGER, encodeUpdateGuardianRegistrationFunctionData(faucet.address, 10, faucet.address)]
+      ].map((_args) => encodeFunctionCall(..._args))
+    )
+    let currentBlock = await hre.ethers.provider.getBlockNumber()
+    expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(20000)
+    await mintPntOnGnosis(faucet.address, 10000)
+    await stake(faucet, 10000)
+    currentBlock = await hre.ethers.provider.getBlockNumber()
+    expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
 
-    const hasPermission = (who, where, what) =>
-        acl['hasPermission(address,address,bytes32)'](who, where, what)
+    await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
+    await expect(daoVoting.executeVote(voteId))
+      .to.emit(daoVoting, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
+  })
 
-    const setPermission = async (entity, app, role) =>
-        acl.connect(daoCreator).grantPermission(entity, app, role)
+  it('should lend PNTs and register a borrowing sentinel', async () => {
+    const amount = hre.ethers.utils.parseEther('200000', await pntOnGnosis.decimals())
+    await mintPntOnGnosis(faucet.address, hre.ethers.utils.parseEther('400000', await pntOnGnosis.decimals()))
+    await pntOnGnosis.connect(faucet).approve(DAO_V3_LENDING_MANAGER, amount)
+    const balancePre = await pntOnGnosis.balanceOf(faucet.address)
+    await expect(lendingManager.lend(faucet.address, amount, 86400 * 90))
+      .to.emit(lendingManager, 'Lended')
+      .withArgs(faucet.address, 2, 3, amount)
+      .and.to.emit(stakingManagerLm, 'Staked')
+      .withArgs(faucet.address, amount, 86400 * 90)
+    const balancePost = await pntOnGnosis.balanceOf(faucet.address)
+    expect(balancePre.sub(amount)).to.be.eq(balancePost)
 
-    const grantCreateVotesPermission = async (_who) => {
-        let hasPerm = await hasPermission(_who, DAO_V3_VOTING_CONTRACT, CREATE_VOTES_ROLE)
-        expect(hasPerm).to.be.false
-        await setPermission(_who, DAO_V3_VOTING_CONTRACT, CREATE_VOTES_ROLE)
-        hasPerm = await hasPermission(_who, DAO_V3_VOTING_CONTRACT, CREATE_VOTES_ROLE)
-        expect(hasPerm).to.be.true
-    }
+    const sentinel = hre.ethers.Wallet.createRandom()
+    const signature = await sentinel.signMessage('test')
+    expect(
+      await registrationManager
+        .connect(user)
+        ['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](1, signature, 0)
+    )
+      .to.emit(registrationManager, 'SentinelRegistrationUpdated')
+      .withArgs(
+        '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B',
+        2,
+        2,
+        '0xB48299F9704a2A268a09f5d47F56e662624E882f',
+        2,
+        200000000000000000000000
+      )
+  })
 
-    const mintPntOnGnosis = async (receiver, amount) => {
-        const balance = await pntOnGnosis.balanceOf(receiver)
-        await pntOnGnosis.connect(pntMinter)['mint(address,uint256)'](receiver, amount)
-        expect(await pntOnGnosis.balanceOf(receiver)).to.be.eq(balance + amount)
-    }
+  it('should register a staking sentinel', async () => {
+    const amount = hre.ethers.utils.parseEther('200000', await pntOnGnosis.decimals())
+    await mintPntOnGnosis(user.address, hre.ethers.utils.parseEther('400000', await pntOnGnosis.decimals()))
+    const sentinel = hre.ethers.Wallet.createRandom()
+    const signature = await sentinel.signMessage('test')
+    await pntOnGnosis.connect(user).approve(DAO_V3_REGISTRATION_MANAGER, amount)
+    expect(
+      await registrationManager
+        .connect(user)
+        .updateSentinelRegistrationByStaking(user.address, amount, 86400 * 30, signature, 0)
+    )
+      .to.emit(registrationManager, 'SentinelRegistrationUpdated')
+      .withArgs(
+        '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B',
+        2,
+        2,
+        '0xB48299F9704a2A268a09f5d47F56e662624E882f',
+        2,
+        200000000000000000000000
+      )
+  })
 
-    const stake = async (pntOwner, amount, duration = 604800) => {
-        await pntOnGnosis.connect(pntOwner).approve(DAO_V3_STAKING_MANAGER, amount)
-        await stakingManager.connect(pntOwner).stake(pntOwner.address, amount, duration)
-    }
+  it('should correctly stake after token has been changed', async () => {
+    const ERC20Factory = await hre.ethers.getContractFactory('MockPToken')
+    const newToken = await ERC20Factory.deploy('new PNT', 'nPNT', [], faucet.address, '0x00112233')
 
-    const encodeUpdateGuardianRegistrationFunctionData = (owner, duration, guardian) =>
-        registrationManager.interface.encodeFunctionData('updateGuardianRegistration', [owner, duration, guardian])
+    await pntOnGnosis.connect(faucet).approve(stakingManager.address, 10000)
+    await mintPntOnGnosis(faucet.address, 10000)
+    await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)
 
+    await expect(stakingManager.connect(daoOwner).changeToken(newToken.address))
+      .to.emit(stakingManager, 'TokenChanged')
+      .withArgs(pntOnGnosis.address, newToken.address)
+    await newToken.connect(faucet).mint(faucet.address, hre.ethers.utils.parseEther('200000'), '0x', '0x')
+    await newToken.connect(faucet).approve(stakingManager.address, 10000)
+    await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)).to.be.revertedWithCustomError(
+      stakingManager,
+      'InvalidToken'
+    )
+    await newToken.connect(faucet).mint(tokenHolders[0].address, hre.ethers.utils.parseEther('200000'), '0x', '0x')
+    await newToken.connect(tokenHolders[0]).approve(stakingManager.address, 10000)
+    await expect(stakingManager.connect(tokenHolders[0]).stake(tokenHolders[0].address, 10000, 86400 * 7)).to.emit(
+      stakingManager,
+      'Staked'
+    )
+  })
 
-    const encodeVaultTransfer = (token, to, value) =>
-        daoTreasury.interface.encodeFunctionData('transfer', [token, to, value])
+  it('should stake and unstake', async () => {
+    await pntOnGnosis.connect(faucet).approve(stakingManager.address, 10000)
+    await mintPntOnGnosis(faucet.address, 10000)
+    expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(10000)
+    expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(0)
+    await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)
+    expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(0)
+    expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(10000)
+    await time.increase(86400 * 4)
+    await expect(
+      stakingManager.connect(faucet)['unstake(uint256,bytes4)'](10000, '0x0075dd4c')
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await time.increase(86400 * 4)
+    await expect(stakingManager.connect(faucet)['unstake(uint256,bytes4)'](5000, '0x0075dd4c')).to.emit(
+      stakingManager,
+      'Unstaked'
+    )
+    expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(5000)
+    expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(5000)
+  })
 
-    const encodeFunctionCall = (_to, _calldata) => {
-        return {
-            to: _to,
-            calldata: _calldata
-        }
-    }
+  it('should move tokens to treasury and transfer from it following a vote', async () => {
+    await mintPntOnGnosis(daoTreasury.address, parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
 
-    const createExecutorId = (id) => `0x${String(id).padStart(8, '0')}`
+    const voteId = 1
+    const metadata = 'Should we transfer from vault to user?'
+    const executionScript = encodeCallScript(
+      [[DAO_V3_FINANCE_VAULT, encodeVaultTransfer(pntOnGnosis.address, user.address, parseEther('1'))]].map((_args) =>
+        encodeFunctionCall(..._args)
+      )
+    )
+    await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
 
-    const encodeCallScript = (actions, specId = 1) => {
-        console.info('actions', actions)
-        return actions.reduce((script, { to, calldata }) => {
-            const encoder = new hre.ethers.utils.AbiCoder()
-            const addr = encoder.encode(['address'], [to])
-            const length = encoder.encode(['uint256'], [(calldata.length - 2) / 2])
-            // Remove 12 first 0s of padding for addr and 28 0s for uint32
-            return script + addr.slice(26) + length.slice(58) + calldata.slice(2)
-        }, createExecutorId(specId))
-    }
+    await expect(daoVoting.executeVote(voteId))
+      .to.emit(daoVoting, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(daoTreasury, 'VaultTransfer')
+      .withArgs(pntOnGnosis.address, user.address, parseEther('1'))
+      .and.to.emit(pntOnGnosis, 'Transfer')
+      .withArgs(daoTreasury.address, user.address, parseEther('1'))
 
-    it("it should open a vote for registering a guardian and execute it", async () => {
-        const voteId = 1
-        const metadata = 'Should we register a new guardian?'
-        const executionScript = encodeCallScript(
-            [
-                [
-                    DAO_V3_REGISTRATION_MANAGER,
-                    encodeUpdateGuardianRegistrationFunctionData(faucet.address, 10, faucet.address)
-                ]
-            ].map(_args => encodeFunctionCall(..._args))
-        )
-        let currentBlock = await hre.ethers.provider.getBlockNumber()
-        expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(20000)
-        await mintPntOnGnosis(faucet.address, 10000)
-        await stake(faucet, 10000)
-        currentBlock = await hre.ethers.provider.getBlockNumber()
-        expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1'))
+  })
 
-        await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
-        await expect(daoVoting.executeVote(voteId)).to.emit(daoVoting, 'ExecuteVote')
-            .withArgs(voteId)
-            .and.to.emit(registrationManager, 'GuardianRegistrationUpdated')
-    })
+  it('should move tokens to treasury and transfer from it following a vote', async () => {
+    await mintPntOnGnosis(daoTreasury.address, parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
 
-    it("should lend PNTs and register a borrowing sentinel", async () => {
-        const amount = hre.ethers.utils.parseEther('200000', await pntOnGnosis.decimals())
-        await mintPntOnGnosis(faucet.address, hre.ethers.utils.parseEther('400000', await pntOnGnosis.decimals()))
-        await pntOnGnosis.connect(faucet).approve(DAO_V3_LENDING_MANAGER, amount)
-        const balancePre = await pntOnGnosis.balanceOf(faucet.address)
-        await expect(lendingManager.lend(faucet.address, amount, 86400 * 90)).to.emit(lendingManager, 'Lended').withArgs(faucet.address, 2, 3, amount)
-            .and.to.emit(stakingManagerLm, 'Staked').withArgs(faucet.address, amount, 86400 * 90)
-        const balancePost = await pntOnGnosis.balanceOf(faucet.address)
-        expect(balancePre.sub(amount)).to.be.eq(balancePost)
+    const voteId = 1
+    const metadata = 'Should we transfer from vault to user?'
+    const executionScript = encodeCallScript(
+      [[DAO_V3_FINANCE_VAULT, encodeVaultTransfer(pntOnGnosis.address, user.address, parseEther('1'))]].map((_args) =>
+        encodeFunctionCall(..._args)
+      )
+    )
+    await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
 
-        const sentinel = hre.ethers.Wallet.createRandom()
-        const signature = await sentinel.signMessage('test')
-        expect(await registrationManager.connect(user)['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](1, signature, 0)).to.emit(registrationManager, 'SentinelRegistrationUpdated').withArgs('0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B', 2, 2, '0xB48299F9704a2A268a09f5d47F56e662624E882f', 2, 200000000000000000000000)
-    })
+    await expect(daoVoting.executeVote(voteId))
+      .to.emit(daoVoting, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(daoTreasury, 'VaultTransfer')
+      .withArgs(pntOnGnosis.address, user.address, parseEther('1'))
+      .and.to.emit(pntOnGnosis, 'Transfer')
+      .withArgs(daoTreasury.address, user.address, parseEther('1'))
 
-    it("should register a staking sentinel", async () => {
-        const amount = hre.ethers.utils.parseEther('200000', await pntOnGnosis.decimals())
-        await mintPntOnGnosis(user.address, hre.ethers.utils.parseEther('400000', await pntOnGnosis.decimals()))
-        const sentinel = hre.ethers.Wallet.createRandom()
-        const signature = await sentinel.signMessage('test')
-        await pntOnGnosis.connect(user).approve(DAO_V3_REGISTRATION_MANAGER, amount)
-        expect(await registrationManager.connect(user).updateSentinelRegistrationByStaking(user.address, amount, 86400 * 30, signature, 0)).to.emit(registrationManager, 'SentinelRegistrationUpdated').withArgs('0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B', 2, 2, '0xB48299F9704a2A268a09f5d47F56e662624E882f', 2, 200000000000000000000000)
-    })
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1'))
+  })
 
-    it("should correctly stake after token has been changed", async () => {
-        const ERC20Factory = await hre.ethers.getContractFactory('MockPToken')
-        const newToken = await ERC20Factory.deploy('new PNT', 'nPNT', [], faucet.address, '0x00112233')
-
-        await pntOnGnosis.connect(faucet).approve(stakingManager.address, 10000)
-        await mintPntOnGnosis(faucet.address, 10000)
-        await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)
-
-        await expect(stakingManager.connect(daoOwner).changeToken(newToken.address)).to.emit(stakingManager, 'TokenChanged').withArgs(pntOnGnosis.address, newToken.address)
-        await newToken.connect(faucet).mint(faucet.address, hre.ethers.utils.parseEther('200000'), '0x', '0x')
-        await newToken.connect(faucet).approve(stakingManager.address, 10000)
-        await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)).to.be.revertedWithCustomError(stakingManager, 'InvalidToken')
-        await newToken.connect(faucet).mint(tokenHolders[0].address, hre.ethers.utils.parseEther('200000'), '0x', '0x')
-        await newToken.connect(tokenHolders[0]).approve(stakingManager.address, 10000)
-        await expect(stakingManager.connect(tokenHolders[0]).stake(tokenHolders[0].address, 10000, 86400 * 7)).to.emit(stakingManager, 'Staked')
-    })
-
-    it("should stake and unstake", async () => {
-        await pntOnGnosis.connect(faucet).approve(stakingManager.address, 10000)
-        await mintPntOnGnosis(faucet.address, 10000)
-        expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(10000)
-        expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(0)
-        await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)
-        expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(0)
-        expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(10000)
-        await time.increase(86400 * 4)
-        await expect(stakingManager.connect(faucet)['unstake(uint256,bytes4)'](10000, '0x0075dd4c')).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
-        await time.increase(86400 * 4)
-        await expect(stakingManager.connect(faucet)['unstake(uint256,bytes4)'](5000, '0x0075dd4c')).to.emit(stakingManager, 'Unstaked')
-        expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(5000)
-        expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(5000)
-    })
-
-    it("should move tokens to treasury and transfer from it following a vote", async () => {
-        await mintPntOnGnosis(daoTreasury.address, parseEther('200000'))
-        expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000'))
-        expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
-
-        const voteId = 1
-        const metadata = 'Should we transfer from vault to user?'
-        const executionScript = encodeCallScript(
-            [
-                [
-                    DAO_V3_FINANCE_VAULT,
-                    encodeVaultTransfer(pntOnGnosis.address, user.address, parseEther('1'))
-                ]
-            ].map(_args => encodeFunctionCall(..._args))
-        )
-        await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
-
-        await expect(daoVoting.executeVote(voteId)).to.emit(daoVoting, 'ExecuteVote')
-            .withArgs(voteId)
-            .and.to.emit(daoTreasury, 'VaultTransfer').withArgs(pntOnGnosis.address, user.address, parseEther('1'))
-            .and.to.emit(pntOnGnosis, 'Transfer').withArgs(daoTreasury.address, user.address, parseEther('1'))
-
-        expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1'))
-    })
-
-    it("should move tokens to treasury and transfer from it following a vote", async () => {
-        await mintPntOnGnosis(daoTreasury.address, parseEther('200000'))
-        expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000'))
-        expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
-
-        const voteId = 1
-        const metadata = 'Should we transfer from vault to user?'
-        const executionScript = encodeCallScript(
-            [
-                [
-                    DAO_V3_FINANCE_VAULT,
-                    encodeVaultTransfer(pntOnGnosis.address, user.address, parseEther('1'))
-                ]
-            ].map(_args => encodeFunctionCall(..._args))
-        )
-        await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
-
-        await expect(daoVoting.executeVote(voteId)).to.emit(daoVoting, 'ExecuteVote')
-            .withArgs(voteId)
-            .and.to.emit(daoTreasury, 'VaultTransfer').withArgs(pntOnGnosis.address, user.address, parseEther('1'))
-            .and.to.emit(pntOnGnosis, 'Transfer').withArgs(daoTreasury.address, user.address, parseEther('1'))
-
-        expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1'))
-    })
-
-    it.only("should create an immediate payment via finance app", async () => {
-        await setPermission(faucet.address, finance.address, CREATE_PAYMENTS_ROLE)
-        const amount = parseEther('1.5')
-        await mintPntOnGnosis(daoTreasury.address, parseEther('200000'))
-        expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000'))
-        expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
-        await expect(finance.connect(faucet).newImmediatePayment(pntOnGnosis.address, user.address, amount, 'test'))
-            .to.emit(daoTreasury, 'VaultTransfer').withArgs(pntOnGnosis.address, user.address, amount)
-            .and.to.emit(pntOnGnosis, 'Transfer').withArgs(daoTreasury.address, user.address, amount)
-        expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000').sub(amount))
-        expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(amount)
-    })
+  it('should create an immediate payment via finance app', async () => {
+    await setPermission(faucet.address, finance.address, CREATE_PAYMENTS_ROLE)
+    const amount = parseEther('1.5')
+    await mintPntOnGnosis(daoTreasury.address, parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
+    await expect(finance.connect(faucet).newImmediatePayment(pntOnGnosis.address, user.address, amount, 'test'))
+      .to.emit(daoTreasury, 'VaultTransfer')
+      .withArgs(pntOnGnosis.address, user.address, amount)
+      .and.to.emit(pntOnGnosis, 'Transfer')
+      .withArgs(daoTreasury.address, user.address, amount)
+    expect(await pntOnGnosis.balanceOf(daoTreasury.address)).to.be.eq(parseEther('200000').sub(amount))
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(amount)
+  })
 })

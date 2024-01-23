@@ -6,8 +6,7 @@ const { getRole } = require('./utils')
 const EPOCH_DURATION = 86400 // 1 day
 
 describe('EpochsManager', () => {
-  let epochsManager,
-    EpochsManager
+  let epochsManager, EpochsManager
 
   beforeEach(async () => {
     EpochsManager = await ethers.getContractFactory('EpochsManager')

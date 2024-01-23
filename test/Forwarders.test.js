@@ -29,7 +29,11 @@ let acl,
   stakingManagerRM,
   lendingManager,
   registrationManager,
+  epochsManager,
+  vault,
+  voting,
   owner,
+  pnt,
   pToken,
   pnetwork,
   sentinel1,
@@ -69,7 +73,13 @@ describe('Forwarders', () => {
     acl = ACL.attach(ACL_ADDRESS)
     pnt = await TestToken.deploy('PNT', 'PNT')
     vault = await MockPTokensVault.deploy(PNETWORK_NETWORK_IDS.ethereumMainnet)
-    pToken = await MockPToken.connect(owner).deploy('Host Token (pToken)', 'HTKN', [], pnetwork.address, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    pToken = await MockPToken.connect(owner).deploy(
+      'Host Token (pToken)',
+      'HTKN',
+      [],
+      pnetwork.address,
+      PNETWORK_NETWORK_IDS.gnosisMainnet
+    )
     await pnt.connect(owner).transfer(pntHolder1.address, ethers.utils.parseEther('400000'))
     await pnt.connect(owner).transfer(pntHolder2.address, ethers.utils.parseEther('400000'))
 
@@ -112,7 +122,14 @@ describe('Forwarders', () => {
 
     lendingManager = await upgrades.deployProxy(
       LendingManager,
-      [pToken.address, stakingManagerLM.address, epochsManager.address, forwarderHost.address, fakeDandelionVoting.address, LEND_MAX_EPOCHS],
+      [
+        pToken.address,
+        stakingManagerLM.address,
+        epochsManager.address,
+        forwarderHost.address,
+        fakeDandelionVoting.address,
+        LEND_MAX_EPOCHS
+      ],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -213,13 +230,20 @@ describe('Forwarders', () => {
 
   it('should be able to forward a vote', async () => {
     const voteId = 1
-    const dandelionVotingInterface = new ethers.utils.Interface(['function delegateVote(address voter, uint256 _voteId, bool _supports)'])
+    const dandelionVotingInterface = new ethers.utils.Interface([
+      'function delegateVote(address voter, uint256 _voteId, bool _supports)'
+    ])
     const userData = encode(
       ['address[]', 'bytes[]'],
-      [[voting.address], [dandelionVotingInterface.encodeFunctionData('delegateVote', [pntHolder1.address, voteId, true])]]
+      [
+        [voting.address],
+        [dandelionVotingInterface.encodeFunctionData('delegateVote', [pntHolder1.address, voteId, true])]
+      ]
     )
 
-    await forwarderNative.connect(pntHolder1).call(0, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(0, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
 
@@ -258,7 +282,9 @@ describe('Forwarders', () => {
     )
 
     await pnt.connect(pntHolder1).approve(forwarderNative.address, stakeAmount)
-    await forwarderNative.connect(pntHolder1).call(stakeAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(stakeAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
@@ -297,7 +323,9 @@ describe('Forwarders', () => {
     )
 
     await pnt.connect(pntHolder1).approve(forwarderNative.address, lendAmount)
-    await forwarderNative.connect(pntHolder1).call(lendAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(lendAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
@@ -343,7 +371,9 @@ describe('Forwarders', () => {
     )
 
     await pnt.connect(pntHolder1).approve(forwarderNative.address, stakeAmount)
-    await forwarderNative.connect(pntHolder1).call(stakeAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(stakeAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
@@ -383,7 +413,9 @@ describe('Forwarders', () => {
     )
 
     await pnt.connect(pntHolder2).approve(forwarderNative.address, lendAmount)
-    await forwarderNative.connect(pntHolder2).call(lendAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder2)
+      .call(lendAmount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     let metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
@@ -411,11 +443,18 @@ describe('Forwarders', () => {
       ['address[]', 'bytes[]'],
       [
         [registrationManager.address],
-        [registrationManager.interface.encodeFunctionData('updateSentinelRegistrationByBorrowing(address,uint16,bytes,uint256)', [pntHolder1.address, numberOfEpochs, signature, 0])]
+        [
+          registrationManager.interface.encodeFunctionData(
+            'updateSentinelRegistrationByBorrowing(address,uint16,bytes,uint256)',
+            [pntHolder1.address, numberOfEpochs, signature, 0]
+          )
+        ]
       ]
     )
 
-    await forwarderNative.connect(pntHolder1).call(0, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(0, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
@@ -433,7 +472,14 @@ describe('Forwarders', () => {
 
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, metadata, '0x'))
       .to.emit(registrationManager, 'SentinelRegistrationUpdated')
-      .withArgs(pntHolder1.address, 1, 12, sentinel1.address, REGISTRATION_SENTINEL_BORROWING, BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION)
+      .withArgs(
+        pntHolder1.address,
+        1,
+        12,
+        sentinel1.address,
+        REGISTRATION_SENTINEL_BORROWING,
+        BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION
+      )
   })
 
   it('should be able to forward an unstake request', async () => {
@@ -453,7 +499,9 @@ describe('Forwarders', () => {
     )
 
     await pnt.connect(pntHolder1).approve(forwarderNative.address, amount)
-    await forwarderNative.connect(pntHolder1).call(amount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(amount, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     let metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
@@ -477,11 +525,19 @@ describe('Forwarders', () => {
       ['address[]', 'bytes[]'],
       [
         [stakingManager.address],
-        [stakingManager.interface.encodeFunctionData('unstake(address,uint256,bytes4)', [pntHolder1.address, amount, PNETWORK_NETWORK_IDS.ethereumMainnet])]
+        [
+          stakingManager.interface.encodeFunctionData('unstake(address,uint256,bytes4)', [
+            pntHolder1.address,
+            amount,
+            PNETWORK_NETWORK_IDS.ethereumMainnet
+          ])
+        ]
       ]
     )
 
-    await forwarderNative.connect(pntHolder1).call(0, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(0, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
     metadata = encode(
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
@@ -504,7 +560,12 @@ describe('Forwarders', () => {
 
   it('should not be able to updateSentinelRegistrationByBorrowing for a third party', async () => {
     await expect(
-      registrationManager['updateSentinelRegistrationByBorrowing(address,uint16,bytes,uint256)'](pntHolder2.address, 2, '0x',0)
+      registrationManager['updateSentinelRegistrationByBorrowing(address,uint16,bytes,uint256)'](
+        pntHolder2.address,
+        2,
+        '0x',
+        0
+      )
     ).to.be.revertedWithCustomError(registrationManager, 'InvalidForwarder')
   })
 })
