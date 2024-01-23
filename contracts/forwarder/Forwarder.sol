@@ -48,14 +48,14 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
         bytes calldata /*_operatorData*/
     ) external override {
         if (_msgSender() == token && _from == sender) {
-            (, bytes memory userData, , , , , , ) = abi.decode(
+            (, bytes memory userData, , address originAddress, , , , ) = abi.decode(
                 _userData,
                 (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
             );
 
-            (bytes memory callsAndTargets, address originAddress, address caller) = abi.decode(
+            (bytes memory callsAndTargets, address caller) = abi.decode(
                 userData,
-                (bytes, address, address)
+                (bytes, address)
             );
 
             if (!_whitelistedOriginAddresses[originAddress]) {
@@ -99,7 +99,7 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
             IERC20(token).safeTransferFrom(msgSender, address(this), amount);
         }
 
-        bytes memory effectiveUserData = abi.encode(data, address(this), msgSender);
+        bytes memory effectiveUserData = abi.encode(data, msgSender);
         uint256 effectiveAmount = amount == 0 ? 1 : amount;
 
         if (vault != address(0)) {

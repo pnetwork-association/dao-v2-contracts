@@ -38,7 +38,6 @@ let acl,
   pnetwork,
   sentinel1,
   root,
-  router,
   pntHolder1,
   pntHolder2,
   fakeForwarder,
@@ -62,9 +61,8 @@ describe('Forwarders', () => {
     const signers = await ethers.getSigners()
     owner = signers[0]
     sentinel1 = signers[1]
-    router = signers[2]
-    fakeForwarder = signers[3]
-    fakeDandelionVoting = signers[4]
+    fakeForwarder = signers[2]
+    fakeDandelionVoting = signers[3]
     pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
@@ -251,8 +249,8 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
-        PNETWORK_NETWORK_IDS.interim,
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
         forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
@@ -264,6 +262,45 @@ describe('Forwarders', () => {
     await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, metadata, '0x'))
       .to.emit(voting, 'CastVote')
       .withArgs(voteId, pntHolder1.address, true)
+  })
+
+  it('should not be able to forward if sender is not native forwarder', async () => {
+    const attacker = ethers.Wallet.createRandom()
+    const voteId = 1
+    const dandelionVotingInterface = new ethers.utils.Interface([
+      'function delegateVote(address voter, uint256 _voteId, bool _supports)'
+    ])
+    const userData = encode(
+      ['address[]', 'bytes[]'],
+      [
+        [voting.address],
+        [dandelionVotingInterface.encodeFunctionData('delegateVote', [pntHolder1.address, voteId, true])]
+      ]
+    )
+
+    await forwarderNative
+      .connect(pntHolder1)
+      .call(0, forwarderHost.address, userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+
+    // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
+
+    const metadata = encode(
+      ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+      [
+        '0x02',
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        attacker.address,
+        PNETWORK_NETWORK_IDS.gnosisMainnet,
+        forwarderHost.address,
+        '0x',
+        '0x'
+      ]
+    )
+
+    await expect(pToken.connect(pnetwork).mint(forwarderHost.address, 0, metadata, '0x'))
+      .to.be.revertedWithCustomError(forwarderNative, 'InvalidOriginAddress')
+      .withArgs(attacker.address)
   })
 
   it('should be able to forward a stake request', async () => {
@@ -292,9 +329,9 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
-        PNETWORK_NETWORK_IDS.interim,
-        router.address,
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
         '0x',
@@ -333,9 +370,9 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
-        PNETWORK_NETWORK_IDS.interim,
-        router.address,
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
         '0x',
@@ -381,9 +418,9 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
-        PNETWORK_NETWORK_IDS.interim,
-        router.address,
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
         '0x',
@@ -421,9 +458,9 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder2.address),
-        PNETWORK_NETWORK_IDS.interim,
-        router.address,
+        getUserDataGeneratedByForwarder(userData, pntHolder2.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
         '0x',
@@ -460,9 +497,9 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
-        PNETWORK_NETWORK_IDS.interim,
-        router.address,
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
         '0x',
@@ -507,9 +544,9 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
-        PNETWORK_NETWORK_IDS.interim,
-        router.address,
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
         '0x',
@@ -543,9 +580,9 @@ describe('Forwarders', () => {
       ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
       [
         '0x02',
-        getUserDataGeneratedByForwarder(userData, forwarderNative.address, pntHolder1.address),
-        PNETWORK_NETWORK_IDS.interim,
-        router.address,
+        getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        forwarderNative.address,
         PNETWORK_NETWORK_IDS.gnosisMainnet,
         forwarderHost.address,
         '0x',
@@ -567,5 +604,13 @@ describe('Forwarders', () => {
         0
       )
     ).to.be.revertedWithCustomError(registrationManager, 'InvalidForwarder')
+  })
+
+  it.skip('decode metadata', async () => {
+    // https://polygonscan.com/tx/0x25c15710d27d2f7d342ee78ad20c9ce6f4ae9e6f127895b04bf4d67a256050cd
+    const bytes =
+      '0x02000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100ffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000054d5a0638f23f0b89053f86eed60237bbc56e98c0075dd4c00000000000000000000000000000000000000000000000000000000000000000000000000000000257a984836f4459954ce09955e3c00e8c5b1fb8900000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000003e000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000060000000000000000000000000728ee450b8c75699149dd297ed6ec4176d8df65e00000000000000000000000067071fc7f4cf8a0fd272d66a5d06fba850198f740000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000b6bcae6468760bc0cdfb9c8ef4ee75c9dd23e1ed0000000000000000000000001491733a4c3fa754e895fcd99acdeca0d33645c30000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000044095ea7b30000000000000000000000001491733a4c3fa754e895fcd99acdeca0d33645c30000000000000000000000000000000000000000000000af30bbc818391df0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000642b54f55100000000000000000000000067071fc7f4cf8a0fd272d66a5d06fba850198f740000000000000000000000000000000000000000000000af30bbc818391df0000000000000000000000000000000000000000000000000000000000000093a800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    const decoder = new ethers.utils.AbiCoder()
+    decoder.decode(['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'], bytes)
   })
 })
