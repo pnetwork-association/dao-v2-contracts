@@ -1,4 +1,4 @@
 module.exports = {
-  '*.+(js|jsx)': 'eslint --cache',
+  '*.+(js|jsx)': 'eslint --cache --fix',
   '*': 'secretlint',
 }
