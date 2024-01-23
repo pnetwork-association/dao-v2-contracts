@@ -3,7 +3,7 @@
   "semi": false,
   "singleQuote": true,
   "bracketSpacing": true,
-  "printWidth": 150,
+  "printWidth": 120,
   "trailingComma": "none",
   "overrides": [
     {

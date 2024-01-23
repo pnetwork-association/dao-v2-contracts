@@ -1,0 +1,16 @@
+{
+  "extends": "./node_modules/gts/",
+  "env": {
+    "es2021": true,
+    "mocha": true,
+    "browser": true,
+    "jest": true
+  },
+  "rules": {
+    "camelcase": ["error"],
+    "no-console": ["error"],
+    "eol-last": ["error", "always"],
+    "arrow-body-style": ["error", "as-needed"],
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+  }
+}
