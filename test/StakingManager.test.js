@@ -1,7 +1,7 @@
+const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
-const { time } = require('@nomicfoundation/hardhat-network-helpers')
-const { getRole } = require('./utils/index')
+
 const {
   ACL_ADDRESS,
   DAO_PNT_ADDRESS,
@@ -14,6 +14,7 @@ const {
   TOKEN_MANAGER_ADDRESS,
   ZERO_ADDRESS
 } = require('./constants')
+const { getRole } = require('./utils/index')
 
 describe('StakingManager', () => {
   let pntHolder1, root, owner, stakingManager, StakingManager, fakeForwarder, challenger, acl, pnt, daoPnt

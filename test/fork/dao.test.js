@@ -1,8 +1,15 @@
-const hre = require('hardhat')
-const { expect } = require('chai')
-const { sendEth } = require('../utils/send-eth')
-const { getRole } = require('../utils')
 const { mineUpTo, time } = require('@nomicfoundation/hardhat-network-helpers')
+const { expect } = require('chai')
+const hre = require('hardhat')
+
+const AclAbi = require('../abi/ACL.json')
+const DandelionVotingAbi = require('../abi/DandelionVoting.json')
+const DaoPntAbi = require('../abi/daoPNT.json')
+const FinanceAbi = require('../abi/Finance.json')
+const PNTonGnosisAbi = require('../abi/PNTonGnosis.json')
+const VaultAbi = require('../abi/Vault.json')
+const { getRole } = require('../utils')
+const { sendEth } = require('../utils/send-eth')
 
 // roles
 const CREATE_VOTES_ROLE = getRole('CREATE_VOTES_ROLE')
@@ -38,13 +45,6 @@ const DAO_V3_LENDING_MANAGER = '0xEf3A54f764F58848e66BaDc427542b44C44b5553'
 const TOKEN_CONTROLLER = '0xCec0058735D50de98d3715792569921FEb9EfDC1'
 
 const USER_ADDRESS = '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B'
-
-const AclAbi = require('../abi/ACL.json')
-const DaoPntAbi = require('../abi/daoPNT.json')
-const VaultAbi = require('../abi/Vault.json')
-const DandelionVotingAbi = require('../abi/DandelionVoting.json')
-const PNTonGnosisAbi = require('../abi/PNTonGnosis.json')
-const FinanceAbi = require('../abi/Finance.json')
 
 const getBytes = (_hexString) => Buffer.from(_hexString.slice(2), 'hex')
 
@@ -86,26 +86,23 @@ describe('Integration tests on Gnosis deployment', () => {
   }
 
   const upgradeContracts = async () => {
-    await stakingManager
-      .connect(daoOwner)
-      .grantRole(
-        '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
-        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
-      )
+    await stakingManager.connect(daoOwner).grantRole(
+      // secretlint-disable-next-line
+      '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
+      '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+    )
     await hre.upgrades.upgradeProxy(stakingManager, StakingManager)
-    await stakingManagerRm
-      .connect(daoOwner)
-      .grantRole(
-        '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
-        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
-      )
+    await stakingManagerRm.connect(daoOwner).grantRole(
+      // secretlint-disable-next-line
+      '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
+      '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+    )
     await hre.upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
-    await stakingManagerLm
-      .connect(daoOwner)
-      .grantRole(
-        '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
-        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
-      )
+    await stakingManagerLm.connect(daoOwner).grantRole(
+      // secretlint-disable-next-line
+      '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
+      '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+    )
     await hre.upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
   }
 

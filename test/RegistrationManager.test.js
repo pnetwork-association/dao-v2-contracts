@@ -1,8 +1,7 @@
+const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades, config, network } = require('hardhat')
-const { time } = require('@nomicfoundation/hardhat-network-helpers')
 
-const { getRole, getSentinelIdentity, truncateWithPrecision } = require('./utils')
 const {
   ACL_ADDRESS,
   BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
@@ -21,6 +20,7 @@ const {
   MINIMUM_BORROWING_FEE,
   ONE_HOUR_IN_S
 } = require('./constants')
+const { getRole, getSentinelIdentity, truncateWithPrecision } = require('./utils')
 
 const BORROW_ROLE = getRole('BORROW_ROLE')
 const RELEASE_ROLE = getRole('RELEASE_ROLE')
