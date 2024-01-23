@@ -1,3 +1,5 @@
+const { task } = require('hardhat/config')
+
 const {
   ACL_ADDRESS,
   TOKEN_MANAGER_ADDRESS,
@@ -7,11 +9,9 @@ const {
   LENDING_MANAGER,
   REGISTRATION_MANAGER
 } = require('./config')
-const { task } = require('hardhat/config')
-
-const getRole = (_message) => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_message))
 
 const setPermissions = async (_args, _hre) => {
+  const getRole = (_message) => _hre.ethers.utils.keccak256(_hre.ethers.utils.toUtf8Bytes(_message))
   const signer = await _hre.ethers.getSigner()
 
   const ACL = await _hre.ethers.getContractFactory('ACL')

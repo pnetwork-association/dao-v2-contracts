@@ -1,3 +1,5 @@
+const { task } = require('hardhat/config')
+
 const {
   DANDELION_VOTING_ADDRESS,
   EPOCH_DURATION,
@@ -16,7 +18,6 @@ const {
   REGISTRATION_MANAGER,
   FEES_MANAGER
 } = require('./config')
-const { task } = require('hardhat/config')
 
 const deploy = async (_args, _hre) => {
   const StakingManager = await _hre.ethers.getContractFactory('StakingManager')
@@ -83,10 +84,14 @@ const deploy = async (_args, _hre) => {
     // await _hre.upgrades.upgradeProxy(EpochsManager, EpochsManager)
     epochsManager = EpochsManager.attach(EPOCHS_MANAGER)
   } else {
-    epochsManager = await _hre.upgrades.deployProxy(EpochsManager, [EPOCH_DURATION, START_FIRST_EPOCH_TIMESTAMP ? START_FIRST_EPOCH_TIMESTAMP : 0], {
-      initializer: 'initialize',
-      kind: 'uups'
-    })
+    epochsManager = await _hre.upgrades.deployProxy(
+      EpochsManager,
+      [EPOCH_DURATION, START_FIRST_EPOCH_TIMESTAMP ? START_FIRST_EPOCH_TIMESTAMP : 0],
+      {
+        initializer: 'initialize',
+        kind: 'uups'
+      }
+    )
   }
   console.info('EpochsManager:', epochsManager.address)
 
@@ -98,7 +103,14 @@ const deploy = async (_args, _hre) => {
   } else {
     lendingManager = await _hre.upgrades.deployProxy(
       LendingManager,
-      [PNT_ON_GNOSIS_ADDRESS, stakingManagerLM.address, epochsManager.address, FORWARDER_ON_GNOSIS, DANDELION_VOTING_ADDRESS, LEND_MAX_EPOCHS],
+      [
+        PNT_ON_GNOSIS_ADDRESS,
+        stakingManagerLM.address,
+        epochsManager.address,
+        FORWARDER_ON_GNOSIS,
+        DANDELION_VOTING_ADDRESS,
+        LEND_MAX_EPOCHS
+      ],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -115,7 +127,13 @@ const deploy = async (_args, _hre) => {
   } else {
     registrationManager = await _hre.upgrades.deployProxy(
       RegistrationManager,
-      [PNT_ON_GNOSIS_ADDRESS, stakingManagerRM.address, epochsManager.address, lendingManager.address, FORWARDER_ON_GNOSIS],
+      [
+        PNT_ON_GNOSIS_ADDRESS,
+        stakingManagerRM.address,
+        epochsManager.address,
+        lendingManager.address,
+        FORWARDER_ON_GNOSIS
+      ],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -132,7 +150,13 @@ const deploy = async (_args, _hre) => {
   } else {
     feesManager = await _hre.upgrades.deployProxy(
       FeesManager,
-      [epochsManager.address, lendingManager.address, registrationManager.address, FORWARDER_ON_GNOSIS, MINIMUM_BORROWING_FEE],
+      [
+        epochsManager.address,
+        lendingManager.address,
+        registrationManager.address,
+        FORWARDER_ON_GNOSIS,
+        MINIMUM_BORROWING_FEE
+      ],
       {
         initializer: 'initialize',
         kind: 'uups'
