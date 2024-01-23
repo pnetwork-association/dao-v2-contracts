@@ -1,5 +1,5 @@
 {
-  "extends": "./node_modules/gts/",
+  "extends": ["./node_modules/gts/", "plugin:import/recommended"],
   "env": {
     "es2021": true,
     "mocha": true,
@@ -11,6 +11,17 @@
     "no-console": ["error"],
     "eol-last": ["error", "always"],
     "arrow-body-style": ["error", "as-needed"],
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "import/newline-after-import": "error",
+    "import/order": [
+      "error",
+      {
+        "newlines-between": "always",
+        "alphabetize": {
+          "order": "asc" /* sort in ascending order. Options: ['ignore', 'asc', 'desc'] */,
+          "caseInsensitive": true /* ignore case. Options: [true, false] */
+        }
+      }
+    ]
   }
 }
