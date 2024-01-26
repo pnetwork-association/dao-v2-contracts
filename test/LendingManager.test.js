@@ -13,7 +13,8 @@ const {
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
   PNT_MAX_TOTAL_SUPPLY,
-  TOKEN_MANAGER_ADDRESS
+  TOKEN_MANAGER_ADDRESS,
+  VOTE_STATUS
 } = require('./constants')
 const {
   BORROW_ROLE,
@@ -67,7 +68,6 @@ describe('LendingManager', () => {
     pnt = await TestToken.deploy('PNT', 'PNT')
     acl = ACL.attach(ACL_ADDRESS)
     dandelionVoting = await MockDandelionVotingContract.deploy()
-    await dandelionVoting.setTestStartDate(EPOCH_DURATION * 1000) // this is needed to don't break normal tests
 
     await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('400000'))
     await pnt.connect(owner).transfer(pntHolder2.address, ethers.parseEther('400000'))
@@ -1095,13 +1095,23 @@ describe('LendingManager', () => {
     expect(await lendingManager.totalWeightByEpoch(5)).to.be.eq(5000)
 
     await lendingManager.depositReward(await pnt.getAddress(), 1, depositRewardAmount)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
+
     await time.increase(EPOCH_DURATION)
     await expect(lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 1))
       .to.emit(lendingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, await pnt.getAddress(), 1, depositRewardAmount)
 
     await lendingManager.depositReward(await pnt.getAddress(), 2, depositRewardAmount)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder2.address, VOTE_STATUS.YES)
+
     await time.increase(EPOCH_DURATION)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder2.address, VOTE_STATUS.YES)
     await expect(lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 2))
       .to.emit(lendingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, await pnt.getAddress(), 2, ethers.parseEther('8823.529411764705882352'))
@@ -1110,6 +1120,9 @@ describe('LendingManager', () => {
       .withArgs(pntHolder2.address, await pnt.getAddress(), 2, ethers.parseEther('1176.470588235294117647'))
 
     await time.increase(EPOCH_DURATION)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder2.address, VOTE_STATUS.YES)
     await expect(
       lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 3)
     ).to.be.revertedWithCustomError(lendingManager, 'NothingToClaim')
@@ -1126,6 +1139,10 @@ describe('LendingManager', () => {
     ).to.be.revertedWithCustomError(lendingManager, 'NothingToClaim')
 
     await lendingManager.depositReward(await pnt.getAddress(), 5, depositRewardAmount)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder2.address, VOTE_STATUS.YES)
+
     await time.increase(EPOCH_DURATION)
     // ((5k / 5k) + (1/1)) / 2 = 1   --->   10000 * 1 = 10000
     await expect(lendingManager.connect(pntHolder2).claimRewardByEpoch(await pnt.getAddress(), 5))
@@ -1184,7 +1201,13 @@ describe('LendingManager', () => {
     expect(await lendingManager.totalWeightByEpoch(2)).to.be.eq(5000)
 
     await lendingManager.depositReward(await pnt.getAddress(), 1, depositRewardAmount)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
+
     await time.increase(EPOCH_DURATION)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder2.address, VOTE_STATUS.YES)
+
     await expect(lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 1))
       .to.emit(lendingManager, 'RewardClaimed')
       .withArgs(pntHolder1.address, await pnt.getAddress(), 1, depositRewardAmount)
@@ -1237,9 +1260,14 @@ describe('LendingManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
     await lendingManager.connect(pntHolder2).lend(pntHolder2.address, depositAmountPntHolder2, duration)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder2.address, VOTE_STATUS.NO)
 
     await lendingManager.depositReward(await pnt.getAddress(), 1, depositRewardAmount)
     await expect(lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 1))
@@ -1248,6 +1276,8 @@ describe('LendingManager', () => {
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(3)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await lendingManager.depositReward(await pnt.getAddress(), 2, depositRewardAmount)
     // (50k * 3) / (50k*3 + 5k*4) = 0.8823529411764705882352  ---> 1000 * 0.8823529411764705882352 = 8823.529411764705882352
@@ -1261,6 +1291,8 @@ describe('LendingManager', () => {
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await expect(
       lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 3)
@@ -1272,6 +1304,9 @@ describe('LendingManager', () => {
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder2.address, VOTE_STATUS.YES)
+
     await expect(
       lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 4)
     ).to.be.revertedWithCustomError(lendingManager, 'NothingToClaim')
@@ -1787,7 +1822,6 @@ describe('LendingManager', () => {
     const depositRewardAmount = ethers.parseEther('10000')
     const depositAmountPntHolder1 = ethers.parseEther('50000')
     const depositAmountPntHolder2 = ethers.parseEther('5000')
-    const startFirstEpochTimestamp = await epochsManager.startFirstEpochTimestamp()
     const duration = EPOCH_DURATION * 5
 
     await pnt.connect(pntHolder1).approve(await lendingManager.getAddress(), INFINITE)
@@ -1800,32 +1834,36 @@ describe('LendingManager', () => {
     expect(await epochsManager.currentEpoch()).to.be.equal(1)
     await lendingManager.connect(pntHolder2).lend(pntHolder2.address, depositAmountPntHolder2, duration)
 
-    // making the vote available at epoch 1
-    await dandelionVoting.setTestStartDate(startFirstEpochTimestamp + BigInt(EPOCH_DURATION + ONE_DAY))
-    await dandelionVoting.setTestVoteState(0)
+    // create a vote
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(1, pntHolder1.address, VOTE_STATUS.ABSENT)
 
     await lendingManager.depositReward(await pnt.getAddress(), 1, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
-    await expect(
-      lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 1)
-    ).to.be.revertedWithCustomError(lendingManager, 'NotPartecipatedInGovernanceAtEpoch')
+    await expect(lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 1))
+      .to.be.revertedWithCustomError(lendingManager, 'NotPartecipatedInGovernanceAtEpoch')
+      .withArgs(1)
 
     await lendingManager.depositReward(await pnt.getAddress(), 2, depositRewardAmount)
     await time.increase(EPOCH_DURATION)
-
-    // making the vote available at epoch 2
-    await dandelionVoting.setTestStartDate(startFirstEpochTimestamp + BigInt(EPOCH_DURATION * 2 + ONE_DAY))
-    await dandelionVoting.setTestVoteState(1)
+    // no votes at epoch 2
+    await dandelionVoting.setTestVoteState(1, pntHolder1.address, VOTE_STATUS.YES)
+    await dandelionVoting.setTestVoteState(1, pntHolder2.address, VOTE_STATUS.YES)
 
     await expect(lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 2))
-      .to.emit(lendingManager, 'RewardClaimed')
-      .withArgs(pntHolder1.address, await pnt.getAddress(), 2, ethers.parseEther('8823.529411764705882352'))
-    await expect(lendingManager.connect(pntHolder2).claimRewardByEpoch(await pnt.getAddress(), 2))
-      .to.emit(lendingManager, 'RewardClaimed')
-      .withArgs(pntHolder2.address, await pnt.getAddress(), 2, ethers.parseEther('1176.470588235294117647'))
+      .to.be.revertedWithCustomError(lendingManager, 'NotPartecipatedInGovernanceAtEpoch')
+      .withArgs(2)
+    await expect(lendingManager.connect(pntHolder1).claimRewardByEpoch(await pnt.getAddress(), 2))
+      .to.be.revertedWithCustomError(lendingManager, 'NotPartecipatedInGovernanceAtEpoch')
+      .withArgs(2)
+
+    await time.increase(EPOCH_DURATION * 2)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(2, pntHolder1.address, VOTE_STATUS.YES)
+    await dandelionVoting.setTestVoteState(2, pntHolder2.address, VOTE_STATUS.YES)
 
     await lendingManager.depositReward(await pnt.getAddress(), 5, depositRewardAmount)
-    await time.increase(EPOCH_DURATION * 3)
+    await time.increase(EPOCH_DURATION)
     // ((5k / 5k) + (1/1)) / 2 = 1   --->   10000 * 1 = 10000
     await expect(lendingManager.connect(pntHolder2).claimRewardByEpoch(await pnt.getAddress(), 5))
       .to.emit(lendingManager, 'RewardClaimed')

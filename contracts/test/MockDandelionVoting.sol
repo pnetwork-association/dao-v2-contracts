@@ -2,21 +2,26 @@
 pragma solidity ^0.8.17;
 
 contract MockDandelionVotingContract {
-    uint64 private _testStartDate;
-    uint64 private _testSnapshotBlock;
-    mapping(address => uint256) private _testVoteState;
+    struct Vote {
+        mapping(address => uint256) votersState;
+        uint64 startDate;
+        uint64 snapshotBlock;
+    }
+    mapping(uint256 => Vote) private _votes;
+    uint256 id;
 
-    function setTestVoteState(address voter, uint256 testVoteState_) external {
-        _testVoteState[voter] = testVoteState_;
+    function setTestVoteState(uint256 voteId, address voter, uint256 state) external {
+        _votes[voteId].votersState[voter] = state;
     }
 
-    function setTestStartDate() external {
-        _testStartDate = uint64(block.timestamp);
-        _testSnapshotBlock = uint64(block.number);
+    function newVote() external {
+        uint256 newId = ++id;
+        _votes[newId].startDate = uint64(block.timestamp);
+        _votes[newId].snapshotBlock = uint64(block.number);
     }
 
-    function votesLength() external pure returns (uint256) {
-        return 1;
+    function votesLength() external view returns (uint256) {
+        return id;
     }
 
     function duration() public pure returns (uint64) {
@@ -25,7 +30,7 @@ contract MockDandelionVotingContract {
 
     // 0 values are just for testing since here we need to test if a lender voted to one or more votes within an epoch
     function getVote(
-        uint256
+        uint256 voteId
     )
         external view
         returns (
@@ -44,9 +49,9 @@ contract MockDandelionVotingContract {
     {
         open = false;
         executed = true;
-        startDate = _testStartDate;
-        executionDate = _testStartDate + duration();
-        snapshotBlock = _testSnapshotBlock;
+        startDate = _votes[voteId].startDate;
+        executionDate = _votes[voteId].startDate + duration();
+        snapshotBlock = _votes[voteId].snapshotBlock;
         votingPower = 0;
         supportRequired = 0;
         minAcceptQuorum = 0;
@@ -55,7 +60,7 @@ contract MockDandelionVotingContract {
         script = "";
     }
 
-    function getVoterState(uint256, address voter) external view returns (uint256) {
-        return _testVoteState[voter];
+    function getVoterState(uint256 voteId, address voter) external view returns (uint256) {
+        return _votes[voteId].votersState[voter];
     }
 }

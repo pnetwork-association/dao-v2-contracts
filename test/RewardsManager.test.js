@@ -12,7 +12,8 @@ const {
   ONE_MONTH,
   DAO_CREATOR,
   ACL_ADDRESS,
-  PNT_MAX_TOTAL_SUPPLY
+  PNT_MAX_TOTAL_SUPPLY,
+  VOTE_STATUS
 } = require('./constants')
 const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE } = require('./roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
@@ -68,7 +69,7 @@ describe('RewardsManager', () => {
     pntHolder4 = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolders = [pntHolder1, pntHolder2, pntHolder3, pntHolder4]
 
-    await Promise.all([...pntHolders, randomGuy].map((_dest) => sendEthers(owner, _dest, '1')))
+    await Promise.all([...pntHolders, daoCreator, randomGuy].map((_dest) => sendEthers(owner, _dest, '1001')))
 
     acl = await ethers.getContractAt(AclAbi, ACL_ADDRESS)
     tokenManager = await ethers.getContractAt(TokenManagerAbi, TOKEN_MANAGER_ADDRESS)
@@ -139,10 +140,24 @@ describe('RewardsManager', () => {
     expect(pntOwnerBalancePost).to.be.eq(pntOwnerBalancePre - amount)
     expect(pntRewardsManagerBalancePost).to.be.eq(pntRewardsManagerBalancePre + amount)
     await time.increase(ONE_DAY)
-    await dandelionVoting.setTestStartDate()
+    await dandelionVoting.newVote()
     await Promise.all(
-      R.zip(pntHolders, [1, 1, 2, 0]).map(([holder, status]) =>
-        dandelionVoting.setTestVoteState(holder.address, status)
+      R.zip(pntHolders, [VOTE_STATUS.YES, VOTE_STATUS.YES, VOTE_STATUS.ABSENT, VOTE_STATUS.ABSENT]).map(
+        ([holder, status]) => dandelionVoting.setTestVoteState(1, holder.address, status)
+      )
+    )
+    await time.increase(ONE_DAY * 4)
+    await dandelionVoting.newVote()
+    await Promise.all(
+      R.zip(pntHolders, [VOTE_STATUS.YES, VOTE_STATUS.ABSENT, VOTE_STATUS.YES, VOTE_STATUS.ABSENT]).map(
+        ([holder, status]) => dandelionVoting.setTestVoteState(2, holder.address, status)
+      )
+    )
+    await time.increase(ONE_DAY * 4)
+    await dandelionVoting.newVote()
+    await Promise.all(
+      R.zip(pntHolders, [VOTE_STATUS.ABSENT, VOTE_STATUS.ABSENT, VOTE_STATUS.YES, VOTE_STATUS.ABSENT]).map(
+        ([holder, status]) => dandelionVoting.setTestVoteState(3, holder.address, status)
       )
     )
     await time.increase(ONE_MONTH + ONE_DAY)
