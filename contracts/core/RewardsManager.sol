@@ -73,11 +73,11 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     function registerRewardsForEpoch(uint16 epoch, address[] calldata stakers) external {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch >= currentEpoch) revert Errors.InvalidEpoch();
+        (bool[] memory hasVoted, uint256[] memory amounts) = _getVotesAndBalancesForEpoch(epoch, stakers);
         for (uint256 i = 0; i < stakers.length; i++) {
             if (lockedRewardByEpoch[epoch][stakers[i]] > 0) continue;
-            bool hasVoted = _hasVotedInEpoch(epoch, stakers[i]);
-            uint256 amount = _calculateStakerRewardForEpoch(epoch, stakers[i]);
-            if (hasVoted && amount > 0) {
+            uint256 amount = amounts[i];
+            if (hasVoted[i] && amount > 0) {
                 ITokenManager(tokenManager).mint(stakers[i], amount);
                 _checkTotalSupply();
                 lockedRewardByEpoch[epoch][stakers[i]] = amount;
@@ -98,14 +98,6 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
 
-    function _calculateStakerRewardForEpoch(uint16 epoch, address staker) private returns (uint256) {
-        address minime = ITokenManager(tokenManager).token();
-        (, , , uint64 snapshotBlock) = _getLastVoteInEpoch(epoch);
-        uint256 supply = IMinimeToken(minime).totalSupplyAt(snapshotBlock);
-        uint256 balance = IMinimeToken(minime).balanceOfAt(staker, snapshotBlock);
-        return (depositedAmountByEpoch[epoch] * balance) / supply;
-    }
-
     function _checkTotalSupply() internal {
         address minime = ITokenManager(tokenManager).token();
         if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
@@ -121,48 +113,48 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         return (epochStartDate, epochEndDate);
     }
 
-    function _getLastVoteInEpoch(uint16 epoch) private returns (uint256, uint64, uint64, uint64) {
-        uint256 numberOfVotes = IDandelionVoting(dandelionVoting).votesLength();
-        uint64 voteDuration = IDandelionVoting(dandelionVoting).duration();
+    function _getVotesAndBalancesForEpoch(
+        uint16 epoch,
+        address[] memory stakers
+    ) private returns (bool[] memory, uint256[] memory) {
+        IDandelionVoting votingContract = IDandelionVoting(dandelionVoting);
+        IMinimeToken minime = IMinimeToken(ITokenManager(tokenManager).token());
+
+        uint256 numberOfVotes = votingContract.votesLength();
+        uint64 voteDuration = votingContract.duration();
         (uint256 epochStartDate, uint256 epochEndDate) = _getEpochTimestamps(epoch);
-        for (uint256 voteId = numberOfVotes; voteId >= 1; ) {
-            (, , uint64 startDate, uint64 executionDate, uint64 snapshotBlock, , , , , , ) = IDandelionVoting(
-                dandelionVoting
-            ).getVote(voteId);
+
+        uint64 lastVoteSnapshotBlock;
+        uint256 supply;
+
+        bool[] memory hasVoted = new bool[](stakers.length);
+        uint256[] memory amounts = new uint256[](stakers.length);
+
+        for (uint256 voteId = numberOfVotes; voteId >= 1; voteId--) {
+            (, , uint64 startDate, , uint64 snapshotBlock, , , , , , ) = votingContract.getVote(voteId);
             uint64 voteEndDate = startDate + voteDuration;
             if (voteEndDate >= epochStartDate && voteEndDate <= epochEndDate) {
-                return (voteId, startDate, executionDate, snapshotBlock);
-            }
-            unchecked {
-                --voteId;
-            }
-        }
-        revert Errors.NoVoteInEpoch();
-    }
-
-    function _hasVotedInEpoch(uint16 epoch, address staker) private returns (bool) {
-        uint256 numberOfVotes = IDandelionVoting(dandelionVoting).votesLength();
-        uint64 voteDuration = IDandelionVoting(dandelionVoting).duration();
-        (uint256 epochStartDate, uint256 epochEndDate) = _getEpochTimestamps(epoch);
-        for (uint256 voteId = numberOfVotes; voteId >= 1; ) {
-            (, , uint64 voteStartDate, , , , , , , , ) = IDandelionVoting(dandelionVoting).getVote(voteId);
-
-            uint64 voteEndDate = voteStartDate + voteDuration;
-            if (voteEndDate >= epochStartDate && voteEndDate <= epochEndDate) {
-                if (
-                    IDandelionVoting(dandelionVoting).getVoterState(voteId, staker) !=
-                    IDandelionVoting.VoterState.Absent
-                ) {
-                    unchecked {
-                        return true;
+                if (lastVoteSnapshotBlock == 0) {
+                    lastVoteSnapshotBlock = snapshotBlock;
+                    supply = minime.totalSupplyAt(lastVoteSnapshotBlock);
+                }
+                for (uint256 i = 0; i < stakers.length; i++) {
+                    if (
+                        !hasVoted[i] &&
+                        votingContract.getVoterState(voteId, stakers[i]) != IDandelionVoting.VoterState.Absent
+                    ) {
+                        hasVoted[i] = true;
+                        uint256 balance = minime.balanceOfAt(stakers[i], lastVoteSnapshotBlock);
+                        amounts[i] = (depositedAmountByEpoch[epoch] * balance) / supply;
                     }
                 }
             }
-            unchecked {
-                --voteId;
-            }
         }
 
-        return false;
+        if (lastVoteSnapshotBlock == 0) {
+            revert Errors.NoVoteInEpoch();
+        }
+
+        return (hasVoted, amounts);
     }
 }
