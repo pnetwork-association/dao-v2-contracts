@@ -13,7 +13,19 @@ interface IDandelionVoting {
 
     function getVote(
         uint256 voteId
-    ) external returns (bool, bool, uint64, uint64, uint64, uint64, uint64, uint256, uint256, uint256, bytes memory);
+    ) external returns (
+            bool open,
+            bool executed,
+            uint64 startDate,
+            uint64 executionDate,
+            uint64 snapshotBlock,
+            uint64 supportRequired,
+            uint64 minAcceptQuorum,
+            uint256 votingPower,
+            uint256 yea,
+            uint256 nay,
+            bytes memory script
+        );
 
     function getVoterState(uint256 voteId, address beneficiary) external returns (VoterState);
 

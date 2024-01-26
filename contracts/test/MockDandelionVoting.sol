@@ -3,14 +3,16 @@ pragma solidity ^0.8.17;
 
 contract MockDandelionVotingContract {
     uint64 private _testStartDate;
-    uint256 private _testVoteState;
+    uint64 private _testSnapshotBlock;
+    mapping(address => uint256) private _testVoteState;
 
-    function setTestVoteState(uint256 testVoteState_) external {
-        _testVoteState = testVoteState_;
+    function setTestVoteState(address voter, uint256 testVoteState_) external {
+        _testVoteState[voter] = testVoteState_;
     }
 
-    function setTestStartDate(uint64 testStartDate_) external {
-        _testStartDate = testStartDate_;
+    function setTestStartDate() external {
+        _testStartDate = uint64(block.timestamp);
+        _testSnapshotBlock = uint64(block.number);
     }
 
     function votesLength() external pure returns (uint256) {
@@ -44,7 +46,7 @@ contract MockDandelionVotingContract {
         executed = true;
         startDate = _testStartDate;
         executionDate = _testStartDate + duration();
-        snapshotBlock = 0;
+        snapshotBlock = _testSnapshotBlock;
         votingPower = 0;
         supportRequired = 0;
         minAcceptQuorum = 0;
@@ -53,7 +55,7 @@ contract MockDandelionVotingContract {
         script = "";
     }
 
-    function getVoterState(uint256, address) external view returns (uint256) {
-        return _testVoteState;
+    function getVoterState(uint256, address voter) external view returns (uint256) {
+        return _testVoteState[voter];
     }
 }

@@ -24,4 +24,6 @@ library Errors {
     error ActorAlreadyResumed(uint256 lastResumeTimestamp, uint256 slashTimestamp);
     error TooEarly();
     error AlreadyDeposited();
+    error NoVoteInEpoch();
+    error NothingToWithdraw();
 }

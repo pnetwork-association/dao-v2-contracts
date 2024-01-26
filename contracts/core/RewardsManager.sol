@@ -8,6 +8,7 @@ import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ER
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IDandelionVoting} from "../interfaces/external/IDandelionVoting.sol";
+import {IMinimeToken} from "../interfaces/external/IMinimeToken.sol";
 import {ITokenManager} from "../interfaces/external/ITokenManager.sol";
 import {IRewardsManager} from "../interfaces/IRewardsManager.sol";
 import {IEpochsManager} from "../interfaces/IEpochsManager.sol";
@@ -22,8 +23,12 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     address public token;
     address public tokenManager;
 
-    mapping(uint16 => uint256) depositedAmountByEpoch;
-    mapping(uint16 => mapping(address => uint256)) lockedRewardByEpoch;
+    mapping(uint16 => uint256) public depositedAmountByEpoch;
+    mapping(uint16 => uint256) public claimedAmountByEpoch;
+    mapping(uint16 => uint256) public unclaimableAmountByEpoch;
+    mapping(uint16 => mapping(address => uint256)) public lockedRewardByEpoch;
+
+    event RewardRegistered(uint16 indexed epoch, address indexed staker, uint256 amount);
 
     function initialize(
         address _epochsManager,
@@ -44,7 +49,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         maxTotalSupply = _maxTotalSupply;
     }
 
-    function claimReward(uint16 epoch) external {
+    function claimRewardByEpoch(uint16 epoch) external {
         address sender = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (currentEpoch - epoch < 12) revert Errors.TooEarly();
@@ -53,32 +58,52 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
             ITokenManager(tokenManager).burn(sender, amount);
             IERC20Upgradeable(token).safeTransfer(sender, amount);
             delete lockedRewardByEpoch[epoch][sender];
-        }
+            claimedAmountByEpoch[epoch] += amount;
+        } else revert Errors.NothingToClaim();
     }
 
     function depositForEpoch(uint16 epoch, uint256 amount) external onlyRole(Roles.DEPOSIT_REWARD_ROLE) {
         address sender = _msgSender();
+        uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
+        if (epoch < currentEpoch) revert Errors.InvalidEpoch();
         IERC20Upgradeable(token).safeTransferFrom(sender, address(this), amount);
         depositedAmountByEpoch[epoch] += amount;
     }
 
-    function registerRewards(uint16 epoch, address[] calldata stakers) external {
+    function registerRewardsForEpoch(uint16 epoch, address[] calldata stakers) external {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch >= currentEpoch) revert Errors.InvalidEpoch();
-        for (uint256 i = 0; i < stakers.length; ) {
+        for (uint256 i = 0; i < stakers.length; i++) {
             if (lockedRewardByEpoch[epoch][stakers[i]] > 0) continue;
-            if (!_hasVotedInEpoch(epoch, stakers[i])) continue;
-            uint256 amount = _calculateRewardForEpoch(epoch, stakers[i]);
-            ITokenManager(tokenManager).mint(stakers[i], amount);
-            _checkTotalSupply();
-            lockedRewardByEpoch[epoch][stakers[i]] = amount;
+            bool hasVoted = _hasVotedInEpoch(epoch, stakers[i]);
+            uint256 amount = _calculateStakerRewardForEpoch(epoch, stakers[i]);
+            if (hasVoted && amount > 0) {
+                ITokenManager(tokenManager).mint(stakers[i], amount);
+                _checkTotalSupply();
+                lockedRewardByEpoch[epoch][stakers[i]] = amount;
+                emit RewardRegistered(epoch, stakers[i], amount);
+            } else if (amount > 0) {
+                unclaimableAmountByEpoch[epoch] += amount;
+            }
         }
+    }
+
+    function withdrawUnclaimableRewardsForEpoch(uint16 epoch) external onlyRole(Roles.WITHDRAW_ROLE) {
+        if (unclaimableAmountByEpoch[epoch] > 0) {
+            address sender = _msgSender();
+            IERC20Upgradeable(token).safeTransfer(sender, unclaimableAmountByEpoch[epoch]);
+            delete unclaimableAmountByEpoch[epoch];
+        } else revert Errors.NothingToWithdraw();
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
 
-    function _calculateRewardForEpoch(uint16, address) private pure returns (uint256) {
-        return 1;
+    function _calculateStakerRewardForEpoch(uint16 epoch, address staker) private returns (uint256) {
+        address minime = ITokenManager(tokenManager).token();
+        (, , , uint64 snapshotBlock) = _getLastVoteInEpoch(epoch);
+        uint256 supply = IMinimeToken(minime).totalSupplyAt(snapshotBlock);
+        uint256 balance = IMinimeToken(minime).balanceOfAt(staker, snapshotBlock);
+        return (depositedAmountByEpoch[epoch] * balance) / supply;
     }
 
     function _checkTotalSupply() internal {
@@ -88,24 +113,44 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         }
     }
 
-    function _hasVotedInEpoch(uint16 epoch, address staker) private returns (bool) {
-        address dandelionVotingAddress = dandelionVoting;
-        uint256 numberOfVotes = IDandelionVoting(dandelionVotingAddress).votesLength();
-        uint64 voteDuration = IDandelionVoting(dandelionVotingAddress).duration();
-
+    function _getEpochTimestamps(uint16 epoch) private view returns (uint256, uint256) {
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
         uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
-
         uint256 epochStartDate = startFirstEpochTimestamp + (epoch * epochDuration);
         uint256 epochEndDate = epochStartDate + epochDuration - 1;
+        return (epochStartDate, epochEndDate);
+    }
 
+    function _getLastVoteInEpoch(uint16 epoch) private returns (uint256, uint64, uint64, uint64) {
+        uint256 numberOfVotes = IDandelionVoting(dandelionVoting).votesLength();
+        uint64 voteDuration = IDandelionVoting(dandelionVoting).duration();
+        (uint256 epochStartDate, uint256 epochEndDate) = _getEpochTimestamps(epoch);
         for (uint256 voteId = numberOfVotes; voteId >= 1; ) {
-            (, , uint64 voteStartDate, , , , , , , , ) = IDandelionVoting(dandelionVotingAddress).getVote(voteId);
+            (, , uint64 startDate, uint64 executionDate, uint64 snapshotBlock, , , , , , ) = IDandelionVoting(
+                dandelionVoting
+            ).getVote(voteId);
+            uint64 voteEndDate = startDate + voteDuration;
+            if (voteEndDate >= epochStartDate && voteEndDate <= epochEndDate) {
+                return (voteId, startDate, executionDate, snapshotBlock);
+            }
+            unchecked {
+                --voteId;
+            }
+        }
+        revert Errors.NoVoteInEpoch();
+    }
+
+    function _hasVotedInEpoch(uint16 epoch, address staker) private returns (bool) {
+        uint256 numberOfVotes = IDandelionVoting(dandelionVoting).votesLength();
+        uint64 voteDuration = IDandelionVoting(dandelionVoting).duration();
+        (uint256 epochStartDate, uint256 epochEndDate) = _getEpochTimestamps(epoch);
+        for (uint256 voteId = numberOfVotes; voteId >= 1; ) {
+            (, , uint64 voteStartDate, , , , , , , , ) = IDandelionVoting(dandelionVoting).getVote(voteId);
 
             uint64 voteEndDate = voteStartDate + voteDuration;
             if (voteEndDate >= epochStartDate && voteEndDate <= epochEndDate) {
                 if (
-                    IDandelionVoting(dandelionVotingAddress).getVoterState(voteId, staker) !=
+                    IDandelionVoting(dandelionVoting).getVoterState(voteId, staker) !=
                     IDandelionVoting.VoterState.Absent
                 ) {
                     unchecked {
