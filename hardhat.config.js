@@ -1,11 +1,12 @@
+/* eslint-disable node/no-unpublished-require */
 require('dotenv').config()
-require('@nomiclabs/hardhat-ethers')
+require('@nomicfoundation/hardhat-ethers')
 require('@nomiclabs/hardhat-etherscan')
 require('@openzeppelin/hardhat-upgrades')
 require('hardhat-gas-reporter')
 require('@nomicfoundation/hardhat-chai-matchers')
 require('hardhat-spdx-license-identifier')
-require("hardhat-tracer")
+require('hardhat-tracer')
 
 require('./tasks/decode-forwarder-metadata.js')
 require('./tasks/acl-assign-permission.js')
@@ -33,7 +34,6 @@ module.exports = {
       viaIR: true,
       optimizer: {
         enabled: true,
-        runs: 200,
         details: {
           yul: true
         }
