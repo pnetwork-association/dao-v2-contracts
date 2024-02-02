@@ -1,7 +1,7 @@
 /* eslint-disable node/no-unpublished-require */
 require('dotenv').config()
 require('@nomicfoundation/hardhat-ethers')
-require('@nomiclabs/hardhat-etherscan')
+require('@nomicfoundation/hardhat-verify')
 require('@openzeppelin/hardhat-upgrades')
 require('hardhat-gas-reporter')
 require('@nomicfoundation/hardhat-chai-matchers')
