@@ -11,8 +11,8 @@ const {
 } = require('./config')
 
 const setPermissions = async (_args, _hre) => {
-  const getRole = (_message) => _hre.ethers.utils.keccak256(_hre.ethers.utils.toUtf8Bytes(_message))
-  const signer = await _hre.ethers.getSigner()
+  const getRole = (_message) => _hre.ethers.keccak256(_hre.ethers.toUtf8Bytes(_message))
+  const [signer] = await _hre.ethers.getSigners()
 
   const ACL = await _hre.ethers.getContractFactory('ACL')
   const StakingManager = await _hre.ethers.getContractFactory('StakingManager')

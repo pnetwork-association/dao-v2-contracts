@@ -1,3 +1,5 @@
+const { task, types } = require('hardhat/config')
+
 const { ACL_ADDRESS } = require('../tasks/config')
 
 task('acl-assign-permission', 'Assing an ACL permission')
@@ -9,6 +11,6 @@ task('acl-assign-permission', 'Assing an ACL permission')
     const { entity, app, role } = _taskArgs
     const ACL = await ethers.getContractFactory('ACL')
     const acl = await ACL.attach(ACL_ADDRESS)
-    await acl.revokePermission(entity, app, ethers.utils.keccak256(ethers.utils.toUtf8Bytes(role)))
+    await acl.revokePermission(entity, app, ethers.keccak256(ethers.toUtf8Bytes(role)))
     console.log('Permission succesfully assigned!')
   })
