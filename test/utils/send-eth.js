@@ -1,13 +1,13 @@
-const { type, isNil } = require('ramda')
+const R = require('ramda')
 
 module.exports.sendEth = async (_hre, _from, _to, _eth, _opts = {}) => {
-  if (isNil(_eth)) return Promise.reject(new Error('Unspecified amount:', _eth))
+  if (R.isNil(_eth)) return Promise.reject(new Error('Unspecified amount:', _eth))
 
-  const value = type(_eth) === 'String' ? _hre.ethers.utils.parseEther(_eth) : _eth
-  const balance = await _from.getBalance()
+  const value = R.type(_eth) === 'String' ? _hre.ethers.parseEther(_eth) : _eth
+  const balance = await _hre.ethers.provider.getBalance(await _from.getAddress())
 
-  if (value.gt(balance))
-    return Promise.reject(new Error(`Failed: insufficient balance ${_hre.ethers.utils.formatEther(balance)}`))
+  if (value > balance)
+    return Promise.reject(new Error(`Failed: insufficient balance ${_hre.ethers.formatEther(balance)}`))
 
   return _from.sendTransaction({ ..._opts, to: _to, value })
 }

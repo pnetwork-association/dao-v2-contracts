@@ -21,6 +21,7 @@ const {
   ONE_HOUR_IN_S
 } = require('./constants')
 const { getRole, getSentinelIdentity, truncateWithPrecision } = require('./utils')
+const { hardhatReset } = require('./utils/hardhat-reset')
 
 const BORROW_ROLE = getRole('BORROW_ROLE')
 const RELEASE_ROLE = getRole('RELEASE_ROLE')
@@ -65,16 +66,9 @@ describe('RegistrationManager', () => {
   const getSignatureNonce = (_address) => registrationManager.getSignatureNonceByOwner(_address)
 
   beforeEach(async () => {
-    await network.provider.request({
-      method: 'hardhat_reset',
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: config.networks.hardhat.forking.url
-          }
-        }
-      ]
-    })
+    const rpc = config.networks.hardhat.forking.url
+    const blockToForkFrom = config.networks.hardhat.forking.blockNumber
+    await hardhatReset(network.provider, rpc, blockToForkFrom)
 
     RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     const LendingManager = await ethers.getContractFactory('LendingManager')
@@ -105,21 +99,21 @@ describe('RegistrationManager', () => {
     pnt = await TestToken.deploy('PNT', 'PNT')
     acl = ACL.attach(ACL_ADDRESS)
 
-    await pnt.connect(owner).transfer(pntHolder1.address, ethers.utils.parseEther('500000'))
-    await pnt.connect(owner).transfer(pntHolder2.address, ethers.utils.parseEther('500000'))
+    await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('500000'))
+    await pnt.connect(owner).transfer(pntHolder2.address, ethers.parseEther('500000'))
 
     await owner.sendTransaction({
       to: pntHolder1.address,
-      value: ethers.utils.parseEther('10')
+      value: ethers.parseEther('10')
     })
     await owner.sendTransaction({
       to: pntHolder2.address,
-      value: ethers.utils.parseEther('10')
+      value: ethers.parseEther('10')
     })
 
     stakingManagerLM = await upgrades.deployProxy(
       StakingManager,
-      [pnt.address, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
+      [await pnt.getAddress(), TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -128,7 +122,7 @@ describe('RegistrationManager', () => {
 
     stakingManagerRM = await upgrades.deployProxy(
       StakingManager,
-      [pnt.address, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
+      [await pnt.getAddress(), TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -143,9 +137,9 @@ describe('RegistrationManager', () => {
     lendingManager = await upgrades.deployProxy(
       LendingManager,
       [
-        pnt.address,
-        stakingManagerLM.address,
-        epochsManager.address,
+        await pnt.getAddress(),
+        await stakingManagerLM.getAddress(),
+        await epochsManager.getAddress(),
         fakeForwarder.address,
         fakeDandelionVoting.address,
         LEND_MAX_EPOCHS
@@ -158,7 +152,13 @@ describe('RegistrationManager', () => {
 
     registrationManager = await upgrades.deployProxy(
       RegistrationManager,
-      [pnt.address, stakingManagerRM.address, epochsManager.address, lendingManager.address, fakeForwarder.address],
+      [
+        await pnt.getAddress(),
+        await stakingManagerRM.getAddress(),
+        await epochsManager.getAddress(),
+        await lendingManager.getAddress(),
+        fakeForwarder.address
+      ],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -168,9 +168,9 @@ describe('RegistrationManager', () => {
     feesManager = await upgrades.deployProxy(
       FeesManager,
       [
-        epochsManager.address,
-        lendingManager.address,
-        registrationManager.address,
+        await epochsManager.getAddress(),
+        await lendingManager.getAddress(),
+        await registrationManager.getAddress(),
         fakeForwarder.address,
         MINIMUM_BORROWING_FEE
       ],
@@ -181,32 +181,40 @@ describe('RegistrationManager', () => {
     )
 
     governanceMessageEmitter = await MockGovernanceMessageEmitter.deploy(
-      epochsManager.address,
-      registrationManager.address
+      await epochsManager.getAddress(),
+      await registrationManager.getAddress()
     )
 
     // grant roles
-    await lendingManager.grantRole(BORROW_ROLE, registrationManager.address)
-    await lendingManager.grantRole(RELEASE_ROLE, registrationManager.address)
-    await stakingManagerLM.grantRole(STAKE_ROLE, lendingManager.address)
-    await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, lendingManager.address)
-    await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.address)
-    await stakingManagerRM.grantRole(SLASH_ROLE, registrationManager.address)
-    await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.address)
-    await stakingManagerRM.grantRole(INCREASE_AMOUNT_ROLE, registrationManager.address)
+    await lendingManager.grantRole(BORROW_ROLE, await registrationManager.getAddress())
+    await lendingManager.grantRole(RELEASE_ROLE, await registrationManager.getAddress())
+    await stakingManagerLM.grantRole(STAKE_ROLE, await lendingManager.getAddress())
+    await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, await lendingManager.getAddress())
+    await stakingManagerRM.grantRole(STAKE_ROLE, await registrationManager.getAddress())
+    await stakingManagerRM.grantRole(SLASH_ROLE, await registrationManager.getAddress())
+    await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, await registrationManager.getAddress())
+    await stakingManagerRM.grantRole(INCREASE_AMOUNT_ROLE, await registrationManager.getAddress())
     await registrationManager.grantRole(SLASH_ROLE, fakePnetworkHub.address)
     await registrationManager.grantRole(UPGRADE_ROLE, owner.address)
     await registrationManager.grantRole(UPDATE_GUARDIAN_REGISTRATION_ROLE, fakeDandelionVoting.address)
     await registrationManager.grantRole(SET_GOVERNANCE_MESSAGE_EMITTER_ROLE, owner.address)
     await registrationManager.grantRole(SET_FEES_MANAGER_ROLE, owner.address)
-    await feesManager.grantRole(REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE, registrationManager.address)
-    await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManagerRM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl.connect(daoRoot).grantPermission(stakingManagerLM.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await feesManager.grantRole(REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE, await registrationManager.getAddress())
+    await acl
+      .connect(daoRoot)
+      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl
+      .connect(daoRoot)
+      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl
+      .connect(daoRoot)
+      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
+    await acl
+      .connect(daoRoot)
+      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
 
-    await registrationManager.setFeesManager(feesManager.address)
-    await registrationManager.setGovernanceMessageEmitter(governanceMessageEmitter.address)
+    await registrationManager.setFeesManager(await feesManager.getAddress())
+    await registrationManager.setGovernanceMessageEmitter(await governanceMessageEmitter.getAddress())
   })
 
   it('should be able to updateSentinelRegistrationByStaking for 4 epochs starting from epoch 1', async () => {
@@ -216,11 +224,11 @@ describe('RegistrationManager', () => {
     //   0          1          2          3          4          5           6          7
     //
 
-    const stakeAmount = ethers.utils.parseEther('200000')
+    const stakeAmount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 5
 
     const signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -249,11 +257,11 @@ describe('RegistrationManager', () => {
     //   0          1          2          3          4          5           6          7
     //
 
-    const stakeAmount = ethers.utils.parseEther('200000')
+    const stakeAmount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 5
 
     const signature = await getSentinelIdentity(user1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -289,10 +297,10 @@ describe('RegistrationManager', () => {
     //   0          1          2          3          4          5          6          7          8          9
     //
 
-    const stakeAmount = ethers.utils.parseEther('200000')
+    const stakeAmount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 9
 
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -346,11 +354,11 @@ describe('RegistrationManager', () => {
     //   |----------|vvvvvvvvvv-|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|
     //   0          1          2          3          4           5          6
 
-    const stakeAmount = ethers.utils.parseEther('200000')
+    const stakeAmount = ethers.parseEther('200000')
     let duration = EPOCH_DURATION * 6
 
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -374,7 +382,7 @@ describe('RegistrationManager', () => {
 
     duration = EPOCH_DURATION * 3
     signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -397,10 +405,10 @@ describe('RegistrationManager', () => {
     expect(await registrationManager.sentinelOf(pntHolder1.address)).to.be.eq(sentinel1.address)
 
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 1)).to.be.eq(
-      truncateWithPrecision(stakeAmount.mul(2))
+      truncateWithPrecision(stakeAmount * 2n)
     )
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 2)).to.be.eq(
-      truncateWithPrecision(stakeAmount.mul(2))
+      truncateWithPrecision(stakeAmount * 2n)
     )
     expect(await registrationManager.sentinelStakedAmountByEpochOf(sentinel1.address, 3)).to.be.eq(
       truncateWithPrecision(stakeAmount)
@@ -418,14 +426,14 @@ describe('RegistrationManager', () => {
     await expect(
       stakingManagerRM
         .connect(pntHolder1)
-        ['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_NETWORK_IDS.gnosisMainnet)
+        ['unstake(uint256,bytes4)'](stakeAmount * 2n, PNETWORK_NETWORK_IDS.gnosisMainnet)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(6)
     await stakingManagerRM
       .connect(pntHolder1)
-      ['unstake(uint256,bytes4)'](stakeAmount.mul(2), PNETWORK_NETWORK_IDS.gnosisMainnet)
+      ['unstake(uint256,bytes4)'](stakeAmount * 2n, PNETWORK_NETWORK_IDS.gnosisMainnet)
   })
 
   it('should be able to updateSentinelRegistrationByStaking 2 times in order to renew his registration (2)', async () => {
@@ -448,11 +456,11 @@ describe('RegistrationManager', () => {
     //   |----------|vvvvvvvvvv-|vvvvvvvvvv|vvvvvvvvvv|----------|vvvvvvvvvv|vvvvvvvvvv|----------|
     //   0          1          2          3          4           5          6          7
 
-    const stakeAmount = ethers.utils.parseEther('200000')
+    const stakeAmount = ethers.parseEther('200000')
     let duration = EPOCH_DURATION * 4
 
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -482,7 +490,7 @@ describe('RegistrationManager', () => {
 
     duration = EPOCH_DURATION * 3
     signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -551,9 +559,9 @@ describe('RegistrationManager', () => {
     //   |----------|----------|----------|----------|vvvvvvvvvv|vvvvvvvvvv|----------|
     //   0          1          2          3          4          5          6
 
-    const lendAmount = ethers.utils.parseEther('200000')
+    const lendAmount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 6
-    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    await pnt.connect(pntHolder1).approve(await lendingManager.getAddress(), lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     let signature = await getSentinelIdentity(user1.address, { actor: sentinel1, registrationManager })
@@ -625,9 +633,9 @@ describe('RegistrationManager', () => {
     //   |----------|----------|----------|----------|----------|vvvvvvvvvv|vvvvvvvvvv|----------|
     //   0          1          2          3          4          5          6          7
 
-    const lendAmount = ethers.utils.parseEther('200000')
+    const lendAmount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 7
-    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    await pnt.connect(pntHolder1).approve(await lendingManager.getAddress(), lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     let signature = await getSentinelIdentity(user1.address, { actor: sentinel1, registrationManager })
@@ -685,11 +693,11 @@ describe('RegistrationManager', () => {
   })
 
   it('should not be able to register a node by updateSentinelRegistrationByStaking with an amount less than 200k PNT', async () => {
-    const stakeAmount = ethers.utils.parseEther('199999')
+    const stakeAmount = ethers.parseEther('199999')
     const duration = EPOCH_DURATION * 2
 
     const signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -720,14 +728,14 @@ describe('RegistrationManager', () => {
     //   |----------|----------|----------|----------|rrrrrrrrrr|rrrrrrrrrr|rrrrrrrrrr|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|
     //   0          1          2          3          4          5          6          7          8          9          10         11
 
-    const amount = ethers.utils.parseEther('200000')
+    const amount = ethers.parseEther('200000')
     let duration = EPOCH_DURATION * 5
     const signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await pnt.connect(pntHolder1).approve(registrationManager.address, amount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), amount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -858,15 +866,15 @@ describe('RegistrationManager', () => {
     //   |----------|----------|----------|----------|----------|rrrrrrrrrr|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|xxxxx-----|
     //   0          1          2          3          4          5          6          7          8          9          10
 
-    const amount = ethers.utils.parseEther('200000')
+    const amount = ethers.parseEther('200000')
     let duration = EPOCH_DURATION * 4
     const signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await pnt.connect(pntHolder1).approve(registrationManager.address, amount)
-    await pnt.connect(pntHolder1).approve(registrationManager.address, amount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), amount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), amount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -989,15 +997,15 @@ describe('RegistrationManager', () => {
     //   |----------|----------|----------|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|----------|vvvvvvvvvv|vvvvvvvvvv|vvvvvvvvvv|----------|
     //   0          1          2          3          4          5          6          7          8          9          10         11         12
 
-    const amount = ethers.utils.parseEther('200000')
+    const amount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 4
     const signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
 
-    await pnt.connect(pntHolder1).approve(registrationManager.address, amount)
-    await pnt.connect(pntHolder1).approve(registrationManager.address, amount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), amount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), amount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1075,7 +1083,7 @@ describe('RegistrationManager', () => {
         .updateGuardianRegistration(guardianOwner1.address, numberOfEpochs, guardian1.address)
     )
       .to.emit(registrationManager, 'GuardianRegistrationUpdated')
-      .withArgs(guardianOwner1.address, currentEpoch, currentEpoch + 4, guardian1.address, REGISTRATON_GUARDIAN)
+      .withArgs(guardianOwner1.address, currentEpoch, currentEpoch + 4n, guardian1.address, REGISTRATON_GUARDIAN)
 
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(0)).to.be.equal(1)
     expect(await registrationManager.totalNumberOfGuardiansByEpoch(1)).to.be.equal(1)
@@ -1115,7 +1123,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardianOwner1.address,
         currentEpoch,
-        currentEpoch + numberOfEpochs - 1,
+        currentEpoch + BigInt(numberOfEpochs - 1),
         guardian1.address,
         REGISTRATON_GUARDIAN
       )
@@ -1134,7 +1142,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardianOwner1.address,
         currentEpoch,
-        currentEpoch + numberOfEpochs - 1,
+        currentEpoch + BigInt(numberOfEpochs - 1),
         guardian1.address,
         REGISTRATON_GUARDIAN
       )
@@ -1179,7 +1187,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardianOwner1.address,
         currentEpoch,
-        currentEpoch + numberOfEpochs - 1,
+        currentEpoch + BigInt(numberOfEpochs - 1),
         guardian1.address,
         REGISTRATON_GUARDIAN
       )
@@ -1198,7 +1206,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardianOwner2.address,
         currentEpoch,
-        currentEpoch + numberOfEpochs - 1,
+        currentEpoch + BigInt(numberOfEpochs - 1),
         guardian2.address,
         REGISTRATON_GUARDIAN
       )
@@ -1245,7 +1253,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardianOwner1.address,
         currentEpoch,
-        currentEpoch + numberOfEpochs - 1,
+        currentEpoch + BigInt(numberOfEpochs - 1),
         guardian1.address,
         REGISTRATON_GUARDIAN
       )
@@ -1264,7 +1272,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardianOwner2.address,
         currentEpoch,
-        currentEpoch + numberOfEpochs - 1,
+        currentEpoch + BigInt(numberOfEpochs - 1),
         guardian2.address,
         REGISTRATON_GUARDIAN
       )
@@ -1334,7 +1342,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardiansOwners[0],
         currentEpoch,
-        currentEpoch + numbersOfEpochs[0] - 1,
+        currentEpoch + BigInt(numbersOfEpochs[0] - 1),
         guardians[0],
         REGISTRATON_GUARDIAN
       )
@@ -1342,7 +1350,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardiansOwners[1],
         currentEpoch,
-        currentEpoch + numbersOfEpochs[1] - 1,
+        currentEpoch + BigInt(numbersOfEpochs[1] - 1),
         guardians[1],
         REGISTRATON_GUARDIAN
       )
@@ -1350,7 +1358,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardiansOwners[2],
         currentEpoch,
-        currentEpoch + numbersOfEpochs[2] - 1,
+        currentEpoch + BigInt(numbersOfEpochs[2] - 1),
         guardians[2],
         REGISTRATON_GUARDIAN
       )
@@ -1358,7 +1366,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardiansOwners[3],
         currentEpoch,
-        currentEpoch + numbersOfEpochs[3] - 1,
+        currentEpoch + BigInt(numbersOfEpochs[3] - 1),
         guardians[3],
         REGISTRATON_GUARDIAN
       )
@@ -1366,7 +1374,7 @@ describe('RegistrationManager', () => {
       .withArgs(
         guardiansOwners[4],
         currentEpoch,
-        currentEpoch + numbersOfEpochs[4] - 1,
+        currentEpoch + BigInt(numbersOfEpochs[4] - 1),
         guardians[4],
         REGISTRATON_GUARDIAN
       )
@@ -1405,14 +1413,14 @@ describe('RegistrationManager', () => {
     //   |----------|vvvvvvvvvv|vvvvvsssss|ssssssssss|ssssssssss|----------|----------|----------|
     //   0          1          2          3          4          5          6          7          8
 
-    const stakeAmount = ethers.utils.parseEther('200000')
-    const slashAmount = ethers.utils.parseEther('10000')
+    const stakeAmount = ethers.parseEther('200000')
+    const slashAmount = ethers.parseEther('10000')
     const truncatedStakedAmount = truncateWithPrecision(stakeAmount)
-    const truncatedLeftAmount = truncateWithPrecision(stakeAmount.sub(slashAmount))
+    const truncatedLeftAmount = truncateWithPrecision(stakeAmount - slashAmount)
     const duration = EPOCH_DURATION * 5
 
     const signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1461,12 +1469,12 @@ describe('RegistrationManager', () => {
   })
 
   it('should be able to light-slash a staking sentinel', async () => {
-    const stakeAmount = ethers.utils.parseEther('400000')
-    const slashAmount = ethers.utils.parseEther('10000')
+    const stakeAmount = ethers.parseEther('400000')
+    const slashAmount = ethers.parseEther('10000')
     const duration = EPOCH_DURATION * 5
 
     const signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1489,12 +1497,12 @@ describe('RegistrationManager', () => {
   })
 
   it('should be able to light-resume a staking sentinel and slash it again', async () => {
-    const stakeAmount = ethers.utils.parseEther('400000')
-    const slashAmount = ethers.utils.parseEther('10000')
+    const stakeAmount = ethers.parseEther('400000')
+    const slashAmount = ethers.parseEther('10000')
     const duration = EPOCH_DURATION * 5
 
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1537,12 +1545,12 @@ describe('RegistrationManager', () => {
   })
 
   it('should not be able to light-resume a staking sentinel after an hard-slash', async () => {
-    const stakeAmount = ethers.utils.parseEther('200000')
-    const slashAmount = ethers.utils.parseEther('10000')
+    const stakeAmount = ethers.parseEther('200000')
+    const slashAmount = ethers.parseEther('10000')
     const duration = EPOCH_DURATION * 5
 
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1597,11 +1605,11 @@ describe('RegistrationManager', () => {
     //   0          1          2          3           4          5           6          7
     //
 
-    let stakeAmount = ethers.utils.parseEther('200000')
+    let stakeAmount = ethers.parseEther('200000')
     let duration = EPOCH_DURATION * 5
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
 
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -1623,10 +1631,10 @@ describe('RegistrationManager', () => {
 
     await time.increase(EPOCH_DURATION)
 
-    stakeAmount = ethers.utils.parseEther('10000')
+    stakeAmount = ethers.parseEther('10000')
     duration = EPOCH_DURATION * 3
     signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -1647,10 +1655,10 @@ describe('RegistrationManager', () => {
     expect(registration.endEpoch).to.be.eq(4)
     await time.increase(EPOCH_DURATION)
 
-    stakeAmount = ethers.utils.parseEther('50000')
+    stakeAmount = ethers.parseEther('50000')
     duration = EPOCH_DURATION * 3
     signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -1701,12 +1709,12 @@ describe('RegistrationManager', () => {
     //   |----------|vvvvvvvvvvv|vvvvvvvvvvv|vvvvvvvvvvv|vvvvvvvvv|---------|----------|
     //   0          1           2          3          4          5         6          7
 
-    const stakeAmount = ethers.utils.parseEther('200000')
-    const slashAmount = ethers.utils.parseEther('10000')
+    const stakeAmount = ethers.parseEther('200000')
+    const slashAmount = ethers.parseEther('10000')
     const duration = EPOCH_DURATION * 5
 
     let signature1 = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1718,7 +1726,7 @@ describe('RegistrationManager', () => {
       )
 
     const signature2 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel2, registrationManager })
-    await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder2).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder2)
       .updateSentinelRegistrationByStaking(
@@ -1733,9 +1741,9 @@ describe('RegistrationManager', () => {
       .connect(fakePnetworkHub)
       .slash(sentinel1.address, slashAmount, challenger.address, await time.latest())
 
-    const increaseAmount = ethers.utils.parseEther('30000')
+    const increaseAmount = ethers.parseEther('30000')
     signature1 = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, increaseAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), increaseAmount)
     const ts = await time.latest()
     await expect(
       registrationManager
@@ -1770,15 +1778,15 @@ describe('RegistrationManager', () => {
   })
 
   it('should be able to light-resume a borrowing sentinel after an light-slash and slash it again', async () => {
-    const stakeAmount = ethers.utils.parseEther('200000')
+    const stakeAmount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 5
 
-    const lendAmount = ethers.utils.parseEther('200000')
-    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    const lendAmount = ethers.parseEther('200000')
+    await pnt.connect(pntHolder1).approve(await lendingManager.getAddress(), lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       [
@@ -1828,12 +1836,12 @@ describe('RegistrationManager', () => {
     //   |----------|vvvvvvvvvvv|vvvvvvvvvvv|vvvvvvvvvvv|vvvvvvvvv|---------|----------|
     //   0          1           2          3          4          5         6          7
 
-    const stakeAmount = ethers.utils.parseEther('200000')
-    const slashAmount = ethers.utils.parseEther('10000')
+    const stakeAmount = ethers.parseEther('200000')
+    const slashAmount = ethers.parseEther('10000')
     const duration = EPOCH_DURATION * 5
 
     let signature1 = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1845,7 +1853,7 @@ describe('RegistrationManager', () => {
       )
 
     const signature2 = await getSentinelIdentity(pntHolder2.address, { actor: sentinel2, registrationManager })
-    await pnt.connect(pntHolder2).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder2).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder2)
       .updateSentinelRegistrationByStaking(
@@ -1862,9 +1870,9 @@ describe('RegistrationManager', () => {
       .slash(sentinel1.address, slashAmount, challenger.address, await time.latest())
     expect(await registrationManager.slashesByEpochOf(2, sentinel1.address)).to.be.eq(1)
 
-    const increaseAmount = ethers.utils.parseEther('5000')
+    const increaseAmount = ethers.parseEther('5000')
     signature1 = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, increaseAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), increaseAmount)
     await expect(
       registrationManager
         .connect(pntHolder1)
@@ -1873,12 +1881,12 @@ describe('RegistrationManager', () => {
   })
 
   it('should not be able to hard-resume a staking sentinel with amount = 0', async () => {
-    const stakeAmount = ethers.utils.parseEther('200000')
-    const slashAmount = ethers.utils.parseEther('10000')
+    const stakeAmount = ethers.parseEther('200000')
+    const slashAmount = ethers.parseEther('10000')
     const duration = EPOCH_DURATION * 5
 
     let signature1 = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(
@@ -1917,15 +1925,15 @@ describe('RegistrationManager', () => {
     //   |----------|vvvvvvvvvv|----------|----------|----------|----------|----------|----------|
     //   0          1          2          3          4          5          6          7          8
 
-    const stakeAmount = ethers.utils.parseEther('200000')
+    const stakeAmount = ethers.parseEther('200000')
     const duration = EPOCH_DURATION * 5
 
-    const lendAmount = ethers.utils.parseEther('200000')
-    await pnt.connect(pntHolder1).approve(lendingManager.address, lendAmount)
+    const lendAmount = ethers.parseEther('200000')
+    await pnt.connect(pntHolder1).approve(await lendingManager.getAddress(), lendAmount)
     await lendingManager.connect(pntHolder1).lend(pntHolder1.address, lendAmount, duration)
 
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       [
@@ -1997,12 +2005,12 @@ describe('RegistrationManager', () => {
   })
 
   it('should not be able to light-resume an hard-slashed staking sentinel', async () => {
-    const stakeAmount = ethers.utils.parseEther('200000')
-    const slashAmount = ethers.utils.parseEther('20000')
+    const stakeAmount = ethers.parseEther('200000')
+    const slashAmount = ethers.parseEther('20000')
     const duration = EPOCH_DURATION * 5
 
     let signature = await getSentinelIdentity(pntHolder1.address, { actor: sentinel1, registrationManager })
-    await pnt.connect(pntHolder1).approve(registrationManager.address, stakeAmount)
+    await pnt.connect(pntHolder1).approve(await registrationManager.getAddress(), stakeAmount)
     await registrationManager
       .connect(pntHolder1)
       .updateSentinelRegistrationByStaking(

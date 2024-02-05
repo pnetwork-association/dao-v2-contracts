@@ -2,16 +2,17 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
+const { ONE_DAY } = require('./constants')
 const { getRole } = require('./utils')
 
-const EPOCH_DURATION = 86400 // 1 day
+const EPOCH_DURATION = ONE_DAY // 1 day
 
 describe('EpochsManager', () => {
   let epochsManager, EpochsManager
 
   beforeEach(async () => {
     EpochsManager = await ethers.getContractFactory('EpochsManager')
-    const signer = await ethers.getSigner()
+    const [signer] = await ethers.getSigners()
     epochsManager = await upgrades.deployProxy(EpochsManager, [EPOCH_DURATION, 0], {
       initializer: 'initialize',
       kind: 'uups'
@@ -23,7 +24,7 @@ describe('EpochsManager', () => {
     const latestBlockTimestamp = await time.latest()
     await time.increaseTo(latestBlockTimestamp + EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
-    await upgrades.upgradeProxy(epochsManager.address, EpochsManager)
+    await upgrades.upgradeProxy(await epochsManager.getAddress(), EpochsManager)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
   })
 

@@ -1,5 +1,6 @@
 {
   "extends": ["./node_modules/gts/", "plugin:import/recommended"],
+  "parserOptions": {"ecmaVersion": 2020},
   "env": {
     "es2021": true,
     "mocha": true,

@@ -6,7 +6,7 @@ task('decode-forwarder-metadata', 'Decode the pNetwork Forwarder Metadata')
     const { ethers } = _hre
     const { metadata } = _taskArgs
 
-    const abiCoder = new ethers.utils.AbiCoder()
+    const abiCoder = new ethers.AbiCoder()
     const [
       version,
       userData,

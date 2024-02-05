@@ -1,0 +1,27 @@
+name: CI
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+      - feat/v3
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: 'npm'
+      - run: cp .env.example .env
+      - run: |
+          source .env &&
+          LATEST_BLOCK_NUMBER=$(curl -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' -H 'content-type: application/json;' "$GNOSIS_NODE" | jq .result | tr -d '"') &&
+          echo BLOCK_NUMBER=$(($LATEST_BLOCK_NUMBER - 100)) >> .env
+      - run: npm ci
+      - run: npm test

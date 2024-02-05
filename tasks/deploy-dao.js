@@ -42,7 +42,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('StakingManager:', stakingManager.address)
+  console.info('StakingManager:', await stakingManager.getAddress())
 
   console.info('StakingManager LM ...')
   let stakingManagerLM
@@ -59,7 +59,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('StakingManager LM:', stakingManagerLM.address)
+  console.info('StakingManager LM:', await stakingManagerLM.getAddress())
 
   console.info('StakingManager RM ...')
   let stakingManagerRM
@@ -76,7 +76,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('StakingManager RM:', stakingManagerRM.address)
+  console.info('StakingManager RM:', await stakingManagerRM.getAddress())
 
   console.info('EpochsManager ...')
   let epochsManager
@@ -93,7 +93,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('EpochsManager:', epochsManager.address)
+  console.info('EpochsManager:', await epochsManager.getAddress())
 
   console.info('LendingManager ...')
   let lendingManager
@@ -105,8 +105,8 @@ const deploy = async (_args, _hre) => {
       LendingManager,
       [
         PNT_ON_GNOSIS_ADDRESS,
-        stakingManagerLM.address,
-        epochsManager.address,
+        await stakingManagerLM.getAddress(),
+        await epochsManager.getAddress(),
         FORWARDER_ON_GNOSIS,
         DANDELION_VOTING_ADDRESS,
         LEND_MAX_EPOCHS
@@ -117,7 +117,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('LendingManager:', lendingManager.address)
+  console.info('LendingManager:', await lendingManager.getAddress())
 
   console.info('RegistrationManager ...')
   let registrationManager
@@ -129,9 +129,9 @@ const deploy = async (_args, _hre) => {
       RegistrationManager,
       [
         PNT_ON_GNOSIS_ADDRESS,
-        stakingManagerRM.address,
-        epochsManager.address,
-        lendingManager.address,
+        await stakingManagerRM.getAddress(),
+        await epochsManager.getAddress(),
+        await lendingManager.getAddress(),
         FORWARDER_ON_GNOSIS
       ],
       {
@@ -140,7 +140,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('RegistrationManager:', registrationManager.address)
+  console.info('RegistrationManager:', await registrationManager.getAddress())
 
   console.info('FeesManager ...')
   let feesManager
@@ -151,9 +151,9 @@ const deploy = async (_args, _hre) => {
     feesManager = await _hre.upgrades.deployProxy(
       FeesManager,
       [
-        epochsManager.address,
-        lendingManager.address,
-        registrationManager.address,
+        await epochsManager.getAddress(),
+        await lendingManager.getAddress(),
+        await registrationManager.getAddress(),
         FORWARDER_ON_GNOSIS,
         MINIMUM_BORROWING_FEE
       ],
@@ -163,17 +163,17 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('FeesManager:', feesManager.address)
+  console.info('FeesManager:', await feesManager.getAddress())
 
   console.log(
     JSON.stringify({
-      stakingManager: stakingManager.address,
-      stakingManagerLM: stakingManagerLM.address,
-      stakingManagerRM: stakingManagerRM.address,
-      epochsManager: epochsManager.address,
-      lendingManager: lendingManager.address,
-      registrationManager: registrationManager.address,
-      feesManager: feesManager.address
+      stakingManager: await stakingManager.getAddress(),
+      stakingManagerLM: await stakingManagerLM.getAddress(),
+      stakingManagerRM: await stakingManagerRM.getAddress(),
+      epochsManager: await epochsManager.getAddress(),
+      lendingManager: await lendingManager.getAddress(),
+      registrationManager: await registrationManager.getAddress(),
+      feesManager: await feesManager.getAddress()
     })
   )
 }
