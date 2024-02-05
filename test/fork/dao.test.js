@@ -240,7 +240,7 @@ describe('Integration tests on Gnosis deployment', () => {
       return script + addr.slice(26) + length.slice(58) + calldata.slice(2)
     }, createExecutorId(specId))
 
-  it('it should open a vote for registering a guardian and execute it', async () => {
+  it('should open a vote for registering a guardian and execute it', async () => {
     const voteId = 1
     const metadata = 'Should we register a new guardian?'
     const executionScript = encodeCallScript(
@@ -353,31 +353,6 @@ describe('Integration tests on Gnosis deployment', () => {
     )
     expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(5000)
     expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(5000)
-  })
-
-  it('should move tokens to treasury and transfer from it following a vote', async () => {
-    await mintPntOnGnosis(await daoTreasury.getAddress(), parseEther('200000'))
-    expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000'))
-    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
-
-    const voteId = 1
-    const metadata = 'Should we transfer from vault to user?'
-    const executionScript = encodeCallScript(
-      [[DAO_V3_FINANCE_VAULT, encodeVaultTransfer(await pntOnGnosis.getAddress(), user.address, parseEther('1'))]].map(
-        (_args) => encodeFunctionCall(..._args)
-      )
-    )
-    await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
-
-    await expect(daoVoting.executeVote(voteId))
-      .to.emit(daoVoting, 'ExecuteVote')
-      .withArgs(voteId)
-      .and.to.emit(daoTreasury, 'VaultTransfer')
-      .withArgs(await pntOnGnosis.getAddress(), user.address, parseEther('1'))
-      .and.to.emit(pntOnGnosis, 'Transfer')
-      .withArgs(await daoTreasury.getAddress(), user.address, parseEther('1'))
-
-    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1'))
   })
 
   it('should move tokens to treasury and transfer from it following a vote', async () => {
