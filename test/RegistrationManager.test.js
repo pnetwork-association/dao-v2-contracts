@@ -21,6 +21,7 @@ const {
   ONE_HOUR_IN_S
 } = require('./constants')
 const { getRole, getSentinelIdentity, truncateWithPrecision } = require('./utils')
+const { hardhatReset } = require('./utils/hardhat-reset')
 
 const BORROW_ROLE = getRole('BORROW_ROLE')
 const RELEASE_ROLE = getRole('RELEASE_ROLE')
@@ -65,16 +66,9 @@ describe('RegistrationManager', () => {
   const getSignatureNonce = (_address) => registrationManager.getSignatureNonceByOwner(_address)
 
   beforeEach(async () => {
-    await network.provider.request({
-      method: 'hardhat_reset',
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: config.networks.hardhat.forking.url
-          }
-        }
-      ]
-    })
+    const rpc = config.networks.hardhat.forking.url
+    const blockToForkFrom = config.networks.hardhat.forking.blockNumber
+    await hardhatReset(network.provider, rpc, blockToForkFrom)
 
     RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     const LendingManager = await ethers.getContractFactory('LendingManager')

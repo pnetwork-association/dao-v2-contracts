@@ -14,6 +14,7 @@ const {
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
 const { getRole, getSentinelIdentity } = require('./utils')
+const { hardhatReset } = require('./utils/hardhat-reset')
 
 // roles
 const BORROW_ROLE = getRole('BORROW_ROLE')
@@ -53,16 +54,9 @@ let stakingManagerLM,
 
 describe('FeesManager', () => {
   beforeEach(async () => {
-    await network.provider.request({
-      method: 'hardhat_reset',
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: config.networks.hardhat.forking.url
-          }
-        }
-      ]
-    })
+    const rpc = config.networks.hardhat.forking.url
+    const blockToForkFrom = config.networks.hardhat.forking.blockNumber
+    await hardhatReset(network.provider, rpc, blockToForkFrom)
 
     FeesManager = await ethers.getContractFactory('FeesManager')
     const RegistrationManager = await ethers.getContractFactory('RegistrationManager')

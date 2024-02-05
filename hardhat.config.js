@@ -45,6 +45,7 @@ module.exports = {
       chainId: 100,
       forking: {
         url: `${getEnvironmentVariable('GNOSIS_NODE')}`,
+        blockNumber: 32302744,
         accounts: [pk]
       }
     },

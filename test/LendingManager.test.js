@@ -16,6 +16,7 @@ const {
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
 const { getRole, truncateWithPrecision } = require('./utils')
+const { hardhatReset } = require('./utils/hardhat-reset')
 
 const BORROW_ROLE = getRole('BORROW_ROLE')
 const RELEASE_ROLE = getRole('RELEASE_ROLE')
@@ -40,16 +41,9 @@ describe('LendingManager', () => {
     lendingManager
 
   beforeEach(async () => {
-    await network.provider.request({
-      method: 'hardhat_reset',
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: config.networks.hardhat.forking.url
-          }
-        }
-      ]
-    })
+    const rpc = config.networks.hardhat.forking.url
+    const blockToForkFrom = config.networks.hardhat.forking.blockNumber
+    await hardhatReset(network.provider, rpc, blockToForkFrom)
 
     LendingManager = await ethers.getContractFactory('LendingManager')
     const EpochsManager = await ethers.getContractFactory('EpochsManager')

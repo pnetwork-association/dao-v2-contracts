@@ -41,7 +41,7 @@ contract MockPToken is ERC777 {
     ) external returns (bool) {
         require(_msgSender() == pNetwork, "Only the pNetwork can mint tokens!");
         require(recipient != address(0), "pToken: Cannot mint to the zero address!");
-        _mint(recipient, value, userData, operatorData);
+        _mint(recipient, value, userData, operatorData, false);
         return true;
     }
 
