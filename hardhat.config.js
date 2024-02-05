@@ -22,8 +22,19 @@ const { execSync } = require('child_process')
 
 const getEnvironmentVariable = (_envVar) => process.env[_envVar]
 
-const pk = execSync(`gpg --decrypt -q ${getEnvironmentVariable('PK')}`, { encoding: 'utf-8' }).trim()
+const decodeGpgFile = (_file) =>
+  execSync(`gpg --decrypt -q ${_file}`, {
+    encoding: 'utf-8'
+  }).trim()
 
+const maybeGetAccountsFromGpgFile = (_file) =>
+  _file
+    ? decodeGpgFile(_file)
+        .then((_key) => [_key])
+        .catch((_err) => undefined)
+    : undefined
+
+const accounts = maybeGetAccountsFromGpgFile(getEnvironmentVariable('PK'))
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
@@ -44,9 +55,9 @@ module.exports = {
     hardhat: {
       chainId: 100,
       forking: {
-        url: `${getEnvironmentVariable('GNOSIS_NODE')}`,
-        blockNumber: 32302744,
-        accounts: [pk]
+        url: getEnvironmentVariable('GNOSIS_NODE'),
+        blockNumber: parseInt(getEnvironmentVariable('BLOCK_NUMBER')),
+        accounts
       }
     },
     local: {
@@ -54,23 +65,23 @@ module.exports = {
     },
     mainnet: {
       url: getEnvironmentVariable('MAINNET_NODE'),
-      accounts: [pk],
+      accounts,
       gasPrice: 20e9
     },
     polygon: {
       url: getEnvironmentVariable('POLYGON_NODE'),
-      accounts: [pk],
+      accounts,
       gasPrice: 250e9
     },
     gnosis: {
       url: getEnvironmentVariable('GNOSIS_NODE'),
-      accounts: [pk],
+      accounts,
       gasPrice: 15e9,
       gas: 5e6
     },
     bsc: {
       url: getEnvironmentVariable('BSC_NODE'),
-      accounts: [pk],
+      accounts,
       gasPrice: 5e9
     }
   },
