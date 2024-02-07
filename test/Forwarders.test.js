@@ -19,7 +19,16 @@ const {
   TOKEN_MANAGER_ADDRESS,
   ZERO_ADDRESS
 } = require('./constants')
-const { getRole, encode, getSentinelIdentity, getUserDataGeneratedByForwarder } = require('./utils')
+const {
+  BORROW_ROLE,
+  STAKE_ROLE,
+  INCREASE_DURATION_ROLE,
+  UPGRADE_ROLE,
+  MINT_ROLE,
+  BURN_ROLE,
+  SET_FORWARDER_ROLE
+} = require('./roles')
+const { encode, getSentinelIdentity, getUserDataGeneratedByForwarder } = require('./utils')
 
 let acl,
   forwarderNative,
@@ -153,32 +162,20 @@ describe('Forwarders', () => {
     await voting.setForwarder(await forwarderHost.getAddress())
 
     // set permissions
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await lendingManager.grantRole(getRole('BORROW_ROLE'), await registrationManager.getAddress())
-    await stakingManagerLM.grantRole(getRole('STAKE_ROLE'), await lendingManager.getAddress())
-    await stakingManagerLM.grantRole(getRole('INCREASE_DURATION_ROLE'), await lendingManager.getAddress())
-    await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), await registrationManager.getAddress())
-    await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), await registrationManager.getAddress())
-    await stakingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
-    await lendingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
-    await registrationManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
+    await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await acl.connect(root).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(root).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await acl.connect(root).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(root).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await lendingManager.grantRole(BORROW_ROLE, await registrationManager.getAddress())
+    await stakingManagerLM.grantRole(STAKE_ROLE, await lendingManager.getAddress())
+    await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, await lendingManager.getAddress())
+    await stakingManagerRM.grantRole(STAKE_ROLE, await registrationManager.getAddress())
+    await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, await registrationManager.getAddress())
+    await stakingManager.grantRole(UPGRADE_ROLE, owner.address)
+    await lendingManager.grantRole(UPGRADE_ROLE, owner.address)
+    await registrationManager.grantRole(UPGRADE_ROLE, owner.address)
 
     await stakingManager.setForwarder(await forwarderHost.getAddress())
     await lendingManager.setForwarder(await forwarderHost.getAddress())
@@ -217,14 +214,14 @@ describe('Forwarders', () => {
   describe('ForwarderRecipientUpgradeable', () => {
     it('should not be able to change the forwarder without the corresponding role', async () => {
       for (const { contract } of forwarderRecipientUpgradeableTestData) {
-        const expectedError = `AccessControl: account ${pntHolder1.address.toLowerCase()} is missing role ${getRole('SET_FORWARDER_ROLE')}`
+        const expectedError = `AccessControl: account ${pntHolder1.address.toLowerCase()} is missing role ${SET_FORWARDER_ROLE}`
         await expect(contract.connect(pntHolder1).setForwarder(fakeForwarder.address)).to.be.revertedWith(expectedError)
       }
     })
 
     it('should be able to change the forwarder', async () => {
       for (const { contract } of forwarderRecipientUpgradeableTestData) {
-        await contract.grantRole(getRole('SET_FORWARDER_ROLE'), pntHolder1.address)
+        await contract.grantRole(SET_FORWARDER_ROLE, pntHolder1.address)
         await contract.connect(pntHolder1).setForwarder(fakeForwarder.address)
         expect(await contract.forwarder()).to.be.eq(fakeForwarder.address)
       }
@@ -232,7 +229,7 @@ describe('Forwarders', () => {
 
     it('should be able to change the forwarder after a contract upgrade', async () => {
       for (const { artifact, contract } of forwarderRecipientUpgradeableTestData) {
-        await contract.grantRole(getRole('SET_FORWARDER_ROLE'), pntHolder1.address)
+        await contract.grantRole(SET_FORWARDER_ROLE, pntHolder1.address)
         await contract.connect(pntHolder1).setForwarder(fakeForwarder.address)
         expect(await contract.forwarder()).to.be.eq(fakeForwarder.address)
         await upgrades.upgradeProxy(await contract.getAddress(), artifact, {
