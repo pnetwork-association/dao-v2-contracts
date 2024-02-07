@@ -13,16 +13,18 @@ const {
   PNT_MAX_TOTAL_SUPPLY,
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
-const { getRole, getSentinelIdentity } = require('./utils')
+const {
+  BORROW_ROLE,
+  RELEASE_ROLE,
+  STAKE_ROLE,
+  INCREASE_DURATION_ROLE,
+  UPDATE_GUARDIAN_REGISTRATION_ROLE,
+  REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE,
+  MINT_ROLE,
+  BURN_ROLE
+} = require('./roles')
+const { getSentinelIdentity } = require('./utils')
 const { hardhatReset } = require('./utils/hardhat-reset')
-
-// roles
-const BORROW_ROLE = getRole('BORROW_ROLE')
-const RELEASE_ROLE = getRole('RELEASE_ROLE')
-const STAKE_ROLE = getRole('STAKE_ROLE')
-const INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
-const REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE = getRole('REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE')
-const UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
 
 let stakingManagerLM,
   stakingManagerRM,
@@ -172,18 +174,10 @@ describe('FeesManager', () => {
     await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, await registrationManager.getAddress())
     await registrationManager.grantRole(UPDATE_GUARDIAN_REGISTRATION_ROLE, fakeDandelionVoting.address)
     await feesManager.grantRole(REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE, fakeRegistrationManager.address)
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
 
     await owner.sendTransaction({
       to: pntHolder1.address,

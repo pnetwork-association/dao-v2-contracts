@@ -15,14 +15,17 @@ const {
   PNT_MAX_TOTAL_SUPPLY,
   TOKEN_MANAGER_ADDRESS
 } = require('./constants')
-const { getRole, truncateWithPrecision } = require('./utils')
+const {
+  BORROW_ROLE,
+  RELEASE_ROLE,
+  UPGRADE_ROLE,
+  STAKE_ROLE,
+  INCREASE_DURATION_ROLE,
+  MINT_ROLE,
+  BURN_ROLE
+} = require('./roles')
+const { truncateWithPrecision } = require('./utils')
 const { hardhatReset } = require('./utils/hardhat-reset')
-
-const BORROW_ROLE = getRole('BORROW_ROLE')
-const RELEASE_ROLE = getRole('RELEASE_ROLE')
-const STAKE_ROLE = getRole('STAKE_ROLE')
-const INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
-const UPGRADE_ROLE = getRole('UPGRADE_ROLE')
 
 describe('LendingManager', () => {
   let daoRoot,
@@ -107,12 +110,8 @@ describe('LendingManager', () => {
     await lendingManager.grantRole(UPGRADE_ROLE, owner.address)
     await stakingManager.grantRole(STAKE_ROLE, await lendingManager.getAddress())
     await stakingManager.grantRole(INCREASE_DURATION_ROLE, await lendingManager.getAddress())
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
 
     await owner.sendTransaction({
       to: pntHolder1.address,

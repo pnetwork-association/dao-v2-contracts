@@ -20,20 +20,23 @@ const {
   MINIMUM_BORROWING_FEE,
   ONE_HOUR_IN_S
 } = require('./constants')
-const { getRole, getSentinelIdentity, truncateWithPrecision } = require('./utils')
+const {
+  BORROW_ROLE,
+  RELEASE_ROLE,
+  STAKE_ROLE,
+  INCREASE_DURATION_ROLE,
+  SLASH_ROLE,
+  INCREASE_AMOUNT_ROLE,
+  UPGRADE_ROLE,
+  UPDATE_GUARDIAN_REGISTRATION_ROLE,
+  SET_GOVERNANCE_MESSAGE_EMITTER_ROLE,
+  SET_FEES_MANAGER_ROLE,
+  REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE,
+  MINT_ROLE,
+  BURN_ROLE
+} = require('./roles')
+const { getSentinelIdentity, truncateWithPrecision } = require('./utils')
 const { hardhatReset } = require('./utils/hardhat-reset')
-
-const BORROW_ROLE = getRole('BORROW_ROLE')
-const RELEASE_ROLE = getRole('RELEASE_ROLE')
-const SLASH_ROLE = getRole('SLASH_ROLE')
-const STAKE_ROLE = getRole('STAKE_ROLE')
-const INCREASE_DURATION_ROLE = getRole('INCREASE_DURATION_ROLE')
-const UPGRADE_ROLE = getRole('UPGRADE_ROLE')
-const UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
-const SET_FEES_MANAGER_ROLE = getRole('SET_FEES_MANAGER_ROLE')
-const SET_GOVERNANCE_MESSAGE_EMITTER_ROLE = getRole('SET_GOVERNANCE_MESSAGE_EMITTER_ROLE')
-const REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE = getRole('REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE')
-const INCREASE_AMOUNT_ROLE = getRole('INCREASE_AMOUNT_ROLE')
 
 let signers,
   stakingManagerRM,
@@ -200,18 +203,10 @@ describe('RegistrationManager', () => {
     await registrationManager.grantRole(SET_GOVERNANCE_MESSAGE_EMITTER_ROLE, owner.address)
     await registrationManager.grantRole(SET_FEES_MANAGER_ROLE, owner.address)
     await feesManager.grantRole(REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE, await registrationManager.getAddress())
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(daoRoot)
-      .grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await acl.connect(daoRoot).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
 
     await registrationManager.setFeesManager(await feesManager.getAddress())
     await registrationManager.setGovernanceMessageEmitter(await governanceMessageEmitter.getAddress())

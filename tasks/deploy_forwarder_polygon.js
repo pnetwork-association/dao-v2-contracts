@@ -1,3 +1,5 @@
+const { task } = require('hardhat/config')
+
 const { PNT_ON_POLYGON_ADDRESS, ZERO_ADDRESS } = require('../tasks/config')
 
 const deploy = async (_args, _hre) => {

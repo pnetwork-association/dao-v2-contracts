@@ -1,8 +1,6 @@
 const { ethers } = require('hardhat')
 const { MerkleTree } = require('merkletreejs')
 
-module.exports.getRole = (_message) => ethers.keccak256(ethers.toUtf8Bytes(_message))
-
 module.exports.getSentinelIdentity = async (_ownerAddress, { actor, registrationManager }) => {
   const signatureNonce = await registrationManager.getSignatureNonceByOwner(_ownerAddress)
   const messageHash = ethers.keccak256(

@@ -3,7 +3,7 @@ const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
 const { ONE_DAY } = require('./constants')
-const { getRole } = require('./utils')
+const { UPGRADE_ROLE } = require('./roles')
 
 const EPOCH_DURATION = ONE_DAY // 1 day
 
@@ -17,7 +17,7 @@ describe('EpochsManager', () => {
       initializer: 'initialize',
       kind: 'uups'
     })
-    await epochsManager.grantRole(getRole('UPGRADE_ROLE'), signer.address)
+    await epochsManager.grantRole(UPGRADE_ROLE, signer.address)
   })
 
   it('admin should be able to handle correctly a contract upgrade', async () => {

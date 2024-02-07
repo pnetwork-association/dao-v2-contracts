@@ -8,19 +8,18 @@ const DaoPntAbi = require('../abi/daoPNT.json')
 const FinanceAbi = require('../abi/Finance.json')
 const VaultAbi = require('../abi/Vault.json')
 const { PNETWORK_NETWORK_IDS } = require('../constants')
-const { getRole } = require('../utils')
+const {
+  MINT_ROLE,
+  BURN_ROLE,
+  TRANSFER_ROLE,
+  CHANGE_TOKEN_ROLE,
+  UPDATE_GUARDIAN_REGISTRATION_ROLE,
+  CREATE_VOTES_ROLE,
+  CREATE_PAYMENTS_ROLE,
+  UPGRADE_ROLE
+} = require('../roles')
 const { hardhatReset } = require('../utils/hardhat-reset')
 const { sendEth } = require('../utils/send-eth')
-
-// roles
-const CREATE_VOTES_ROLE = getRole('CREATE_VOTES_ROLE')
-const UPGRADE_ROLE = getRole('UPGRADE_ROLE')
-const MINT_ROLE = getRole('MINT_ROLE')
-const BURN_ROLE = getRole('BURN_ROLE')
-const TRANSFER_ROLE = getRole('TRANSFER_ROLE')
-const CHANGE_TOKEN_ROLE = getRole('CHANGE_TOKEN_ROLE')
-const CREATE_PAYMENTS_ROLE = getRole('CREATE_PAYMENTS_ROLE')
-const UPDATE_GUARDIAN_REGISTRATION_ROLE = getRole('UPDATE_GUARDIAN_REGISTRATION_ROLE')
 
 // addresses
 const ACL_CONTRACT = '0x50b2b8e429cB51bD43cD3E690e5BEB9eb674f6d7'
@@ -115,23 +114,11 @@ describe('Integration tests on Gnosis deployment', () => {
   }
 
   const upgradeContracts = async () => {
-    await stakingManager.connect(daoOwner).grantRole(
-      // secretlint-disable-next-line
-      '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
-      '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
-    )
+    await stakingManager.connect(daoOwner).grantRole(UPGRADE_ROLE, '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
     await hre.upgrades.upgradeProxy(stakingManager, StakingManager)
-    await stakingManagerRm.connect(daoOwner).grantRole(
-      // secretlint-disable-next-line
-      '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
-      '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
-    )
+    await stakingManagerRm.connect(daoOwner).grantRole(UPGRADE_ROLE, '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
     await hre.upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
-    await stakingManagerLm.connect(daoOwner).grantRole(
-      // secretlint-disable-next-line
-      '0x88aa719609f728b0c5e7fb8dd3608d5c25d497efbb3b9dd64e9251ebba101508',
-      '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
-    )
+    await stakingManagerLm.connect(daoOwner).grantRole(UPGRADE_ROLE, '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266')
     await hre.upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
   }
 

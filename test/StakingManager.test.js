@@ -14,7 +14,7 @@ const {
   TOKEN_MANAGER_ADDRESS,
   ZERO_ADDRESS
 } = require('./constants')
-const { getRole } = require('./utils/index')
+const { CHANGE_MAX_TOTAL_SUPPLY_ROLE, UPGRADE_ROLE, SLASH_ROLE, MINT_ROLE, BURN_ROLE } = require('./roles')
 
 describe('StakingManager', () => {
   let pntHolder1, root, owner, stakingManager, StakingManager, fakeForwarder, challenger, acl, pnt, daoPnt
@@ -52,15 +52,11 @@ describe('StakingManager', () => {
       value: ethers.parseEther('10')
     })
 
-    await stakingManager.grantRole(getRole('UPGRADE_ROLE'), owner.address)
-    await stakingManager.grantRole(getRole('SLASH_ROLE'), owner.address)
-    await stakingManager.grantRole(getRole('CHANGE_MAX_TOTAL_SUPPLY_ROLE'), owner.address)
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-    await acl
-      .connect(root)
-      .grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
+    await stakingManager.grantRole(UPGRADE_ROLE, owner.address)
+    await stakingManager.grantRole(SLASH_ROLE, owner.address)
+    await stakingManager.grantRole(CHANGE_MAX_TOTAL_SUPPLY_ROLE, owner.address)
+    await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
 
     await owner.sendTransaction({
       to: pntHolder1.address,
@@ -371,19 +367,19 @@ describe('StakingManager', () => {
   })
 
   it('should not be able to update the maximun supply without the corresponding role', async () => {
-    const expectedError = `AccessControl: account ${pntHolder1.address.toLowerCase()} is missing role ${getRole('CHANGE_MAX_TOTAL_SUPPLY_ROLE')}`
+    const expectedError = `AccessControl: account ${pntHolder1.address.toLowerCase()} is missing role ${CHANGE_MAX_TOTAL_SUPPLY_ROLE}`
     await expect(stakingManager.connect(pntHolder1).changeMaxTotalSupply('1')).to.be.revertedWith(expectedError)
   })
 
   it('should be able to change the max total supply', async () => {
-    await stakingManager.grantRole(getRole('CHANGE_MAX_TOTAL_SUPPLY_ROLE'), owner.address)
+    await stakingManager.grantRole(CHANGE_MAX_TOTAL_SUPPLY_ROLE, owner.address)
     await expect(stakingManager.changeMaxTotalSupply('1')).to.emit(stakingManager, 'MaxTotalSupplyChanged').withArgs(1)
   })
 
   it('should not be able to mint more than the max total supply', async () => {
     const duration = ONE_DAY * 10
     const newMaxTotalSupply = ethers.parseEther('1000')
-    await stakingManager.grantRole(getRole('CHANGE_MAX_TOTAL_SUPPLY_ROLE'), owner.address)
+    await stakingManager.grantRole(CHANGE_MAX_TOTAL_SUPPLY_ROLE, owner.address)
     await stakingManager.changeMaxTotalSupply(newMaxTotalSupply)
     await pnt.connect(pntHolder1).approve(await stakingManager.getAddress(), newMaxTotalSupply + 1n)
     await expect(
