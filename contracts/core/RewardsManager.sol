@@ -108,9 +108,9 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     function _getEpochTimestamps(uint16 epoch) private view returns (uint256, uint256) {
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
         uint256 startFirstEpochTimestamp = IEpochsManager(epochsManager).startFirstEpochTimestamp();
-        uint256 epochStartDate = startFirstEpochTimestamp + (epoch * epochDuration);
-        uint256 epochEndDate = epochStartDate + epochDuration - 1;
-        return (epochStartDate, epochEndDate);
+        uint256 epochStartTimestamp = startFirstEpochTimestamp + (epoch * epochDuration);
+        uint256 epochEndTimestamp = epochStartTimestamp + epochDuration - 1;
+        return (epochStartTimestamp, epochEndTimestamp);
     }
 
     function _getVotesAndBalancesForEpoch(
@@ -122,7 +122,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
 
         uint256 numberOfVotes = votingContract.votesLength();
         uint64 voteDuration = votingContract.duration();
-        (uint256 epochStartDate, uint256 epochEndDate) = _getEpochTimestamps(epoch);
+        (uint256 epochStartTimestamp, uint256 epochEndTimestamp) = _getEpochTimestamps(epoch);
 
         uint64 lastVoteSnapshotBlock;
         uint256 supply;
@@ -131,9 +131,9 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         uint256[] memory amounts = new uint256[](stakers.length);
 
         for (uint256 voteId = numberOfVotes; voteId >= 1; voteId--) {
-            (, , uint64 startDate, , uint64 snapshotBlock, , , , , , ) = votingContract.getVote(voteId);
-            uint64 voteEndDate = startDate + voteDuration;
-            if (voteEndDate >= epochStartDate && voteEndDate <= epochEndDate) {
+            (, , uint64 startTimestamp, , uint64 snapshotBlock, , , , , , ) = votingContract.getVote(voteId);
+            uint64 voteEndTimestamp = startTimestamp + voteDuration;
+            if (voteEndTimestamp >= epochStartTimestamp && voteEndTimestamp <= epochEndTimestamp) {
                 if (lastVoteSnapshotBlock == 0) {
                     lastVoteSnapshotBlock = snapshotBlock;
                     supply = minime.totalSupplyAt(lastVoteSnapshotBlock);
