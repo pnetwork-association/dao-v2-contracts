@@ -32,6 +32,7 @@ describe('RewardsManager', () => {
     rewardsManager,
     acl,
     tokenManager,
+    daoPnt,
     daoCreator
 
   const setPermission = async (entity, app, role) => acl.connect(daoCreator).grantPermission(entity, app, role)
@@ -49,6 +50,42 @@ describe('RewardsManager', () => {
     await setPermission(await rewardsManager.getAddress(), await tokenManager.getAddress(), BURN_ROLE)
   }
 
+  const depositRewardsForEpoch = async (_amount, _epoch) => {
+    await rewardsManager.grantRole(DEPOSIT_REWARD_ROLE, owner.address)
+    await pnt.approve(await rewardsManager.getAddress(), _amount)
+    const pntOwnerBalancePre = await pnt.balanceOf(owner.address)
+    const pntRewardsManagerBalancePre = await pnt.balanceOf(await rewardsManager.getAddress())
+    const depositedRewards = await rewardsManager.depositedAmountByEpoch(_epoch)
+    await rewardsManager.depositForEpoch(_epoch, _amount)
+    const pntOwnerBalancePost = await pnt.balanceOf(owner.address)
+    const pntRewardsManagerBalancePost = await pnt.balanceOf(await rewardsManager.getAddress())
+    expect(pntOwnerBalancePost).to.be.eq(pntOwnerBalancePre - _amount)
+    expect(pntRewardsManagerBalancePost).to.be.eq(pntRewardsManagerBalancePre + _amount)
+    expect(await rewardsManager.depositedAmountByEpoch(_epoch)).to.be.eq(depositedRewards + _amount)
+  }
+
+  const assertDaoPntBalances = async (_expected) =>
+    expect(await Promise.all(pntHolders.map((_staker) => daoPnt.balanceOf(_staker.address)))).to.be.eql(
+      _expected.map((_val) => ethers.parseUnits(_val))
+    )
+
+  const assertPntBalances = async (_expected) =>
+    expect(await Promise.all(pntHolders.map((_staker) => pnt.balanceOf(_staker.address)))).to.be.eql(
+      _expected.map((_val) => ethers.parseUnits(_val))
+    )
+
+  const assertLockedRewardForEpoch = async (_epoch, _expected) =>
+    expect(
+      await Promise.all(pntHolders.map((_staker) => rewardsManager.lockedRewardByEpoch(_epoch, _staker.address)))
+    ).to.be.eql(_expected.map((_val) => ethers.parseUnits(_val)))
+
+  const setStakersVoteState = async (_voteId, _states) =>
+    Promise.all(
+      R.zip(pntHolders, _states).map(([holder, status]) =>
+        dandelionVoting.setTestVoteState(_voteId, holder.address, status)
+      )
+    )
+
   beforeEach(async () => {
     const rpc = config.networks.hardhat.forking.url
     const blockToForkFrom = config.networks.hardhat.forking.blockNumber
@@ -58,6 +95,7 @@ describe('RewardsManager', () => {
     const EpochsManager = await ethers.getContractFactory('EpochsManager')
     const TestToken = await ethers.getContractFactory('TestToken')
     const MockDandelionVotingContract = await ethers.getContractFactory('MockDandelionVotingContract')
+    const ERC20 = await ethers.getContractFactory('ERC20')
 
     const signers = await ethers.getSigners()
     owner = signers[0]
@@ -74,6 +112,7 @@ describe('RewardsManager', () => {
     acl = await ethers.getContractAt(AclAbi, ACL_ADDRESS)
     tokenManager = await ethers.getContractAt(TokenManagerAbi, TOKEN_MANAGER_ADDRESS)
     pnt = await TestToken.deploy('PNT', 'PNT')
+    daoPnt = ERC20.attach(await tokenManager.token())
 
     await Promise.all(pntHolders.map((_holder) => sendPnt(owner, _holder.address, '400000')))
 
@@ -108,70 +147,60 @@ describe('RewardsManager', () => {
   })
 
   it('should be possible to deposit tokens', async () => {
-    const amount = 100n
     expect(await epochsManager.currentEpoch()).to.be.eq(0)
-    await rewardsManager.grantRole(DEPOSIT_REWARD_ROLE, owner.address)
-    await pnt.approve(await rewardsManager.getAddress(), amount)
-    const pntOwnerBalancePre = await pnt.balanceOf(owner.address)
-    const pntRewardsManagerBalancePre = await pnt.balanceOf(await rewardsManager.getAddress())
-    await rewardsManager.depositForEpoch(0, amount)
-    const pntOwnerBalancePost = await pnt.balanceOf(owner.address)
-    const pntRewardsManagerBalancePost = await pnt.balanceOf(await rewardsManager.getAddress())
-    expect(pntOwnerBalancePost).to.be.eq(pntOwnerBalancePre - amount)
-    expect(pntRewardsManagerBalancePost).to.be.eq(pntRewardsManagerBalancePre + amount)
-    expect(await rewardsManager.depositedAmountByEpoch(0)).to.be.eq(amount)
+    await depositRewardsForEpoch(100n, 0)
+    await time.increase(ONE_DAY)
+    await depositRewardsForEpoch(200n, 0)
+    await time.increase(ONE_DAY)
+    await depositRewardsForEpoch(300n, 1)
   })
 
-  it('should not be able to register for rewards without voting', async () => {
+  it('should not be possible to deposit rewards for a previous epoch', async () => {
+    expect(await epochsManager.currentEpoch()).to.be.eq(0)
+    await time.increase(ONE_MONTH)
+    expect(await epochsManager.currentEpoch()).to.be.eq(1)
+    await expect(depositRewardsForEpoch(300n, 0)).to.be.revertedWithCustomError(rewardsManager, 'InvalidEpoch')
+  })
+
+  it('should register and assign rewards correctly', async () => {
     const amount = (ethers.parseUnits('660000') * 10n) / 100n
     await setPermission(owner.address, await tokenManager.getAddress(), MINT_ROLE)
+
+    await assertDaoPntBalances(['0', '0', '0', '0'])
     await tokenManager.mint(pntHolder1.address, ethers.parseUnits('200000'))
     await tokenManager.mint(pntHolder2.address, ethers.parseUnits('400000'))
     await tokenManager.mint(pntHolder3.address, ethers.parseUnits('50000'))
     await tokenManager.mint(pntHolder4.address, ethers.parseUnits('10000'))
+    await assertDaoPntBalances(['200000', '400000', '50000', '10000'])
+    await assertPntBalances(['400000', '400000', '400000', '400000'])
+
     expect(await epochsManager.currentEpoch()).to.be.eq(0)
-    await rewardsManager.grantRole(DEPOSIT_REWARD_ROLE, owner.address)
-    await pnt.approve(await rewardsManager.getAddress(), amount)
-    const pntOwnerBalancePre = await pnt.balanceOf(owner.address)
-    const pntRewardsManagerBalancePre = await pnt.balanceOf(await rewardsManager.getAddress())
-    await rewardsManager.depositForEpoch(0, amount)
-    const pntOwnerBalancePost = await pnt.balanceOf(owner.address)
-    const pntRewardsManagerBalancePost = await pnt.balanceOf(await rewardsManager.getAddress())
-    expect(pntOwnerBalancePost).to.be.eq(pntOwnerBalancePre - amount)
-    expect(pntRewardsManagerBalancePost).to.be.eq(pntRewardsManagerBalancePre + amount)
+    await depositRewardsForEpoch(amount, 0)
+
     await time.increase(ONE_DAY)
     await dandelionVoting.newVote()
-    await Promise.all(
-      R.zip(pntHolders, [VOTE_STATUS.YES, VOTE_STATUS.YES, VOTE_STATUS.ABSENT, VOTE_STATUS.ABSENT]).map(
-        ([holder, status]) => dandelionVoting.setTestVoteState(1, holder.address, status)
-      )
-    )
+    await setStakersVoteState(1, [VOTE_STATUS.YES, VOTE_STATUS.YES, VOTE_STATUS.ABSENT, VOTE_STATUS.ABSENT])
     await time.increase(ONE_DAY * 4)
     await dandelionVoting.newVote()
-    await Promise.all(
-      R.zip(pntHolders, [VOTE_STATUS.YES, VOTE_STATUS.ABSENT, VOTE_STATUS.YES, VOTE_STATUS.ABSENT]).map(
-        ([holder, status]) => dandelionVoting.setTestVoteState(2, holder.address, status)
-      )
-    )
+    await setStakersVoteState(2, [VOTE_STATUS.YES, VOTE_STATUS.ABSENT, VOTE_STATUS.YES, VOTE_STATUS.ABSENT])
     await time.increase(ONE_DAY * 4)
     await dandelionVoting.newVote()
-    await Promise.all(
-      R.zip(pntHolders, [VOTE_STATUS.ABSENT, VOTE_STATUS.ABSENT, VOTE_STATUS.YES, VOTE_STATUS.ABSENT]).map(
-        ([holder, status]) => dandelionVoting.setTestVoteState(3, holder.address, status)
-      )
-    )
+    await setStakersVoteState(3, [VOTE_STATUS.ABSENT, VOTE_STATUS.ABSENT, VOTE_STATUS.YES, VOTE_STATUS.ABSENT])
+
     await time.increase(ONE_MONTH + ONE_DAY)
     await expect(
       rewardsManager
         .connect(randomGuy)
         .registerRewardsForEpoch(0, [pntHolder1.address, pntHolder2.address, pntHolder3.address])
     ).to.not.be.reverted
+    await assertLockedRewardForEpoch(0, ['20000', '40000', '5000', '0'])
+    await assertDaoPntBalances(['220000', '440000', '55000', '10000'])
+
     await expect(rewardsManager.connect(randomGuy).registerRewardsForEpoch(0, [pntHolder3.address, pntHolder4.address]))
       .to.not.be.reverted
-    expect(await rewardsManager.lockedRewardByEpoch(0, pntHolder1.address)).to.be.eq(ethers.parseUnits('20000'))
-    expect(await rewardsManager.lockedRewardByEpoch(0, pntHolder2.address)).to.be.eq(ethers.parseUnits('40000'))
-    expect(await rewardsManager.lockedRewardByEpoch(0, pntHolder3.address)).to.be.eq(ethers.parseUnits('5000'))
-    expect(await rewardsManager.lockedRewardByEpoch(0, pntHolder4.address)).to.be.eq(ethers.parseUnits('0'))
+    await assertLockedRewardForEpoch(0, ['20000', '40000', '5000', '0'])
+    await assertDaoPntBalances(['220000', '440000', '55000', '10000'])
+
     await expect(rewardsManager.connect(pntHolder1).claimRewardByEpoch(0)).to.be.revertedWithCustomError(
       rewardsManager,
       'TooEarly'
@@ -184,6 +213,10 @@ describe('RewardsManager', () => {
       rewardsManager,
       'NothingToClaim'
     )
+    await assertLockedRewardForEpoch(0, ['0', '40000', '5000', '0'])
+    await assertDaoPntBalances(['200000', '440000', '55000', '10000'])
+    await assertPntBalances(['420000', '400000', '400000', '400000'])
+
     await time.increase(ONE_MONTH)
     await expect(rewardsManager.connect(pntHolder2).claimRewardByEpoch(0))
       .to.emit(pnt, 'Transfer')
@@ -192,5 +225,8 @@ describe('RewardsManager', () => {
       rewardsManager,
       'NothingToClaim'
     )
+    await assertLockedRewardForEpoch(0, ['0', '0', '5000', '0'])
+    await assertDaoPntBalances(['200000', '400000', '55000', '10000'])
+    await assertPntBalances(['420000', '440000', '400000', '400000'])
   })
 })
