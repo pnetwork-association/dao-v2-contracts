@@ -141,18 +141,19 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
                 for (uint256 i = 0; i < stakers.length; i++) {
                     if (
                         !hasVoted[i] &&
-                        votingContract.getVoterState(voteId, stakers[i]) != IDandelionVoting.VoterState.Absent
-                    ) {
-                        hasVoted[i] = true;
-                        uint256 balance = minime.balanceOfAt(stakers[i], lastVoteSnapshotBlock);
-                        amounts[i] = (depositedAmountByEpoch[epoch] * balance) / supply;
-                    }
+                        (votingContract.getVoterState(voteId, stakers[i]) != IDandelionVoting.VoterState.Absent)
+                    ) hasVoted[i] = true;
                 }
             }
         }
 
         if (lastVoteSnapshotBlock == 0) {
             revert Errors.NoVoteInEpoch();
+        }
+
+        for (uint256 i = 0; i < stakers.length; i++) {
+            uint256 balance = minime.balanceOfAt(stakers[i], lastVoteSnapshotBlock);
+            amounts[i] = (depositedAmountByEpoch[epoch] * balance) / supply;
         }
 
         return (hasVoted, amounts);

@@ -15,7 +15,7 @@ const {
   PNT_MAX_TOTAL_SUPPLY,
   VOTE_STATUS
 } = require('./constants')
-const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE } = require('./roles')
+const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = require('./roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
 
 describe('RewardsManager', () => {
@@ -83,6 +83,13 @@ describe('RewardsManager', () => {
     Promise.all(
       R.zip(pntHolders, _states).map(([holder, status]) =>
         dandelionVoting.setTestVoteState(_voteId, holder.address, status)
+      )
+    )
+
+  const mintDaoPnt = async (_amounts) =>
+    Promise.all(
+      R.zip(pntHolders, _amounts).map(([_holder, _amount]) =>
+        tokenManager.mint(_holder.address, ethers.parseUnits(_amount))
       )
     )
 
@@ -157,6 +164,7 @@ describe('RewardsManager', () => {
 
   it('should not be possible to deposit rewards for a previous epoch', async () => {
     expect(await epochsManager.currentEpoch()).to.be.eq(0)
+    await depositRewardsForEpoch(300n, 0)
     await time.increase(ONE_MONTH)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
     await expect(depositRewardsForEpoch(300n, 0)).to.be.revertedWithCustomError(rewardsManager, 'InvalidEpoch')
@@ -167,10 +175,8 @@ describe('RewardsManager', () => {
     await setPermission(owner.address, await tokenManager.getAddress(), MINT_ROLE)
 
     await assertDaoPntBalances(['0', '0', '0', '0'])
-    await tokenManager.mint(pntHolder1.address, ethers.parseUnits('200000'))
-    await tokenManager.mint(pntHolder2.address, ethers.parseUnits('400000'))
-    await tokenManager.mint(pntHolder3.address, ethers.parseUnits('50000'))
-    await tokenManager.mint(pntHolder4.address, ethers.parseUnits('10000'))
+    // mint daoPNT to simulate staking
+    await mintDaoPnt(['200000', '400000', '50000', '10000'])
     await assertDaoPntBalances(['200000', '400000', '50000', '10000'])
     await assertPntBalances(['400000', '400000', '400000', '400000'])
 
@@ -195,11 +201,13 @@ describe('RewardsManager', () => {
     ).to.not.be.reverted
     await assertLockedRewardForEpoch(0, ['20000', '40000', '5000', '0'])
     await assertDaoPntBalances(['220000', '440000', '55000', '10000'])
+    expect(await rewardsManager.unclaimableAmountByEpoch(0)).to.be.eq(0)
 
     await expect(rewardsManager.connect(randomGuy).registerRewardsForEpoch(0, [pntHolder3.address, pntHolder4.address]))
       .to.not.be.reverted
     await assertLockedRewardForEpoch(0, ['20000', '40000', '5000', '0'])
     await assertDaoPntBalances(['220000', '440000', '55000', '10000'])
+    expect(await rewardsManager.unclaimableAmountByEpoch(0)).to.be.eq(ethers.parseUnits('1000'))
 
     await expect(rewardsManager.connect(pntHolder1).claimRewardByEpoch(0)).to.be.revertedWithCustomError(
       rewardsManager,
@@ -228,5 +236,42 @@ describe('RewardsManager', () => {
     await assertLockedRewardForEpoch(0, ['0', '0', '5000', '0'])
     await assertDaoPntBalances(['200000', '400000', '55000', '10000'])
     await assertPntBalances(['420000', '440000', '400000', '400000'])
+
+    // withdraw unclaimable rewards
+    await expect(rewardsManager.connect(randomGuy).withdrawUnclaimableRewardsForEpoch(0)).to.be.revertedWith(
+      `AccessControl: account ${randomGuy.address.toLowerCase()} is missing role ${WITHDRAW_ROLE}`
+    )
+    await rewardsManager.grantRole(WITHDRAW_ROLE, owner.address)
+    const ownerBalancePre = await pnt.balanceOf(owner.address)
+    await rewardsManager.connect(owner).withdrawUnclaimableRewardsForEpoch(0)
+    expect(await pnt.balanceOf(owner.address)).to.be.eq(ownerBalancePre + ethers.parseUnits('1000'))
+    await expect(rewardsManager.connect(owner).withdrawUnclaimableRewardsForEpoch(0)).to.be.revertedWithCustomError(
+      rewardsManager,
+      'NothingToWithdraw'
+    )
+  })
+
+  it('should not register anything if there is no vote in the epoch', async () => {
+    const amount = (ethers.parseUnits('660000') * 10n) / 100n
+    await setPermission(owner.address, await tokenManager.getAddress(), MINT_ROLE)
+
+    await assertDaoPntBalances(['0', '0', '0', '0'])
+    // mint daoPNT to simulate staking
+    await mintDaoPnt(['200000', '400000', '50000', '10000'])
+    await assertDaoPntBalances(['200000', '400000', '50000', '10000'])
+    await assertPntBalances(['400000', '400000', '400000', '400000'])
+
+    expect(await epochsManager.currentEpoch()).to.be.eq(0)
+    await depositRewardsForEpoch(amount, 0)
+
+    await time.increase(ONE_MONTH + ONE_DAY)
+    await expect(
+      rewardsManager
+        .connect(randomGuy)
+        .registerRewardsForEpoch(0, [pntHolder1.address, pntHolder2.address, pntHolder3.address])
+    ).to.be.revertedWithCustomError(rewardsManager, 'NoVoteInEpoch')
+    await assertLockedRewardForEpoch(0, ['0', '0', '0', '0'])
+    await assertDaoPntBalances(['200000', '400000', '50000', '10000'])
+    expect(await rewardsManager.unclaimableAmountByEpoch(0)).to.be.eq(0)
   })
 })
