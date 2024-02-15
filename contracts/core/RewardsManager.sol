@@ -49,6 +49,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         maxTotalSupply = _maxTotalSupply;
     }
 
+    /// @inheritdoc IRewardsManager
     function claimRewardByEpoch(uint16 epoch) external {
         address sender = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
@@ -62,6 +63,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         } else revert Errors.NothingToClaim();
     }
 
+    /// @inheritdoc IRewardsManager
     function depositForEpoch(uint16 epoch, uint256 amount) external onlyRole(Roles.DEPOSIT_REWARD_ROLE) {
         address sender = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
@@ -70,6 +72,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         depositedAmountByEpoch[epoch] += amount;
     }
 
+    /// @inheritdoc IRewardsManager
     function registerRewardsForEpoch(uint16 epoch, address[] calldata stakers) external {
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch >= currentEpoch) revert Errors.InvalidEpoch();
@@ -88,6 +91,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         }
     }
 
+    /// @inheritdoc IRewardsManager
     function withdrawUnclaimableRewardsForEpoch(uint16 epoch) external onlyRole(Roles.WITHDRAW_ROLE) {
         if (unclaimableAmountByEpoch[epoch] > 0) {
             address sender = _msgSender();
