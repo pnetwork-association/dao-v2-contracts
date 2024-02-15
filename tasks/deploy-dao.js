@@ -16,7 +16,8 @@ const {
   EPOCHS_MANAGER,
   LENDING_MANAGER,
   REGISTRATION_MANAGER,
-  FEES_MANAGER
+  FEES_MANAGER,
+  REWARDS_MANAGER
 } = require('./config')
 
 const deploy = async (_args, _hre) => {
@@ -26,6 +27,7 @@ const deploy = async (_args, _hre) => {
   const LendingManager = await _hre.ethers.getContractFactory('LendingManager')
   const RegistrationManager = await _hre.ethers.getContractFactory('RegistrationManager')
   const FeesManager = await _hre.ethers.getContractFactory('FeesManager')
+  const RewardsManager = await _hre.ethers.getContractFactory('RewardsManager')
 
   console.info('StakingManager ...')
   let stakingManager
@@ -158,6 +160,28 @@ const deploy = async (_args, _hre) => {
   }
   console.info('FeesManager:', await feesManager.getAddress())
 
+  console.info('RewardsManager ...')
+  let rewardsManager
+  if (REWARDS_MANAGER) {
+    rewardsManager = RewardsManager.attach(REWARDS_MANAGER)
+  } else {
+    rewardsManager = await _hre.upgrades.deployProxy(
+      RewardsManager,
+      [
+        await epochsManager.getAddress(),
+        DANDELION_VOTING_ADDRESS,
+        PNT_ON_GNOSIS_ADDRESS,
+        TOKEN_MANAGER_ADDRESS,
+        PNT_MAX_TOTAL_SUPPLY
+      ],
+      {
+        initializer: 'initialize',
+        kind: 'uups'
+      }
+    )
+  }
+  console.info('RewardsManager:', await rewardsManager.getAddress())
+
   console.log(
     JSON.stringify({
       stakingManager: await stakingManager.getAddress(),
@@ -166,7 +190,8 @@ const deploy = async (_args, _hre) => {
       epochsManager: await epochsManager.getAddress(),
       lendingManager: await lendingManager.getAddress(),
       registrationManager: await registrationManager.getAddress(),
-      feesManager: await feesManager.getAddress()
+      feesManager: await feesManager.getAddress(),
+      rewardsManager: await rewardsManager.getAddress()
     })
   )
 }
