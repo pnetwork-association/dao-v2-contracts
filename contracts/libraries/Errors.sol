@@ -22,4 +22,8 @@ library Errors {
     error InvalidSignatureNonce(uint256 signatureNonce, uint256 expectedSignatureNonce);
     error ActorAlreadySlashed(uint256 lastSlashTimestamp, uint256 slashTimestamp);
     error ActorAlreadyResumed(uint256 lastResumeTimestamp, uint256 slashTimestamp);
+    error TooEarly();
+    error AlreadyDeposited();
+    error NoVoteInEpoch();
+    error NothingToWithdraw();
 }

@@ -139,7 +139,7 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
         }
 
         (uint256 numberOfVotes, uint256 votedVotes) = getLenderVotingStateByEpoch(lender, epoch);
-        if (numberOfVotes > votedVotes) revert Errors.NotPartecipatedInGovernanceAtEpoch(epoch);
+        if (numberOfVotes == 0 || numberOfVotes > votedVotes) revert Errors.NotPartecipatedInGovernanceAtEpoch(epoch);
 
         uint256 reward = claimableRewardsByEpochOf(lender, asset, epoch);
         if (reward == 0) {

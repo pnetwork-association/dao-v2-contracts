@@ -16,7 +16,8 @@ const {
   EPOCHS_MANAGER,
   LENDING_MANAGER,
   REGISTRATION_MANAGER,
-  FEES_MANAGER
+  FEES_MANAGER,
+  REWARDS_MANAGER
 } = require('./config')
 
 const deploy = async (_args, _hre) => {
@@ -26,11 +27,11 @@ const deploy = async (_args, _hre) => {
   const LendingManager = await _hre.ethers.getContractFactory('LendingManager')
   const RegistrationManager = await _hre.ethers.getContractFactory('RegistrationManager')
   const FeesManager = await _hre.ethers.getContractFactory('FeesManager')
+  const RewardsManager = await _hre.ethers.getContractFactory('RewardsManager')
 
   console.info('StakingManager ...')
   let stakingManager
   if (STAKING_MANAGER) {
-    // await _hre.upgrades.upgradeProxy(STAKING_MANAGER, StakingManager)
     stakingManager = StakingManager.attach(STAKING_MANAGER)
   } else {
     stakingManager = await _hre.upgrades.deployProxy(
@@ -47,7 +48,6 @@ const deploy = async (_args, _hre) => {
   console.info('StakingManager LM ...')
   let stakingManagerLM
   if (STAKING_MANAGER_LM) {
-    // await _hre.upgrades.upgradeProxy(STAKING_MANAGER_LM, StakingManagerPermissioned)
     stakingManagerLM = StakingManagerPermissioned.attach(STAKING_MANAGER_LM)
   } else {
     stakingManagerLM = await _hre.upgrades.deployProxy(
@@ -64,7 +64,6 @@ const deploy = async (_args, _hre) => {
   console.info('StakingManager RM ...')
   let stakingManagerRM
   if (STAKING_MANAGER_RM) {
-    // await _hre.upgrades.upgradeProxy(STAKING_MANAGER_RM, StakingManagerPermissioned)
     stakingManagerRM = StakingManagerPermissioned.attach(STAKING_MANAGER_RM)
   } else {
     stakingManagerRM = await _hre.upgrades.deployProxy(
@@ -81,7 +80,6 @@ const deploy = async (_args, _hre) => {
   console.info('EpochsManager ...')
   let epochsManager
   if (EPOCHS_MANAGER) {
-    // await _hre.upgrades.upgradeProxy(EpochsManager, EpochsManager)
     epochsManager = EpochsManager.attach(EPOCHS_MANAGER)
   } else {
     epochsManager = await _hre.upgrades.deployProxy(
@@ -98,7 +96,6 @@ const deploy = async (_args, _hre) => {
   console.info('LendingManager ...')
   let lendingManager
   if (LENDING_MANAGER) {
-    // await _hre.upgrades.upgradeProxy(LENDING_MANAGER, LendingManager)
     lendingManager = LendingManager.attach(LENDING_MANAGER)
   } else {
     lendingManager = await _hre.upgrades.deployProxy(
@@ -122,7 +119,6 @@ const deploy = async (_args, _hre) => {
   console.info('RegistrationManager ...')
   let registrationManager
   if (REGISTRATION_MANAGER) {
-    // await _hre.upgrades.upgradeProxy(REGISTRATION_MANAGER, RegistrationManager)
     registrationManager = RegistrationManager.attach(REGISTRATION_MANAGER)
   } else {
     registrationManager = await _hre.upgrades.deployProxy(
@@ -145,7 +141,6 @@ const deploy = async (_args, _hre) => {
   console.info('FeesManager ...')
   let feesManager
   if (FEES_MANAGER) {
-    // await _hre.upgrades.upgradeProxy(FEES_MANAGER, FeesManager)
     feesManager = FeesManager.attach(FEES_MANAGER)
   } else {
     feesManager = await _hre.upgrades.deployProxy(
@@ -165,6 +160,28 @@ const deploy = async (_args, _hre) => {
   }
   console.info('FeesManager:', await feesManager.getAddress())
 
+  console.info('RewardsManager ...')
+  let rewardsManager
+  if (REWARDS_MANAGER) {
+    rewardsManager = RewardsManager.attach(REWARDS_MANAGER)
+  } else {
+    rewardsManager = await _hre.upgrades.deployProxy(
+      RewardsManager,
+      [
+        await epochsManager.getAddress(),
+        DANDELION_VOTING_ADDRESS,
+        PNT_ON_GNOSIS_ADDRESS,
+        TOKEN_MANAGER_ADDRESS,
+        PNT_MAX_TOTAL_SUPPLY
+      ],
+      {
+        initializer: 'initialize',
+        kind: 'uups'
+      }
+    )
+  }
+  console.info('RewardsManager:', await rewardsManager.getAddress())
+
   console.log(
     JSON.stringify({
       stakingManager: await stakingManager.getAddress(),
@@ -173,7 +190,8 @@ const deploy = async (_args, _hre) => {
       epochsManager: await epochsManager.getAddress(),
       lendingManager: await lendingManager.getAddress(),
       registrationManager: await registrationManager.getAddress(),
-      feesManager: await feesManager.getAddress()
+      feesManager: await feesManager.getAddress(),
+      rewardsManager: await rewardsManager.getAddress()
     })
   )
 }

@@ -11,7 +11,8 @@ const {
   PNT_HOLDER_1_ADDRESS,
   PNT_HOLDER_2_ADDRESS,
   PNT_MAX_TOTAL_SUPPLY,
-  TOKEN_MANAGER_ADDRESS
+  TOKEN_MANAGER_ADDRESS,
+  VOTE_STATUS
 } = require('./constants')
 const {
   BORROW_ROLE,
@@ -91,7 +92,6 @@ describe('FeesManager', () => {
     pnt = await TestToken.deploy('PNT', 'PNT')
     acl = ACL.attach(ACL_ADDRESS)
     dandelionVoting = await MockDandelionVotingContract.deploy()
-    await dandelionVoting.setTestStartDate(EPOCH_DURATION * 1000) // this is needed to don't break normal tests
 
     await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('1000000'))
     await pnt.connect(owner).transfer(pntHolder2.address, ethers.parseEther('1000000'))
@@ -241,6 +241,8 @@ describe('FeesManager', () => {
     const fee = ethers.parseEther('100')
     await pnt.connect(pntHolder1).approve(await feesManager.getAddress(), fee)
     await feesManager.connect(pntHolder1).depositFee(await pnt.getAddress(), fee)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -293,6 +295,8 @@ describe('FeesManager', () => {
     const fee = ethers.parseEther('100')
     await pnt.connect(pntHolder1).approve(await feesManager.getAddress(), fee)
     await feesManager.connect(pntHolder1).depositFee(await pnt.getAddress(), fee)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -357,6 +361,8 @@ describe('FeesManager', () => {
     const fee = ethers.parseEther('100')
     await pnt.connect(pntHolder1).approve(await feesManager.getAddress(), fee)
     await feesManager.connect(pntHolder1).depositFee(await pnt.getAddress(), fee)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -446,6 +452,8 @@ describe('FeesManager', () => {
     const fee = ethers.parseEther('100')
     await pnt.connect(pntHolder1).approve(await feesManager.getAddress(), fee)
     await feesManager.connect(pntHolder1).depositFee(await pnt.getAddress(), fee)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
@@ -776,6 +784,8 @@ describe('FeesManager', () => {
     const fee = ethers.parseEther('100')
     await pnt.connect(pntHolder1).approve(await feesManager.getAddress(), fee)
     await feesManager.connect(pntHolder1).depositFee(await pnt.getAddress(), fee)
+    await dandelionVoting.newVote()
+    await dandelionVoting.setTestVoteState(await dandelionVoting.votesLength(), pntHolder1.address, VOTE_STATUS.YES)
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(2)
