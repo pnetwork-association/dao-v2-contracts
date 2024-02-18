@@ -83,11 +83,10 @@ describe('Integration tests on Gnosis deployment', () => {
     await setPermission(DAO_V3_VOTING_CONTRACT, await daoTreasury.getAddress(), TRANSFER_ROLE)
     await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, DAO_OWNER)
     await registrationManager.connect(daoOwner).grantRole(UPDATE_GUARDIAN_REGISTRATION_ROLE, DAO_V3_VOTING_CONTRACT)
-    const MockPToken = await hre.ethers.getContractFactory('MockPToken')
+    const MockPToken = await hre.ethers.getContractFactory('MockPTokenERC20')
     pntOnGnosis = await MockPToken.deploy(
       'Host Token (pToken)',
       'HTKN',
-      [],
       pntMinter.address,
       PNETWORK_NETWORK_IDS.gnosisMainnet
     )
@@ -301,23 +300,24 @@ describe('Integration tests on Gnosis deployment', () => {
         200000000000000000000000n
       )
   })
+  ;['MockPTokenERC777', 'MockPTokenERC20'].map((_pTokenContract) =>
+    it('should correctly stake after token has been changed', async () => {
+      const ERC20Factory = await hre.ethers.getContractFactory(_pTokenContract)
+      const newToken = await ERC20Factory.deploy('new PNT', 'nPNT', faucet.address, '0x00112233')
 
-  it('should correctly stake after token has been changed', async () => {
-    const ERC20Factory = await hre.ethers.getContractFactory('MockPToken')
-    const newToken = await ERC20Factory.deploy('new PNT', 'nPNT', [], faucet.address, '0x00112233')
-
-    await pntOnGnosis.connect(faucet).approve(await stakingManager.getAddress(), 10000)
-    await mintPntOnGnosis(faucet.address, 10000n)
-    await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)
-    await expect(stakingManager.connect(daoOwner).changeToken(await newToken.getAddress()))
-      .to.emit(stakingManager, 'TokenChanged')
-      .withArgs(await pntOnGnosis.getAddress(), await newToken.getAddress())
-    await newToken.connect(faucet).mint(faucet.address, hre.ethers.parseEther('200000'), '0x', '0x')
-    await newToken.connect(faucet).approve(await stakingManager.getAddress(), 10000)
-    await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7))
-      .to.be.revertedWithCustomError(stakingManager, 'InvalidToken')
-      .withArgs(await newToken.getAddress(), await pntOnGnosis.getAddress())
-  })
+      await pntOnGnosis.connect(faucet).approve(await stakingManager.getAddress(), 10000)
+      await mintPntOnGnosis(faucet.address, 10000n)
+      await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)
+      await expect(stakingManager.connect(daoOwner).changeToken(await newToken.getAddress()))
+        .to.emit(stakingManager, 'TokenChanged')
+        .withArgs(await pntOnGnosis.getAddress(), await newToken.getAddress())
+      await newToken.connect(faucet).mint(faucet.address, hre.ethers.parseEther('200000'), '0x', '0x')
+      await newToken.connect(faucet).approve(await stakingManager.getAddress(), 10000)
+      await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7))
+        .to.be.revertedWithCustomError(stakingManager, 'InvalidToken')
+        .withArgs(await newToken.getAddress(), await pntOnGnosis.getAddress())
+    })
+  )
 
   it('should stake and unstake', async () => {
     await pntOnGnosis.connect(faucet).approve(await stakingManager.getAddress(), 10000)

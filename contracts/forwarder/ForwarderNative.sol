@@ -19,22 +19,20 @@ error InvalidCallParams(address[] targets, bytes[] data, address caller);
 error InvalidOriginAddress(address originAddress);
 error InvalidCaller(address caller);
 
-contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
+contract ForwarderNative is IForwarder, IERC777Recipient, Context, Ownable {
     using SafeERC20 for IERC20;
 
-    address public immutable sender;
     address public immutable token;
     address public immutable vault;
     mapping(address => bool) private _whitelistedOriginAddresses;
 
-    constructor(address _token, address _sender, address _vault) {
+    constructor(address _token, address _vault) {
         IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
             address(this),
             keccak256("ERC777TokensRecipient"),
             address(this)
         );
 
-        sender = _sender;
         token = _token;
         vault = _vault; // set it to 0 on an host chain
     }
@@ -47,7 +45,7 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
         bytes calldata _userData,
         bytes calldata /*_operatorData*/
     ) external override {
-        if (_msgSender() == token && _from == sender) {
+        if (_msgSender() == token && _from == vault) {
             (, bytes memory userData, , address originAddress, , , , ) = abi.decode(
                 _userData,
                 (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
@@ -102,18 +100,14 @@ contract Forwarder is IForwarder, IERC777Recipient, Context, Ownable {
         bytes memory effectiveUserData = abi.encode(data, msgSender);
         uint256 effectiveAmount = amount == 0 ? 1 : amount;
 
-        if (vault != address(0)) {
-            IERC20(token).safeApprove(vault, effectiveAmount);
-            IErc20Vault(vault).pegIn(
-                effectiveAmount,
-                token,
-                Helpers.addressToAsciiString(to),
-                effectiveUserData,
-                chainId
-            );
-        } else {
-            IPToken(token).redeem(effectiveAmount, effectiveUserData, Helpers.addressToAsciiString(to), chainId);
-        }
+        IERC20(token).safeApprove(vault, effectiveAmount);
+        IErc20Vault(vault).pegIn(
+            effectiveAmount,
+            token,
+            Helpers.addressToAsciiString(to),
+            effectiveUserData,
+            chainId
+        );
     }
 
     function whitelistOriginAddress(address originAddress) external onlyOwner {
