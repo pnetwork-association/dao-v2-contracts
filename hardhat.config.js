@@ -8,15 +8,7 @@ require('@nomicfoundation/hardhat-chai-matchers')
 require('hardhat-spdx-license-identifier')
 require('hardhat-tracer')
 
-require('./tasks/decode-forwarder-metadata.js')
-require('./tasks/acl-assign-permission.js')
-require('./tasks/deploy-dao.js')
-require('./tasks/deploy_forwarder_bsc.js')
-require('./tasks/deploy_forwarder_gnosis.js')
-require('./tasks/deploy_forwarder_mainnet.js')
-require('./tasks/deploy_forwarder_polygon.js')
-require('./tasks/set_permissions.js')
-require('./tasks/upgrade.js')
+require('./tasks')
 
 const { execSync } = require('child_process')
 
