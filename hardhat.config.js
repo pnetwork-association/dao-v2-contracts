@@ -112,6 +112,9 @@ module.exports = {
     overwrite: false,
     runOnCompile: false
   },
+  sourcify: {
+    enabled: false
+  },
   mocha: {
     timeout: 100000000
   }
