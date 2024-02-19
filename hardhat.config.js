@@ -27,12 +27,15 @@ const decodeGpgFile = (_file) =>
     encoding: 'utf-8'
   }).trim()
 
-const maybeGetAccountsFromGpgFile = (_file) =>
-  _file
-    ? decodeGpgFile(_file)
-        .then((_key) => [_key])
-        .catch((_err) => undefined)
-    : undefined
+const maybeGetAccountsFromGpgFile = (_file) => {
+  if (!_file) return undefined
+  try {
+    const _key = decodeGpgFile(_file)
+    return [_key]
+  } catch (_err) {
+    return undefined
+  }
+}
 
 const accounts = maybeGetAccountsFromGpgFile(getEnvironmentVariable('PK'))
 /**
