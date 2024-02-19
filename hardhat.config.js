@@ -84,18 +84,8 @@ module.exports = {
     apiKey: {
       mainnet: getEnvironmentVariable('ETHERSCAN_API_KEY'),
       polygon: getEnvironmentVariable('POLYGONSCAN_API_KEY'),
-      gnosis: getEnvironmentVariable('GNOSISSCAN_API_KEY')
-    },
-    customChains: [
-      {
-        network: 'polygon',
-        chainId: 137,
-        urls: {
-          apiURL: 'https://api.polygonscan.com/api',
-          browserURL: 'https://polygonscan.com'
-        }
-      }
-    ]
+      xdai: getEnvironmentVariable('GNOSISSCAN_API_KEY')
+    }
   },
   gasReporter: {
     enabled: true
