@@ -33,11 +33,6 @@ describe('RewardsManager', () => {
 
   const sendPnt = (_from, _to, _amount) => pnt.connect(_from).transfer(_to, ethers.parseEther(_amount))
 
-  const missingSteps = async () => {
-    await setPermission(await rewardsManager.getAddress(), await tokenManager.getAddress(), MINT_ROLE)
-    await setPermission(await rewardsManager.getAddress(), await tokenManager.getAddress(), BURN_ROLE)
-  }
-
   const depositRewardsForEpoch = async (_amount, _epoch) => {
     await rewardsManager.grantRole(DEPOSIT_REWARD_ROLE, owner.address)
     await pnt.approve(await rewardsManager.getAddress(), _amount)
@@ -134,8 +129,8 @@ describe('RewardsManager', () => {
         kind: 'uups'
       }
     )
-
-    await missingSteps()
+    await setPermission(await rewardsManager.getAddress(), await tokenManager.getAddress(), MINT_ROLE)
+    await setPermission(await rewardsManager.getAddress(), await tokenManager.getAddress(), BURN_ROLE)
   })
 
   it('should deploy correctly', async () => {
