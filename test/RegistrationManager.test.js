@@ -106,14 +106,8 @@ describe('RegistrationManager', () => {
     await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('500000'))
     await pnt.connect(owner).transfer(pntHolder2.address, ethers.parseEther('500000'))
 
-    await owner.sendTransaction({
-      to: pntHolder1.address,
-      value: ethers.parseEther('10')
-    })
-    await owner.sendTransaction({
-      to: pntHolder2.address,
-      value: ethers.parseEther('10')
-    })
+    await sendEth(ethers, owner, pntHolder1.address, '10')
+    await sendEth(ethers, owner, pntHolder2.address, '10')
 
     stakingManagerLM = await upgrades.deployProxy(
       StakingManager,

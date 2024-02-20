@@ -47,10 +47,7 @@ describe('StakingManager', () => {
       }
     )
 
-    await owner.sendTransaction({
-      to: daoRoot.address,
-      value: ethers.parseEther('10')
-    })
+    await sendEth(ethers, owner, daoRoot.address, '10')
 
     await stakingManager.grantRole(UPGRADE_ROLE, owner.address)
     await stakingManager.grantRole(SLASH_ROLE, owner.address)
@@ -58,10 +55,7 @@ describe('StakingManager', () => {
     await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
     await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
 
-    await owner.sendTransaction({
-      to: pntHolder1.address,
-      value: ethers.parseEther('10')
-    })
+    await sendEth(ethers, owner, pntHolder1.address, '10')
   })
 
   it('should be able to stake the first time', async () => {

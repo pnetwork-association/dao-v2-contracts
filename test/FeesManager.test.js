@@ -180,14 +180,8 @@ describe('FeesManager', () => {
     await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
     await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
 
-    await owner.sendTransaction({
-      to: pntHolder1.address,
-      value: ethers.parseEther('10')
-    })
-    await owner.sendTransaction({
-      to: pntHolder2.address,
-      value: ethers.parseEther('10')
-    })
+    await sendEth(ethers, owner, pntHolder1.address, '10')
+    await sendEth(ethers, owner, pntHolder2.address, '10')
   })
 
   it('borrower should not be able to earn anything when utilization ratio is 100%', async () => {

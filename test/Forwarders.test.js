@@ -186,18 +186,9 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       await lendingManager.setForwarder(await forwarderHost.getAddress())
       await registrationManager.setForwarder(await forwarderHost.getAddress())
 
-      await owner.sendTransaction({
-        to: pntHolder1.address,
-        value: ethers.parseEther('10')
-      })
-      await owner.sendTransaction({
-        to: pntHolder2.address,
-        value: ethers.parseEther('10')
-      })
-      await owner.sendTransaction({
-        to: pnetwork.address,
-        value: ethers.parseEther('10')
-      })
+      await sendEth(ethers, owner, pntHolder1.address, '10')
+      await sendEth(ethers, owner, pntHolder2.address, '10')
+      await sendEth(ethers, owner, pnetwork.address, '10')
       await pnt.connect(owner).transfer(await forwarderNative.getAddress(), ethers.parseEther('10000'))
 
       forwarderRecipientUpgradeableTestData = [
