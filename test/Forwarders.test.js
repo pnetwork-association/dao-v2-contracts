@@ -298,6 +298,63 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         .withArgs(voteId, pntHolder1.address, true)
     })
 
+    it('should revert if an attacker calls delegateVote', async () => {
+      const attacker = ethers.Wallet.createRandom().connect(ethers.provider)
+      await sendEth(ethers, owner, attacker.address, '10')
+      const voteId = 1
+      const dandelionVotingInterface = new ethers.Interface([
+        'function delegateVote(address voter, uint256 _voteId, bool _supports)'
+      ])
+      const userData = encode(
+        ['address[]', 'bytes[]'],
+        [
+          [await voting.getAddress()],
+          [dandelionVotingInterface.encodeFunctionData('delegateVote', [pntHolder1.address, voteId, true])]
+        ]
+      )
+
+      await expect(
+        forwarderNative
+          .connect(attacker)
+          .call(0, await forwarderHost.getAddress(), userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      )
+        .to.emit(vault, 'PegIn')
+        .withArgs(
+          await pnt.getAddress(),
+          await forwarderNative.getAddress(),
+          1,
+          (await forwarderHost.getAddress()).toLowerCase().slice(2),
+          getUserDataGeneratedByForwarder(userData, attacker.address),
+          PNETWORK_NETWORK_IDS.ethereumMainnet,
+          PNETWORK_NETWORK_IDS.gnosisMainnet
+        )
+
+      // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
+
+      const metadata = encode(
+        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
+        [
+          '0x02',
+          getUserDataGeneratedByForwarder(userData, attacker.address),
+          PNETWORK_NETWORK_IDS.ethereumMainnet,
+          await forwarderNative.getAddress(),
+          PNETWORK_NETWORK_IDS.gnosisMainnet,
+          await forwarderHost.getAddress(),
+          '0x',
+          '0x'
+        ]
+      )
+      if (_ptokenContract === MOCK_PTOKEN_ERC20) {
+        await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
+          .to.emit(pToken, 'ReceiveUserDataFailed')
+          .and.to.not.emit(voting, 'CastVote')
+      } else if (_ptokenContract === MOCK_PTOKEN_ERC777) {
+        await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
+          .to.be.revertedWithCustomError(forwarderHost, 'InvalidCaller')
+          .withArgs(attacker.address, pntHolder1.address)
+      } else expect.fail('Unsupported pToken contract')
+    })
+
     it('should not be able to forward if sender is not native forwarder', async () => {
       const attacker = ethers.Wallet.createRandom()
       const voteId = 1

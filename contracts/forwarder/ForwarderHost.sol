@@ -17,7 +17,7 @@ import {BytesLib} from "../libraries/BytesLib.sol";
 error CallFailed(address target, bytes data);
 error InvalidCallParams(address[] targets, bytes[] data, address caller);
 error InvalidOriginAddress(address originAddress);
-error InvalidCaller(address caller);
+error InvalidCaller(address caller, address expected);
 
 contract ForwarderHost is IForwarder, IERC777Recipient, Context, Ownable, IPReceiver {
     using SafeERC20 for IERC20;
@@ -93,7 +93,7 @@ contract ForwarderHost is IForwarder, IERC777Recipient, Context, Ownable, IPRece
 
                 // NOTE: needed to for example avoid someone to vote for someone else
                 if (expectedCaller != caller) {
-                    revert InvalidCaller(expectedCaller);
+                    revert InvalidCaller(caller, expectedCaller);
                 }
             }
 
