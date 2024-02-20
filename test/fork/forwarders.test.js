@@ -25,7 +25,7 @@ describe('Polygon Forwarder', () => {
   it('should call forwarder for staking', async () => {
     const [owner] = await hre.ethers.getSigners()
     const daoRoot = await hre.ethers.getImpersonatedSigner('0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B')
-    await sendEth(hre, owner, daoRoot, hre.ethers.parseEther('7'))
+    await sendEth(hre.ethers, owner, daoRoot, hre.ethers.parseEther('7'))
     await hre.ethers.provider.getBalance('0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B')
     const forwarder = await hre.ethers.getContractAt('IForwarder', FORWARDER_ON_POLYGON)
     const pToken = await hre.ethers.getContractAt(pntOnPolygonAbi, PNT_ON_POLYGON_ADDRESS)

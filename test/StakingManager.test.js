@@ -13,9 +13,10 @@ const {
   ZERO_ADDRESS
 } = require('./constants')
 const { CHANGE_MAX_TOTAL_SUPPLY_ROLE, UPGRADE_ROLE, SLASH_ROLE, MINT_ROLE, BURN_ROLE } = require('./roles')
+const { sendEth } = require('./utils/send-eth')
 
 describe('StakingManager', () => {
-  let pntHolder1, root, owner, stakingManager, StakingManager, fakeForwarder, challenger, acl, pnt, daoPnt
+  let pntHolder1, daoRoot, owner, stakingManager, StakingManager, fakeForwarder, challenger, acl, pnt, daoPnt
 
   beforeEach(async () => {
     StakingManager = await ethers.getContractFactory('StakingManager')
@@ -28,7 +29,8 @@ describe('StakingManager', () => {
     fakeForwarder = signers[1]
     challenger = signers[2]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
-    root = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    sendEth(ethers, owner, daoRoot.address, '1')
 
     acl = ACL.attach(ACL_ADDRESS)
     pnt = await TestToken.deploy('PNT', 'PNT')
@@ -46,15 +48,15 @@ describe('StakingManager', () => {
     )
 
     await owner.sendTransaction({
-      to: root.address,
+      to: daoRoot.address,
       value: ethers.parseEther('10')
     })
 
     await stakingManager.grantRole(UPGRADE_ROLE, owner.address)
     await stakingManager.grantRole(SLASH_ROLE, owner.address)
     await stakingManager.grantRole(CHANGE_MAX_TOTAL_SUPPLY_ROLE, owner.address)
-    await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-    await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
 
     await owner.sendTransaction({
       to: pntHolder1.address,

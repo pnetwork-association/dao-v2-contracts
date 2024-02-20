@@ -10,6 +10,7 @@ const TokenManagerAbi = require('./abi/TokenManager.json')
 const { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY, VOTE_STATUS } = require('./constants')
 const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = require('./roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
+const { sendEth } = require('./utils/send-eth')
 
 describe('RewardsManager', () => {
   let epochsManager,
@@ -26,15 +27,9 @@ describe('RewardsManager', () => {
     acl,
     tokenManager,
     daoPnt,
-    daoCreator
+    daoRoot
 
-  const setPermission = async (entity, app, role) => acl.connect(daoCreator).grantPermission(entity, app, role)
-
-  const sendEthers = (_from, _dest, _amount) =>
-    _from.sendTransaction({
-      to: _dest.address,
-      value: ethers.parseEther(_amount)
-    })
+  const setPermission = async (entity, app, role) => acl.connect(daoRoot).grantPermission(entity, app, role)
 
   const sendPnt = (_from, _to, _amount) => pnt.connect(_from).transfer(_to, ethers.parseEther(_amount))
 
@@ -99,7 +94,9 @@ describe('RewardsManager', () => {
 
     const signers = await ethers.getSigners()
     owner = signers[0]
-    daoCreator = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    sendEth(ethers, owner, daoRoot.address, '1')
+
     randomGuy = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
@@ -107,7 +104,7 @@ describe('RewardsManager', () => {
     pntHolder4 = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolders = [pntHolder1, pntHolder2, pntHolder3, pntHolder4]
 
-    await Promise.all([...pntHolders, daoCreator, randomGuy].map((_dest) => sendEthers(owner, _dest, '1001')))
+    await Promise.all([...pntHolders, daoRoot, randomGuy].map((_dest) => sendEth(ethers, owner, _dest.address, '1001')))
 
     acl = await ethers.getContractAt(AclAbi, ACL_ADDRESS)
     tokenManager = await ethers.getContractAt(TokenManagerAbi, TOKEN_MANAGER_ADDRESS)

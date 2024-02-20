@@ -27,6 +27,7 @@ const {
   SET_FORWARDER_ROLE
 } = require('./roles')
 const { encode, getSentinelIdentity, getUserDataGeneratedByForwarder } = require('./utils')
+const { sendEth } = require('./utils/send-eth')
 
 let acl,
   forwarderNative,
@@ -44,7 +45,7 @@ let acl,
   pToken,
   pnetwork,
   sentinel1,
-  root,
+  daoRoot,
   pntHolder1,
   pntHolder2,
   fakeForwarder,
@@ -79,7 +80,8 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
       pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
       pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
-      root = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+      daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+      sendEth(ethers, owner, daoRoot.address, '1')
 
       acl = ACL.attach(ACL_ADDRESS)
       pnt = await TestToken.deploy('PNT', 'PNT')
@@ -165,12 +167,12 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       await voting.setForwarder(await forwarderHost.getAddress())
 
       // set permissions
-      await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-      await acl.connect(root).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-      await acl.connect(root).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-      await acl.connect(root).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-      await acl.connect(root).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-      await acl.connect(root).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+      await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+      await acl.connect(daoRoot).grantPermission(await stakingManager.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+      await acl.connect(daoRoot).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+      await acl.connect(daoRoot).grantPermission(await stakingManagerRM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+      await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+      await acl.connect(daoRoot).grantPermission(await stakingManagerLM.getAddress(), TOKEN_MANAGER_ADDRESS, BURN_ROLE)
       await lendingManager.grantRole(BORROW_ROLE, await registrationManager.getAddress())
       await stakingManagerLM.grantRole(STAKE_ROLE, await lendingManager.getAddress())
       await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, await lendingManager.getAddress())

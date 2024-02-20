@@ -104,7 +104,7 @@ describe('Integration tests on Gnosis deployment', () => {
     tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(hre.ethers.getImpersonatedSigner))
     user = await hre.ethers.getImpersonatedSigner(USER_ADDRESS)
     daoOwner = await hre.ethers.getImpersonatedSigner(SAFE_ADDRESS)
-    await sendEth(hre, faucet, daoOwner.address, '5')
+    await sendEth(hre.ethers, faucet, daoOwner.address, '5')
     pntMinter = await hre.ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
 
     StakingManager = await hre.ethers.getContractFactory('StakingManager')
@@ -125,7 +125,7 @@ describe('Integration tests on Gnosis deployment', () => {
 
     await missingSteps()
 
-    await Promise.all(tokenHolders.map((_holder) => sendEth(hre, faucet, _holder.address, '5')))
+    await Promise.all(tokenHolders.map((_holder) => sendEth(hre.ethers, faucet, _holder.address, '5')))
     await Promise.all(tokenHolders.map((_holder) => mintPntOnGnosis(_holder.address, 10000n)))
     await Promise.all(tokenHolders.map((_holder) => stake(_holder, 5000)))
   })

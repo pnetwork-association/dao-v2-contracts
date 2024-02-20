@@ -25,6 +25,7 @@ const {
 } = require('./roles')
 const { getSentinelIdentity } = require('./utils')
 const { hardhatReset } = require('./utils/hardhat-reset')
+const { sendEth } = require('./utils/send-eth')
 
 let stakingManagerLM,
   stakingManagerRM,
@@ -87,6 +88,7 @@ describe('FeesManager', () => {
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
     daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    sendEth(ethers, owner, daoRoot.address, '1')
 
     pnt = await TestToken.deploy('PNT', 'PNT')
     acl = ACL.attach(ACL_ADDRESS)
