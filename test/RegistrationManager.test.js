@@ -2,10 +2,10 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades, config, network } = require('hardhat')
 
+const { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../tasks/config')
+
 const {
-  ACL_ADDRESS,
   BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
-  DAO_ROOT_ADDRESS,
   EPOCH_DURATION,
   LEND_MAX_EPOCHS,
   ONE_DAY,
@@ -16,7 +16,6 @@ const {
   REGISTRATION_SENTINEL_BORROWING,
   REGISTRATION_SENTINEL_STAKING,
   REGISTRATON_GUARDIAN,
-  TOKEN_MANAGER_ADDRESS,
   MINIMUM_BORROWING_FEE,
   ONE_HOUR_IN_S
 } = require('./constants')
@@ -97,7 +96,7 @@ describe('RegistrationManager', () => {
     sentinel2 = signers[11]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
     pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
-    daoRoot = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
+    daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
 
     pnt = await TestToken.deploy('PNT', 'PNT')
     acl = ACL.attach(ACL_ADDRESS)

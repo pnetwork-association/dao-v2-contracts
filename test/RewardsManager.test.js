@@ -3,18 +3,11 @@ const { expect } = require('chai')
 const { ethers, upgrades, config, network } = require('hardhat')
 const R = require('ramda')
 
+const { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS } = require('../tasks/config')
+
 const AclAbi = require('./abi/ACL.json')
 const TokenManagerAbi = require('./abi/TokenManager.json')
-const {
-  EPOCH_DURATION,
-  TOKEN_MANAGER_ADDRESS,
-  ONE_DAY,
-  ONE_MONTH,
-  DAO_CREATOR,
-  ACL_ADDRESS,
-  PNT_MAX_TOTAL_SUPPLY,
-  VOTE_STATUS
-} = require('./constants')
+const { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY, VOTE_STATUS } = require('./constants')
 const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = require('./roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
 
@@ -106,7 +99,7 @@ describe('RewardsManager', () => {
 
     const signers = await ethers.getSigners()
     owner = signers[0]
-    daoCreator = await ethers.getImpersonatedSigner(DAO_CREATOR)
+    daoCreator = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
     randomGuy = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)

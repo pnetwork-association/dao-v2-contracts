@@ -2,16 +2,14 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
+const { ACL_ADDRESS, DAOPNT_ON_GNOSIS_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../tasks/config')
+
 const {
-  ACL_ADDRESS,
-  DAO_PNT_ADDRESS,
-  DAO_ROOT_ADDRESS,
   MIN_LOCK_DURATION,
   ONE_DAY,
   PNETWORK_NETWORK_IDS,
   PNT_HOLDER_1_ADDRESS,
   PNT_MAX_TOTAL_SUPPLY,
-  TOKEN_MANAGER_ADDRESS,
   ZERO_ADDRESS
 } = require('./constants')
 const { CHANGE_MAX_TOTAL_SUPPLY_ROLE, UPGRADE_ROLE, SLASH_ROLE, MINT_ROLE, BURN_ROLE } = require('./roles')
@@ -30,11 +28,11 @@ describe('StakingManager', () => {
     fakeForwarder = signers[1]
     challenger = signers[2]
     pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
-    root = await ethers.getImpersonatedSigner(DAO_ROOT_ADDRESS)
+    root = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
 
     acl = ACL.attach(ACL_ADDRESS)
     pnt = await TestToken.deploy('PNT', 'PNT')
-    daoPnt = ERC20.attach(DAO_PNT_ADDRESS)
+    daoPnt = ERC20.attach(DAOPNT_ON_GNOSIS_ADDRESS)
 
     await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('400000'))
 
