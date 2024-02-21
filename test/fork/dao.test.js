@@ -243,14 +243,7 @@ describe('Integration tests on Gnosis deployment', () => {
         ['updateSentinelRegistrationByBorrowing(uint16,bytes,uint256)'](1, signature, 0)
     )
       .to.emit(registrationManager, 'SentinelRegistrationUpdated')
-      .withArgs(
-        '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B',
-        2,
-        2,
-        '0xB48299F9704a2A268a09f5d47F56e662624E882f',
-        2,
-        200000000000000000000000n
-      )
+      .withArgs(USER_ADDRESS, 2, 2, '0xB48299F9704a2A268a09f5d47F56e662624E882f', 2, 200000000000000000000000n)
   })
 
   it('should register a staking sentinel', async () => {
@@ -265,14 +258,7 @@ describe('Integration tests on Gnosis deployment', () => {
         .updateSentinelRegistrationByStaking(user.address, amount, 86400 * 30, signature, 0)
     )
       .to.emit(registrationManager, 'SentinelRegistrationUpdated')
-      .withArgs(
-        '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B',
-        2,
-        2,
-        '0xB48299F9704a2A268a09f5d47F56e662624E882f',
-        2,
-        200000000000000000000000n
-      )
+      .withArgs(USER_ADDRESS, 2, 2, '0xB48299F9704a2A268a09f5d47F56e662624E882f', 2, 200000000000000000000000n)
   })
   ;['MockPTokenERC777', 'MockPTokenERC20'].map((_pTokenContract) =>
     it('should correctly stake after token has been changed', async () => {
@@ -356,5 +342,19 @@ describe('Integration tests on Gnosis deployment', () => {
       .withArgs(await daoTreasury.getAddress(), user.address, amount)
     expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000') - amount)
     expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(amount)
+  })
+
+  it('should open a vote (1)', async () => {
+    await setPermission(user.address, await daoVoting.getAddress(), CREATE_VOTES_ROLE)
+    await expect(
+      user.sendTransaction({
+        to: '0x0cf759bcCfEf5f322af58ADaE2D28885658B5e02',
+        // secretlint-disable-next-line
+        data: '0x24160baa00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048746573742068747470733a2f2f697066732e696f2f697066732f516d536e75576d7870744a5a644c4a704b52617278424d53324a75326f414e567267627232785762696539623244000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    )
+      .to.emit(daoVoting, 'StartVote')
+      .withArgs(1, USER_ADDRESS, 'test https://ipfs.io/ipfs/QmSnuWmxptJZdLJpKRarxBMS2Ju2oANVrgbr2xWbie9b2D')
   })
 })
