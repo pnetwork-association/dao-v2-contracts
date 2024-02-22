@@ -464,12 +464,9 @@ describe('StakingManager', () => {
     expect(stake.amount).to.be.eq(stakeAmount)
 
     await pnt.connect(pntHolder1).approve(await stakingManager.getAddress(), stakeAmount)
-    await expect(stakingManager.connect(pntHolder1).increaseAmount(stakeAmount)).to.emit(
-      stakingManager,
-      'AmountIncreased',
-      pntHolder1.address,
-      stakeAmount
-    )
+    await expect(stakingManager.connect(pntHolder1).increaseAmount(stakeAmount))
+      .to.emit(stakingManager, 'AmountIncreased')
+      .withArgs(pntHolder1.address, stakeAmount)
 
     stake = await stakingManager.stakeOf(pntHolder1.address)
     expect(stake.amount).to.be.eq(stakeAmount * 2n)
