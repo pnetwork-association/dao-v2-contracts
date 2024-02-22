@@ -1,6 +1,6 @@
 const { mineUpTo, time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
-const hre = require('hardhat')
+const { config, ethers, network, upgrades } = require('hardhat')
 
 const AclAbi = require('../../lib/abi/ACL.json')
 const DandelionVotingAbi = require('../../lib/abi/DandelionVoting.json')
@@ -45,9 +45,8 @@ const { hardhatReset } = require('../utils/hardhat-reset')
 const { mintPToken, pegoutToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
-const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, DEPOSIT_REWARD_ROLE, UPGRADE_ROLE } = getAllRoles(
-  hre.ethers
-)
+const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, DEPOSIT_REWARD_ROLE, UPGRADE_ROLE } =
+  getAllRoles(ethers)
 
 const PNT_ON_GNOSIS_MINTER = '0x53d51f8801f40657ca566a1ae25b27eada97413c'
 
@@ -56,13 +55,13 @@ const ADDRESS_PLACEHOLDER = '0x0123456789012345678901234567890123456789'
 
 const getBytes = (_hexString) => Buffer.from(_hexString.slice(2), 'hex')
 
-const parseEther = (_input) => hre.ethers.parseEther(_input)
+const parseEther = (_input) => ethers.parseEther(_input)
 
 const createExecutorId = (id) => `0x${String(id).padStart(8, '0')}`
 
 const encodeCallScript = (actions, specId = 1) =>
   actions.reduce((script, { to, calldata }) => {
-    const encoder = new hre.ethers.AbiCoder()
+    const encoder = new ethers.AbiCoder()
     const addr = encoder.encode(['address'], [to])
     const length = encoder.encode(['uint256'], [(calldata.length - 2) / 2])
     // Remove 12 first 0s of padding for addr and 28 0s for uint32
@@ -152,7 +151,7 @@ describe('Integration tests on Gnosis deployment', () => {
 
   const missingSteps = async () => {
     await upgradeContracts()
-    const MockPToken = await hre.ethers.getContractFactory('MockPTokenERC20')
+    const MockPToken = await ethers.getContractFactory('MockPTokenERC20')
     pntOnGnosis = await MockPToken.deploy('Host Token (pToken)', 'HTKN', pntMinter.address, PNETWORK_NETWORK_IDS.GNOSIS)
     await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await stakingManagerLm.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
@@ -176,36 +175,36 @@ describe('Integration tests on Gnosis deployment', () => {
     await lendingManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await registrationManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await rewardsManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
-    await hre.upgrades.upgradeProxy(stakingManager, StakingManager)
-    await hre.upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
-    await hre.upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
-    await hre.upgrades.upgradeProxy(lendingManager, LendingManager)
-    await hre.upgrades.upgradeProxy(registrationManager, RegistrationManager)
-    await hre.upgrades.upgradeProxy(rewardsManager, RewardsManager)
+    await upgrades.upgradeProxy(stakingManager, StakingManager)
+    await upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
+    await upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
+    await upgrades.upgradeProxy(lendingManager, LendingManager)
+    await upgrades.upgradeProxy(registrationManager, RegistrationManager)
+    await upgrades.upgradeProxy(rewardsManager, RewardsManager)
   }
 
   beforeEach(async () => {
-    const rpc = hre.config.networks.hardhat.forking.url
-    const blockToForkFrom = hre.config.networks.hardhat.forking.blockNumber
-    await hardhatReset(hre.network.provider, rpc, blockToForkFrom)
-    ;[faucet] = await hre.ethers.getSigners()
-    tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(hre.ethers.getImpersonatedSigner))
-    user = await hre.ethers.getImpersonatedSigner(USER_ADDRESS)
-    daoOwner = await hre.ethers.getImpersonatedSigner(SAFE_ADDRESS)
-    await sendEth(hre.ethers, faucet, daoOwner.address, '5')
-    pntMinter = await hre.ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
+    const rpc = config.networks.hardhat.forking.url
+    const blockToForkFrom = config.networks.hardhat.forking.blockNumber
+    await hardhatReset(network.provider, rpc, blockToForkFrom)
+    ;[faucet] = await ethers.getSigners()
+    tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(ethers.getImpersonatedSigner))
+    user = await ethers.getImpersonatedSigner(USER_ADDRESS)
+    daoOwner = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    await sendEth(ethers, faucet, daoOwner.address, '5')
+    pntMinter = await ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
 
-    StakingManager = await hre.ethers.getContractFactory('StakingManager')
-    StakingManagerPermissioned = await hre.ethers.getContractFactory('StakingManagerPermissioned')
-    RegistrationManager = await hre.ethers.getContractFactory('RegistrationManager')
-    LendingManager = await hre.ethers.getContractFactory('LendingManager')
-    RewardsManager = await hre.ethers.getContractFactory('RewardsManager')
+    StakingManager = await ethers.getContractFactory('StakingManager')
+    StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
+    RegistrationManager = await ethers.getContractFactory('RegistrationManager')
+    LendingManager = await ethers.getContractFactory('LendingManager')
+    RewardsManager = await ethers.getContractFactory('RewardsManager')
 
-    acl = await hre.ethers.getContractAt(AclAbi, ACL_ADDRESS)
-    daoVoting = await hre.ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_ADDRESS)
-    daoTreasury = await hre.ethers.getContractAt(VaultAbi, FINANCE_VAULT)
-    finance = await hre.ethers.getContractAt(FinanceAbi, FINANCE)
-    daoPNT = await hre.ethers.getContractAt(DaoPntAbi, DAOPNT_ON_GNOSIS_ADDRESS)
+    acl = await ethers.getContractAt(AclAbi, ACL_ADDRESS)
+    daoVoting = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_ADDRESS)
+    daoTreasury = await ethers.getContractAt(VaultAbi, FINANCE_VAULT)
+    finance = await ethers.getContractAt(FinanceAbi, FINANCE)
+    daoPNT = await ethers.getContractAt(DaoPntAbi, DAOPNT_ON_GNOSIS_ADDRESS)
     stakingManager = StakingManager.attach(STAKING_MANAGER)
     stakingManagerLm = StakingManagerPermissioned.attach(STAKING_MANAGER_LM)
     stakingManagerRm = StakingManagerPermissioned.attach(STAKING_MANAGER_RM)
@@ -215,7 +214,7 @@ describe('Integration tests on Gnosis deployment', () => {
 
     await missingSteps()
 
-    await Promise.all(tokenHolders.map((_holder) => sendEth(hre.ethers, faucet, _holder.address, '5')))
+    await Promise.all(tokenHolders.map((_holder) => sendEth(ethers, faucet, _holder.address, '5')))
     await Promise.all(tokenHolders.map((_holder) => mintPntOnGnosis(_holder.address, 10000n)))
     await Promise.all(tokenHolders.map((_holder) => stake(_holder, 5000)))
   })
@@ -244,11 +243,11 @@ describe('Integration tests on Gnosis deployment', () => {
         (_args) => encodeFunctionCall(..._args)
       )
     )
-    let currentBlock = await hre.ethers.provider.getBlockNumber()
+    let currentBlock = await ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(20000)
     await mintPntOnGnosis(faucet.address, 10000n)
     await stake(faucet, 10000)
-    currentBlock = await hre.ethers.provider.getBlockNumber()
+    currentBlock = await ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
 
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
@@ -260,8 +259,8 @@ describe('Integration tests on Gnosis deployment', () => {
   })
 
   it('should lend PNTs and register a borrowing sentinel', async () => {
-    const amount = hre.ethers.parseEther('200000', await pntOnGnosis.decimals())
-    await mintPntOnGnosis(faucet.address, hre.ethers.parseEther('400000', await pntOnGnosis.decimals()))
+    const amount = ethers.parseEther('200000', await pntOnGnosis.decimals())
+    await mintPntOnGnosis(faucet.address, ethers.parseEther('400000', await pntOnGnosis.decimals()))
     await pntOnGnosis.connect(faucet).approve(LENDING_MANAGER, amount)
     const balancePre = await pntOnGnosis.balanceOf(faucet.address)
     await expect(lendingManager.lend(faucet.address, amount, 86400 * 90))
@@ -272,7 +271,7 @@ describe('Integration tests on Gnosis deployment', () => {
     const balancePost = await pntOnGnosis.balanceOf(faucet.address)
     expect(balancePre - amount).to.be.eq(balancePost)
 
-    const sentinel = hre.ethers.Wallet.createRandom()
+    const sentinel = ethers.Wallet.createRandom()
     const signature = await sentinel.signMessage('test')
     expect(
       await registrationManager
@@ -284,9 +283,9 @@ describe('Integration tests on Gnosis deployment', () => {
   })
 
   it('should register a staking sentinel', async () => {
-    const amount = hre.ethers.parseEther('200000', await pntOnGnosis.decimals())
-    await mintPntOnGnosis(user.address, hre.ethers.parseEther('400000', await pntOnGnosis.decimals()))
-    const sentinel = hre.ethers.Wallet.createRandom()
+    const amount = ethers.parseEther('200000', await pntOnGnosis.decimals())
+    await mintPntOnGnosis(user.address, ethers.parseEther('400000', await pntOnGnosis.decimals()))
+    const sentinel = ethers.Wallet.createRandom()
     const signature = await sentinel.signMessage('test')
     await pntOnGnosis.connect(user).approve(REGISTRATION_MANAGER, amount)
     expect(
@@ -299,7 +298,7 @@ describe('Integration tests on Gnosis deployment', () => {
   })
   ;['MockPTokenERC777', 'MockPTokenERC20'].map((_pTokenContract) =>
     it('should correctly stake after token has been changed', async () => {
-      const ERC20Factory = await hre.ethers.getContractFactory(_pTokenContract)
+      const ERC20Factory = await ethers.getContractFactory(_pTokenContract)
       const newToken = await ERC20Factory.deploy('new PNT', 'nPNT', faucet.address, '0x00112233')
 
       await pntOnGnosis.connect(faucet).approve(stakingManager.target, 10000)
@@ -308,7 +307,7 @@ describe('Integration tests on Gnosis deployment', () => {
       await expect(stakingManager.connect(daoOwner).changeToken(newToken.target))
         .to.emit(stakingManager, 'TokenChanged')
         .withArgs(pntOnGnosis.target, newToken.target)
-      await mintPToken(newToken, faucet, faucet.address, hre.ethers.parseEther('200000'), '0x', '0x')
+      await mintPToken(newToken, faucet, faucet.address, ethers.parseEther('200000'), '0x', '0x')
       await newToken.connect(faucet).approve(stakingManager.target, 10000)
       await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7))
         .to.be.revertedWithCustomError(stakingManager, 'InvalidToken')
@@ -394,7 +393,7 @@ describe('Integration tests on Gnosis deployment', () => {
   })
 
   it('should open a vote (2)', async () => {
-    const from = await hre.ethers.getImpersonatedSigner('0xa41657bf225F8Ec7E2010C89c3F084172948264D')
+    const from = await ethers.getImpersonatedSigner('0xa41657bf225F8Ec7E2010C89c3F084172948264D')
     await setPermission(acl, daoOwner, from.address, daoVoting.target, CREATE_VOTES_ROLE)
     await expect(
       from.sendTransaction({
@@ -421,9 +420,9 @@ describe('Integration tests on Gnosis deployment', () => {
       [
         [ETH_PTN_ADDRESS, ETH_PTN_ADDRESS, ERC20_VAULT],
         [
-          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('withdrawInflation', [FORWARDER_ETH, amount]),
-          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('approve', [ERC20_VAULT, amount]),
-          new hre.ethers.Interface(ERC20VaultAbi).encodeFunctionData('pegIn(uint256,address,string,bytes,bytes4)', [
+          new ethers.Interface(EthPntAbi).encodeFunctionData('withdrawInflation', [FORWARDER_ETH, amount]),
+          new ethers.Interface(EthPntAbi).encodeFunctionData('approve', [ERC20_VAULT, amount]),
+          new ethers.Interface(ERC20VaultAbi).encodeFunctionData('pegIn(uint256,address,string,bytes,bytes4)', [
             amount,
             ETHPNT_ADDRESS,
             FINANCE_VAULT,
@@ -446,12 +445,12 @@ describe('Integration tests on Gnosis deployment', () => {
         ]
       ].map((_args) => encodeFunctionCall(..._args))
     )
-    let currentBlock = await hre.ethers.provider.getBlockNumber()
+    let currentBlock = await ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(20000)
     await mintPntOnGnosis(faucet.address, 10000n)
     await mintPntOnGnosis(DANDELION_VOTING_ADDRESS, 10000n)
     await stake(faucet, 10000)
-    currentBlock = await hre.ethers.provider.getBlockNumber()
+    currentBlock = await ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
     const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
@@ -549,10 +548,10 @@ describe('Integration tests on Ethereum deployment', () => {
     pegoutToken(vault, pnetwork, _recipient, PNT_ON_ETH_ADDRESS, _value, _metadata)
 
   const missingSteps = async () => {
-    const CrossExecutor = await hre.ethers.getContractFactory('CrossExecutor')
+    const CrossExecutor = await ethers.getContractFactory('CrossExecutor')
     crossExecutor = await CrossExecutor.deploy(PNT_ON_ETH_ADDRESS, ERC20_VAULT)
     await crossExecutor.whitelistOriginAddress(DANDELION_VOTING_ADDRESS)
-    daoVotingV1 = await hre.ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_V1_ADDRESS)
+    daoVotingV1 = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_V1_ADDRESS)
     // open vote to change inflationOwner
     const executionScript = encodeCallScript(
       [
@@ -579,23 +578,23 @@ describe('Integration tests on Ethereum deployment', () => {
   }
 
   beforeEach(async () => {
-    const rpc = hre.config.networks.mainnet.url
-    await hardhatReset(hre.network.provider, rpc)
-    ;[faucet] = await hre.ethers.getSigners()
-    tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(hre.ethers.getImpersonatedSigner))
-    pnetwork = await hre.ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
-    association = await hre.ethers.getImpersonatedSigner(ASSOCIATION_ON_ETH_ADDRESS)
-    ethPnt = await hre.ethers.getContractAt(EthPntAbi, ETHPNT_ADDRESS)
-    vault = await hre.ethers.getContractAt('IErc20Vault', ERC20_VAULT)
-    await sendEth(hre.ethers, faucet, pnetwork.address, '10')
-    await sendEth(hre.ethers, faucet, association.address, '10')
-    await Promise.all(TOKEN_HOLDERS_ADDRESSES.map((_address) => sendEth(hre.ethers, faucet, _address, '10')))
+    const rpc = config.networks.mainnet.url
+    await hardhatReset(network.provider, rpc)
+    ;[faucet] = await ethers.getSigners()
+    tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(ethers.getImpersonatedSigner))
+    pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
+    association = await ethers.getImpersonatedSigner(ASSOCIATION_ON_ETH_ADDRESS)
+    ethPnt = await ethers.getContractAt(EthPntAbi, ETHPNT_ADDRESS)
+    vault = await ethers.getContractAt('IErc20Vault', ERC20_VAULT)
+    await sendEth(ethers, faucet, pnetwork.address, '10')
+    await sendEth(ethers, faucet, association.address, '10')
+    await Promise.all(TOKEN_HOLDERS_ADDRESSES.map((_address) => sendEth(ethers, faucet, _address, '10')))
     await missingSteps()
   })
 
   // this test is coupled with Integration tests on Gnosis deployment -> should call withdrawInflation from Gnosis
   it('should process pegOut, withdrawInflation, and pegIn to treasury', async () => {
-    const metadata = encodeMetadata(hre.ethers, {
+    const metadata = encodeMetadata(ethers, {
       userData:
         // secretlint-disable-next-line
         '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'.replaceAll(
@@ -623,8 +622,8 @@ describe('Integration tests on Ethereum deployment', () => {
   })
 
   it('should not process pegout if not required by dandelion voting', async () => {
-    const attacker = hre.ethers.Wallet.createRandom().connect(hre.ethers.provider)
-    const metadata = encodeMetadata(hre.ethers, {
+    const attacker = ethers.Wallet.createRandom().connect(ethers.provider)
+    const metadata = encodeMetadata(ethers, {
       userData:
         // secretlint-disable-next-line
         '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'.replaceAll(
