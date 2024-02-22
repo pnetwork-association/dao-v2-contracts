@@ -19,7 +19,7 @@ error InvalidCallParams(address[] targets, bytes[] data, address caller);
 error InvalidOriginAddress(address originAddress);
 error InvalidCaller(address caller, address expected);
 
-contract ForwarderNativePermissioned is IForwarder, IERC777Recipient, Context, Ownable {
+contract ForwarderNativePermissioned is IERC777Recipient, Context, Ownable {
     using SafeERC20 for IERC20;
 
     address public immutable token;
@@ -35,14 +35,6 @@ contract ForwarderNativePermissioned is IForwarder, IERC777Recipient, Context, O
 
         token = _token;
         vault = _vault; // set it to 0 on an host chain
-    }
-
-    modifier onlySelf() {
-        address msgSender = _msgSender();
-        if (address(this) != msgSender) {
-            revert InvalidCaller(msgSender, address(this));
-        }
-        _;
     }
 
     function tokensReceived(
@@ -81,22 +73,6 @@ contract ForwarderNativePermissioned is IForwarder, IERC777Recipient, Context, O
                 }
             }
         }
-    }
-
-    /// @inheritdoc IForwarder
-    function call(uint256 amount, address to, bytes calldata data, bytes4 chainId) external onlySelf() {
-        _call(token, amount, to, data, chainId);
-    }
-
-    function call(address _token, uint256 amount, address to, bytes calldata data, bytes4 chainId) external onlySelf() {
-        _call(_token, amount, to, data, chainId);
-    }
-
-    function _call(address _token, uint256 amount, address to, bytes calldata data, bytes4 chainId) internal {
-        bytes memory effectiveUserData = abi.encode(data, address(this));
-        uint256 effectiveAmount = amount == 0 ? 1 : amount;
-        IERC20(_token).safeApprove(vault, effectiveAmount);
-        IErc20Vault(vault).pegIn(effectiveAmount, _token, Helpers.addressToAsciiString(to), effectiveUserData, chainId);
     }
 
     function whitelistOriginAddress(address originAddress) external onlyOwner {
