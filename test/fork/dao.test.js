@@ -26,7 +26,7 @@ const ERC20VaultAbi = require('../abi/ERC20Vault.json')
 const EthPntAbi = require('../abi/ethPNT.json')
 const FinanceAbi = require('../abi/Finance.json')
 const VaultAbi = require('../abi/Vault.json')
-const { PNETWORK_NETWORK_IDS, ZERO_ADDRESS, PNETWORK_ADDRESS } = require('../constants')
+const { PNETWORK_NETWORK_IDS, ZERO_ADDRESS, PNETWORK_ADDRESS, ASSOCIATION_ON_ETH_ADDRESS } = require('../constants')
 const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, UPGRADE_ROLE } = require('../roles')
 const { encode } = require('../utils')
 const { hardhatReset } = require('../utils/hardhat-reset')
@@ -209,7 +209,6 @@ describe('Integration tests on Gnosis deployment', () => {
     daoTreasury.interface.encodeFunctionData('transfer', [token, to, value])
 
   it('should open a vote for registering a guardian and execute it', async () => {
-    const voteId = 1
     const metadata = 'Should we register a new guardian?'
     const executionScript = encodeCallScript(
       [[REGISTRATION_MANAGER, encodeUpdateGuardianRegistrationFunctionData(faucet.address, 10, faucet.address)]].map(
@@ -224,7 +223,7 @@ describe('Integration tests on Gnosis deployment', () => {
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
 
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
-    await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
+    const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
     await expect(daoVoting.executeVote(voteId))
       .to.emit(daoVoting, 'ExecuteVote')
       .withArgs(voteId)
@@ -316,7 +315,6 @@ describe('Integration tests on Gnosis deployment', () => {
     expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000'))
     expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
 
-    const voteId = 1
     const metadata = 'Should we transfer from vault to user?'
     const executionScript = encodeCallScript(
       [[FINANCE_VAULT, encodeVaultTransfer(await pntOnGnosis.getAddress(), user.address, parseEther('1'))]].map(
@@ -324,7 +322,7 @@ describe('Integration tests on Gnosis deployment', () => {
       )
     )
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
-    await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
+    const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
 
     await expect(daoVoting.executeVote(voteId))
       .to.emit(daoVoting, 'ExecuteVote')
@@ -373,7 +371,7 @@ describe('Integration tests on Gnosis deployment', () => {
     const RECEIVER = FORWARDER_ETH
     const ETH_PTN_ADDRESS = ETHPNT_ADDRESS
 
-    const voteId = 1
+    const amount = 10
     const metadata = 'Should we inflate more?'
 
     const userData = encode(
@@ -381,10 +379,10 @@ describe('Integration tests on Gnosis deployment', () => {
       [
         [ETH_PTN_ADDRESS, ETH_PTN_ADDRESS, ERC20_VAULT],
         [
-          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('withdrawInflation', [RECEIVER, 10]),
-          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('approve', [ERC20_VAULT, 10]),
+          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('withdrawInflation', [RECEIVER, amount]),
+          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('approve', [ERC20_VAULT, amount]),
           new hre.ethers.Interface(ERC20VaultAbi).encodeFunctionData('pegIn(uint256,address,string,bytes,bytes4)', [
-            10,
+            amount,
             ETHPNT_ADDRESS,
             FINANCE_VAULT,
             '0x',
@@ -414,7 +412,7 @@ describe('Integration tests on Gnosis deployment', () => {
     currentBlock = await hre.ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
-    await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
+    const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
     await expect(daoVoting.executeVote(voteId))
       .to.emit(daoVoting, 'ExecuteVote')
       .withArgs(voteId)
@@ -483,7 +481,7 @@ describe('Integration tests on Ethereum deployment', () => {
     ;[faucet] = await hre.ethers.getSigners()
     tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(hre.ethers.getImpersonatedSigner))
     pnetwork = await hre.ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
-    association = await hre.ethers.getImpersonatedSigner('0xf1f6568a76559d85cF68E6597fA587544184dD46')
+    association = await hre.ethers.getImpersonatedSigner(ASSOCIATION_ON_ETH_ADDRESS)
     ethPnt = await hre.ethers.getContractAt(EthPntAbi, ETHPNT_ADDRESS)
     vault = await hre.ethers.getContractAt('IErc20Vault', ERC20_VAULT)
     await sendEth(hre.ethers, faucet, pnetwork.address, '10')
