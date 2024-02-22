@@ -2,7 +2,11 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades, config, network } = require('hardhat')
 
-const { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../lib/constants')
+const {
+  ADDRESSES: {
+    GNOSIS: { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS }
+  }
+} = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
 const {

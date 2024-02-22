@@ -10,21 +10,22 @@ const EthPntAbi = require('../../lib/abi/ethPNT.json')
 const FinanceAbi = require('../../lib/abi/Finance.json')
 const VaultAbi = require('../../lib/abi/Vault.json')
 const {
-  SAFE_ADDRESS,
-  STAKING_MANAGER,
-  STAKING_MANAGER_LM,
-  STAKING_MANAGER_RM,
-  LENDING_MANAGER,
-  DANDELION_VOTING_ADDRESS,
-  FINANCE_VAULT,
-  FINANCE,
-  REGISTRATION_MANAGER,
-  DAOPNT_ON_GNOSIS_ADDRESS,
-  ACL_ADDRESS,
-  ERC20_VAULT,
-  PNT_ON_ETH_ADDRESS,
-  DANDELION_VOTING_V1_ADDRESS,
-  ETHPNT_ADDRESS
+  ADDRESSES: {
+    GNOSIS: {
+      SAFE_ADDRESS,
+      STAKING_MANAGER,
+      STAKING_MANAGER_LM,
+      STAKING_MANAGER_RM,
+      LENDING_MANAGER,
+      DANDELION_VOTING_ADDRESS,
+      FINANCE_VAULT,
+      FINANCE,
+      REGISTRATION_MANAGER,
+      DAOPNT_ON_GNOSIS_ADDRESS,
+      ACL_ADDRESS
+    },
+    MAINNET: { ERC20_VAULT, DANDELION_VOTING_ADDRESS: DANDELION_VOTING_V1_ADDRESS, PNT_ON_ETH_ADDRESS, ETHPNT_ADDRESS }
+  }
 } = require('../../lib/constants')
 const { encodeMetadata } = require('../../lib/metadata')
 const { getAllRoles } = require('../../lib/roles')

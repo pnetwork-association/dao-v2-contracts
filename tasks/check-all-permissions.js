@@ -1,9 +1,9 @@
 const { task } = require('hardhat/config')
 
-const CONFIG = require('../lib/constants')
+const { ADDRESSES } = require('../lib/constants')
 
 const checkPermissions = async (_hre, _key, _val) => {
-  if (_hre.ethers.isAddress(_val) && _val !== CONFIG.ZERO_ADDRESS) {
+  if (_hre.ethers.isAddress(_val)) {
     console.info(`Checking ${_key} # ${_val}`)
     await _hre.run('permissions:check', { address: _val })
     console.info('\n')
@@ -11,7 +11,7 @@ const checkPermissions = async (_hre, _key, _val) => {
 }
 
 const main = async (_, _hre) => {
-  for (const entry of Object.entries(CONFIG)) {
+  for (const entry of Object.entries(ADDRESSES[_hre.network.name.toUpperCase()])) {
     await checkPermissions(_hre, entry[0], entry[1])
   }
 }

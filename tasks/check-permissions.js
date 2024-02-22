@@ -1,11 +1,14 @@
 const { task } = require('hardhat/config')
 
 const ACLAbi = require('../lib/abi/ACL.json')
-const { ACL_ADDRESS, ZERO_ADDRESS } = require('../lib/constants')
+const { ADDRESSES } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
 const PARAM_CONTRACT_ADDRESS = 'address'
-const FIRST_BLOCK = 31195110
+const FIRST_BLOCK = {
+  GNOSIS: 31195110,
+  MAINNET: 10565704
+}
 // secretlint-disable-next-line
 const SET_PERMISSION_TOPIC = '0x759b9a74d5354b5801710a0c1b283cc9f0d32b607ac8ced10c83ac8e75c77d52'
 
@@ -15,13 +18,13 @@ const checkPermission = async (_contract, _role) => {
     console.info(`${_role[0]} (${_role[1]}): ${await _contract.getRoleMember(_role[1], i)}`)
 }
 
-const checkAclPermission = async (_ethers, _acl, _address, _role) => {
+const checkAclPermission = async (_ethers, _acl, _address, _role, _fromBlock) => {
   const manager = await _acl.getPermissionManager(_address, _role[1])
-  if (manager !== ZERO_ADDRESS) console.info(`${_role[0]} manager: ${manager}`)
+  if (manager !== ADDRESSES.ZERO_ADDRESS) console.info(`${_role[0]} manager: ${manager}`)
   const logs = await _ethers.provider.getLogs({
     address: await _acl.getAddress(),
     topics: [SET_PERMISSION_TOPIC, null, _ethers.zeroPadValue(_address, 32), _ethers.zeroPadValue(_role[1], 32)],
-    fromBlock: FIRST_BLOCK
+    fromBlock: _fromBlock
   })
   await Promise.all(
     logs.map(async (_log) => {
@@ -31,39 +34,46 @@ const checkAclPermission = async (_ethers, _acl, _address, _role) => {
   )
 }
 
-const tryCheckOwner = async (_hre, _address) => {
-  const contract = await _hre.ethers.getContractAt('Ownable', _address)
-  try {
-    const owner = await contract.owner()
-    console.info('Owner', owner)
-  } finally {
-    // no op
+const main = async (_params, { ethers, network }) => {
+  const roles = getAllRoles(ethers)
+
+  const tryAccessControlEnumerableUpgradeable = async (_address, _roles) => {
+    console.info('Trying AccessControlEnumerableUpgradeable')
+    const contract = await ethers.getContractAt('AccessControlEnumerableUpgradeable', _address)
+    await Promise.all(Object.entries(_roles).map((_role) => checkPermission(contract, _role)))
   }
-}
 
-const tryAccessControlEnumerableUpgradeable = async (_hre, _address, _roles) => {
-  console.info('Trying AccessControlEnumerableUpgradeable')
-  const contract = await _hre.ethers.getContractAt('AccessControlEnumerableUpgradeable', _address)
-  await Promise.all(Object.entries(_roles).map((_role) => checkPermission(contract, _role)))
-}
+  const tryACL = async (_address, _roles) => {
+    console.info('Trying Aragon ACL')
+    const aclAddress = ADDRESSES[network.name.toUpperCase()].ACL_ADDRESS
+    if (aclAddress === undefined) {
+      console.warn('Missing ACL address')
+      return
+    }
+    const fromBlock = FIRST_BLOCK[network.name.toUpperCase()]
+    const aclContract = await ethers.getContractAt(ACLAbi, aclAddress)
+    await Promise.all(
+      Object.entries(_roles).map((_role) => checkAclPermission(ethers, aclContract, _address, _role, fromBlock))
+    )
+  }
 
-const tryACL = async (_hre, _address, _roles) => {
-  console.info('Trying Aragon ACL')
-  const aclContract = await _hre.ethers.getContractAt(ACLAbi, ACL_ADDRESS)
-  await Promise.all(
-    Object.entries(_roles).map((_role) => checkAclPermission(_hre.ethers, aclContract, _address, _role))
-  )
-}
+  const tryCheckOwner = async (_address) => {
+    const contract = await ethers.getContractAt('Ownable', _address)
+    try {
+      const owner = await contract.owner()
+      console.info('Owner', owner)
+    } catch (_) {
+      // no op
+    }
+  }
 
-const checkPermissions = async (_params, _hre) => {
-  const roles = getAllRoles(_hre.ethers)
   try {
-    await tryAccessControlEnumerableUpgradeable(_hre, _params[PARAM_CONTRACT_ADDRESS], roles)
+    await tryAccessControlEnumerableUpgradeable(_params[PARAM_CONTRACT_ADDRESS], roles)
   } catch (_err) {
     console.info('Failed with AccessControlEnumerableUpgradeable')
-    await tryACL(_hre, _params[PARAM_CONTRACT_ADDRESS], roles)
+    await tryACL(_params[PARAM_CONTRACT_ADDRESS], roles)
   }
-  await tryCheckOwner(_hre, _params[PARAM_CONTRACT_ADDRESS])
+  await tryCheckOwner(_params[PARAM_CONTRACT_ADDRESS])
 }
 
-task('permissions:check').setAction(checkPermissions).addPositionalParam(PARAM_CONTRACT_ADDRESS)
+task('permissions:check').setAction(main).addPositionalParam(PARAM_CONTRACT_ADDRESS)

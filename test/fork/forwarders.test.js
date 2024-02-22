@@ -4,12 +4,10 @@ const hre = require('hardhat')
 const pntOnGnosisAbi = require('../../lib/abi/PNTonGnosis.json')
 const pntOnPolygonAbi = require('../../lib/abi/PNTonPolygon.json')
 const {
-  PNT_ON_GNOSIS_ADDRESS,
-  PNT_ON_POLYGON_ADDRESS,
-  FORWARDER_ON_GNOSIS,
-  FORWARDER_ON_POLYGON,
-  STAKING_MANAGER,
-  DAOPNT_ON_GNOSIS_ADDRESS
+  ADDRESSES: {
+    GNOSIS: { PNT_ON_GNOSIS_ADDRESS, FORWARDER_ON_GNOSIS, STAKING_MANAGER, DAOPNT_ON_GNOSIS_ADDRESS },
+    POLYGON: { PNT_ON_POLYGON_ADDRESS, FORWARDER_ON_POLYGON }
+  }
 } = require('../../lib/constants')
 const { encodeMetadata } = require('../../lib/metadata')
 const { PNETWORK_NETWORK_IDS } = require('../constants')

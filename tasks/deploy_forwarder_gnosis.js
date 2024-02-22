@@ -1,6 +1,10 @@
 const { task } = require('hardhat/config')
 
-const { PNT_ON_GNOSIS_ADDRESS } = require('../lib/constants')
+const {
+  ADDRESSES: {
+    GNOSIS: { PNT_ON_GNOSIS_ADDRESS }
+  }
+} = require('../lib/constants')
 
 const deploy = async (_args, _hre) => {
   const Forwarder = await _hre.ethers.getContractFactory('ForwarderHost')

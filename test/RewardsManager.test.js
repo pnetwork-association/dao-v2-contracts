@@ -5,7 +5,11 @@ const R = require('ramda')
 
 const AclAbi = require('../lib/abi/ACL.json')
 const TokenManagerAbi = require('../lib/abi/TokenManager.json')
-const { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS } = require('../lib/constants')
+const {
+  ADDRESSES: {
+    GNOSIS: { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS }
+  }
+} = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
 const { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY, VOTE_STATUS } = require('./constants')
