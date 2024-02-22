@@ -1,13 +1,14 @@
 const { task, types } = require('hardhat/config')
 
+const { decodeMetadata } = require('../lib/metadata')
+
 task('decode-forwarder-metadata', 'Decode the pNetwork Forwarder Metadata')
-  .addParam('metadata', 'The pNetwork Metadata', undefined, types.string, true)
-  .setAction(async (_taskArgs, _hre) => {
-    const { ethers } = _hre
+  .addPositionalParam('metadata', 'The pNetwork Metadata', undefined, types.string, false)
+  .setAction(async (_taskArgs, { ethers }) => {
     const { metadata } = _taskArgs
 
-    const abiCoder = new ethers.AbiCoder()
-    const [
+    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
+    const {
       version,
       userData,
       sourceNetworkId,
@@ -16,10 +17,9 @@ task('decode-forwarder-metadata', 'Decode the pNetwork Forwarder Metadata')
       receiverAddress,
       protocolOptions,
       protocolReceipt
-    ] = abiCoder.decode(['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'], metadata)
+    } = decodeMetadata(ethers, metadata)
 
     const [callsAndTargets, originAddress, callerAddress] = abiCoder.decode(['bytes', 'address', 'address'], userData)
-    // const [targets, data] = abiCoder.decode(['address[]', 'bytes[]'], callsAndTargets)
 
     console.log({
       version,
