@@ -5,28 +5,19 @@ pragma solidity ^0.8.17;
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {IERC777Recipient} from "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import {IERC1820Registry} from "@openzeppelin/contracts/interfaces/IERC1820Registry.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IForwarder} from "../interfaces/IForwarder.sol";
-import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
-import {IPToken} from "../interfaces/external/IPToken.sol";
-import {Helpers} from "../libraries/Helpers.sol";
-import {BytesLib} from "../libraries/BytesLib.sol";
 
 error CallFailed(address target, bytes data);
 error InvalidCallParams(address[] targets, bytes[] data, address caller);
 error InvalidOriginAddress(address originAddress);
 error InvalidCaller(address caller, address expected);
 
-contract ForwarderNativePermissioned is IERC777Recipient, Context, Ownable {
-    using SafeERC20 for IERC20;
-
+contract CrossExecutor is IERC777Recipient, Context, Ownable {
     address public immutable token;
-    address public immutable vault;
+    address public immutable sender;
     mapping(address => bool) private _whitelistedOriginAddresses;
 
-    constructor(address _token, address _vault) {
+    constructor(address _token, address _sender) {
         IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
             address(this),
             keccak256("ERC777TokensRecipient"),
@@ -34,7 +25,7 @@ contract ForwarderNativePermissioned is IERC777Recipient, Context, Ownable {
         );
 
         token = _token;
-        vault = _vault; // set it to 0 on an host chain
+        sender = _sender; // set it to 0 on an host chain, vault address on a native chain
     }
 
     function tokensReceived(
@@ -45,7 +36,7 @@ contract ForwarderNativePermissioned is IERC777Recipient, Context, Ownable {
         bytes calldata _metaData,
         bytes calldata /*_operatorData*/
     ) external override {
-        if (_msgSender() == token && _from == vault) {
+        if (_msgSender() == token && _from == sender) {
             (, bytes memory callsAndTargets, , address originAddress, , , , ) = abi.decode(
                 _metaData,
                 (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
