@@ -22,7 +22,8 @@ const {
       FINANCE,
       REGISTRATION_MANAGER,
       DAOPNT_ON_GNOSIS_ADDRESS,
-      ACL_ADDRESS
+      ACL_ADDRESS,
+      REWARDS_MANAGER
     },
     MAINNET: {
       ERC20_VAULT,
@@ -34,6 +35,7 @@ const {
     },
     ZERO_ADDRESS
   },
+  MISC: { ONE_DAY },
   PNETWORK_NETWORK_IDS
 } = require('../../lib/constants')
 const { encodeMetadata } = require('../../lib/metadata')
@@ -43,7 +45,9 @@ const { hardhatReset } = require('../utils/hardhat-reset')
 const { mintPToken, pegoutToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
-const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, UPGRADE_ROLE } = getAllRoles(hre.ethers)
+const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, DEPOSIT_REWARD_ROLE, UPGRADE_ROLE } = getAllRoles(
+  hre.ethers
+)
 
 const PNT_ON_GNOSIS_MINTER = '0x53d51f8801f40657ca566a1ae25b27eada97413c'
 
@@ -83,7 +87,14 @@ const grantCreateVotesPermission = async (_acl, _permissionManager, _who) => {
   expect(hasPerm).to.be.true
 }
 
-const openNewVoteAndReachQuorum = async (_votingContract, _voteCreator, _voters, _executionScript, _metadata) => {
+const openNewVoteAndReachQuorum = async (
+  _votingContract,
+  _voteCreator,
+  _voters,
+  _executionScript,
+  _metadata,
+  _durationBlocks = false
+) => {
   const supports = true
   const executionScriptBytes = getBytes(_executionScript)
 
@@ -101,10 +112,10 @@ const openNewVoteAndReachQuorum = async (_votingContract, _voteCreator, _voters,
       await expect(_votingContract.connect(voter).vote(voteId, supports)).to.emit(_votingContract, 'CastVote')
     }
   }
-
   const vote = await _votingContract.getVote(voteId)
-  const executionBlock = vote[3]
-  await mineUpTo(executionBlock + 1n)
+  const executionTs = vote[3]
+  if (_durationBlocks) await mineUpTo(executionTs + 1n)
+  else await time.increaseTo(executionTs + 1n)
   return voteId
 }
 
@@ -128,7 +139,9 @@ describe('Integration tests on Gnosis deployment', () => {
     registrationManager,
     RegistrationManager,
     daoTreasury,
-    finance
+    finance,
+    rewardsManager,
+    RewardsManager
 
   const TOKEN_HOLDERS_ADDRESSES = [
     '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
@@ -146,11 +159,14 @@ describe('Integration tests on Gnosis deployment', () => {
     await stakingManagerRm.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await lendingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await registrationManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
+    await rewardsManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await stakingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     await stakingManagerLm.connect(daoOwner).changeToken(pntOnGnosis.target)
     await stakingManagerRm.connect(daoOwner).changeToken(pntOnGnosis.target)
     await lendingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     await registrationManager.connect(daoOwner).changeToken(pntOnGnosis.target)
+    await rewardsManager.connect(daoOwner).changeToken(pntOnGnosis.target)
+    await rewardsManager.connect(daoOwner).grantRole(DEPOSIT_REWARD_ROLE, DANDELION_VOTING_ADDRESS)
   }
 
   const upgradeContracts = async () => {
@@ -159,11 +175,13 @@ describe('Integration tests on Gnosis deployment', () => {
     await stakingManagerRm.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await lendingManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await registrationManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
+    await rewardsManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await hre.upgrades.upgradeProxy(stakingManager, StakingManager)
     await hre.upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
     await hre.upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
     await hre.upgrades.upgradeProxy(lendingManager, LendingManager)
     await hre.upgrades.upgradeProxy(registrationManager, RegistrationManager)
+    await hre.upgrades.upgradeProxy(rewardsManager, RewardsManager)
   }
 
   beforeEach(async () => {
@@ -181,6 +199,7 @@ describe('Integration tests on Gnosis deployment', () => {
     StakingManagerPermissioned = await hre.ethers.getContractFactory('StakingManagerPermissioned')
     RegistrationManager = await hre.ethers.getContractFactory('RegistrationManager')
     LendingManager = await hre.ethers.getContractFactory('LendingManager')
+    RewardsManager = await hre.ethers.getContractFactory('RewardsManager')
 
     acl = await hre.ethers.getContractAt(AclAbi, ACL_ADDRESS)
     daoVoting = await hre.ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_ADDRESS)
@@ -192,6 +211,7 @@ describe('Integration tests on Gnosis deployment', () => {
     stakingManagerRm = StakingManagerPermissioned.attach(STAKING_MANAGER_RM)
     registrationManager = RegistrationManager.attach(REGISTRATION_MANAGER)
     lendingManager = LendingManager.attach(LENDING_MANAGER)
+    rewardsManager = RewardsManager.attach(REWARDS_MANAGER)
 
     await missingSteps()
 
@@ -453,6 +473,66 @@ describe('Integration tests on Gnosis deployment', () => {
   it('should be possible to pegin to finance vault', async () => {
     await mintPntOnGnosis(FINANCE_VAULT, '10', '0xc0ffee')
   })
+
+  it('should be possible to deposit rewards from a vote', async () => {
+    const metadata = 'Should we deposit rewards?'
+    await mintPntOnGnosis(daoTreasury.target, parseEther('200000'))
+    const executionScript = encodeCallScript(
+      [
+        [FINANCE_VAULT, encodeVaultTransfer(pntOnGnosis.target, DANDELION_VOTING_ADDRESS, 100)],
+        [pntOnGnosis.target, pntOnGnosis.interface.encodeFunctionData('approve', [REWARDS_MANAGER, 100])],
+        [REWARDS_MANAGER, rewardsManager.interface.encodeFunctionData('depositForEpoch', [2, 100])]
+      ].map((_args) => encodeFunctionCall(..._args))
+    )
+    await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
+    const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
+    await expect(daoVoting.executeVote(voteId)).to.emit(daoVoting, 'ExecuteVote').withArgs(voteId)
+    await expect(rewardsManager.registerRewardsForEpoch(2, [tokenHolders[1].address])).to.be.reverted
+    await time.increase(35 * ONE_DAY)
+    await expect(rewardsManager.registerRewardsForEpoch(2, [tokenHolders[1].address]))
+      .to.emit(rewardsManager, 'RewardRegistered')
+      .withArgs(2, tokenHolders[1].address, 25)
+    await time.increase(130 * ONE_DAY)
+    await expect(rewardsManager.registerRewardsForEpoch(2, [tokenHolders[0].address, tokenHolders[3].address]))
+      .to.emit(rewardsManager, 'RewardRegistered')
+      .withArgs(2, tokenHolders[0].address, 25)
+      .and.to.emit(rewardsManager, 'RewardRegistered')
+      .withArgs(2, tokenHolders[3].address, 25)
+    await expect(rewardsManager.connect(tokenHolders[0]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+      rewardsManager,
+      'TooEarly'
+    )
+    await expect(rewardsManager.connect(tokenHolders[1]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+      rewardsManager,
+      'TooEarly'
+    )
+    await expect(rewardsManager.connect(tokenHolders[3]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+      rewardsManager,
+      'TooEarly'
+    )
+
+    await time.increase(200 * ONE_DAY)
+
+    const claimRewardsAndAssertTransfer = (_holder, _epoch) =>
+      expect(rewardsManager.connect(_holder).claimRewardByEpoch(_epoch))
+        .to.emit(pntOnGnosis, 'Transfer')
+        .withArgs(REWARDS_MANAGER, _holder.address, 25)
+        .and.to.emit(daoPNT, 'Transfer')
+        .withArgs(_holder, ZERO_ADDRESS, 25)
+
+    await claimRewardsAndAssertTransfer(tokenHolders[0], 2)
+    await claimRewardsAndAssertTransfer(tokenHolders[1], 2)
+    await claimRewardsAndAssertTransfer(tokenHolders[3], 2)
+
+    await expect(rewardsManager.connect(tokenHolders[2]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+      rewardsManager,
+      'NothingToClaim'
+    )
+    await expect(rewardsManager.connect(tokenHolders[2]).registerRewardsForEpoch(2, [tokenHolders[2]]))
+      .to.emit(rewardsManager, 'RewardRegistered')
+      .withArgs(2, tokenHolders[2].address, 25)
+    await claimRewardsAndAssertTransfer(tokenHolders[2], 2)
+  })
 })
 
 describe('Integration tests on Ethereum deployment', () => {
@@ -485,7 +565,8 @@ describe('Integration tests on Ethereum deployment', () => {
       association,
       tokenHolders,
       executionScript,
-      'change inflation owner?'
+      'change inflation owner?',
+      true
     )
     expect(await ethPnt.inflationRecipientsWhitelist(crossExecutor.target)).to.be.false
     await expect(daoVotingV1.executeVote(voteId))
