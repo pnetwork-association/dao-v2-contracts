@@ -42,16 +42,14 @@ contract ForwarderNativePermissioned is IERC777Recipient, Context, Ownable {
         address _from,
         address /*_to,*/,
         uint256 /*_amount*/,
-        bytes calldata _userData,
+        bytes calldata _metaData,
         bytes calldata /*_operatorData*/
     ) external override {
         if (_msgSender() == token && _from == vault) {
-            (, bytes memory userData, , address originAddress, , , , ) = abi.decode(
-                _userData,
+            (, bytes memory callsAndTargets, , address originAddress, , , , ) = abi.decode(
+                _metaData,
                 (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
             );
-
-            (bytes memory callsAndTargets, address caller) = abi.decode(userData, (bytes, address));
 
             if (!_whitelistedOriginAddresses[originAddress]) {
                 revert InvalidOriginAddress(originAddress);
@@ -60,7 +58,7 @@ contract ForwarderNativePermissioned is IERC777Recipient, Context, Ownable {
             (address[] memory targets, bytes[] memory data) = abi.decode(callsAndTargets, (address[], bytes[]));
 
             if (targets.length != data.length) {
-                revert InvalidCallParams(targets, data, caller);
+                revert InvalidCallParams(targets, data, originAddress);
             }
 
             for (uint256 i = 0; i < targets.length; ) {
