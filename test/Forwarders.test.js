@@ -2,8 +2,9 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
+const { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../lib/constants')
 const { encodeMetadata, decodeMetadata } = require('../lib/metadata')
-const { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../tasks/config')
+const { getAllRoles } = require('../lib/roles')
 
 const {
   BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
@@ -18,17 +19,11 @@ const {
   REGISTRATION_SENTINEL_BORROWING,
   REGISTRATION_SENTINEL_STAKING
 } = require('./constants')
-const {
-  BORROW_ROLE,
-  STAKE_ROLE,
-  INCREASE_DURATION_ROLE,
-  UPGRADE_ROLE,
-  MINT_ROLE,
-  BURN_ROLE,
-  SET_FORWARDER_ROLE
-} = require('./roles')
 const { encode, getSentinelIdentity, getUserDataGeneratedByForwarder } = require('./utils')
 const { sendEth } = require('./utils/send-eth')
+
+const { BORROW_ROLE, STAKE_ROLE, INCREASE_DURATION_ROLE, UPGRADE_ROLE, MINT_ROLE, BURN_ROLE, SET_FORWARDER_ROLE } =
+  getAllRoles(ethers)
 
 let acl,
   forwarderNative,

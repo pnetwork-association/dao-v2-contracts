@@ -1,8 +1,8 @@
 const { task } = require('hardhat/config')
 
-const ACLAbi = require('./abi/ACL.json')
-const { ACL_ADDRESS, ZERO_ADDRESS } = require('./config')
-const { getAllRoles } = require('./lib/roles')
+const ACLAbi = require('../lib/abi/ACL.json')
+const { ACL_ADDRESS, ZERO_ADDRESS } = require('../lib/constants')
+const { getAllRoles } = require('../lib/roles')
 
 const PARAM_CONTRACT_ADDRESS = 'address'
 const FIRST_BLOCK = 31195110

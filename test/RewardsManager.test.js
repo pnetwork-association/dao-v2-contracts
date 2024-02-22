@@ -3,14 +3,16 @@ const { expect } = require('chai')
 const { ethers, upgrades, config, network } = require('hardhat')
 const R = require('ramda')
 
-const { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS } = require('../tasks/config')
+const AclAbi = require('../lib/abi/ACL.json')
+const TokenManagerAbi = require('../lib/abi/TokenManager.json')
+const { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS } = require('../lib/constants')
+const { getAllRoles } = require('../lib/roles')
 
-const AclAbi = require('./abi/ACL.json')
-const TokenManagerAbi = require('./abi/TokenManager.json')
 const { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY, VOTE_STATUS } = require('./constants')
-const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = require('./roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
+
+const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = getAllRoles(ethers)
 
 describe('RewardsManager', () => {
   let epochsManager,

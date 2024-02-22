@@ -2,8 +2,11 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
+const { getAllRoles } = require('../lib/roles')
+
 const { ONE_DAY } = require('./constants')
-const { UPGRADE_ROLE } = require('./roles')
+
+const { UPGRADE_ROLE } = getAllRoles(ethers)
 
 const EPOCH_DURATION = ONE_DAY // 1 day
 

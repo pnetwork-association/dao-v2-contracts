@@ -1,6 +1,6 @@
 const { task } = require('hardhat/config')
 
-const CONFIG = require('./config')
+const CONFIG = require('../lib/constants')
 
 const checkPermissions = async (_hre, _key, _val) => {
   if (_hre.ethers.isAddress(_val) && _val !== CONFIG.ZERO_ADDRESS) {

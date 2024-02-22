@@ -2,7 +2,8 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
-const { ACL_ADDRESS, DAOPNT_ON_GNOSIS_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../tasks/config')
+const { ACL_ADDRESS, DAOPNT_ON_GNOSIS_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../lib/constants')
+const { getAllRoles } = require('../lib/roles')
 
 const {
   MIN_LOCK_DURATION,
@@ -12,8 +13,9 @@ const {
   PNT_MAX_TOTAL_SUPPLY,
   ZERO_ADDRESS
 } = require('./constants')
-const { CHANGE_MAX_TOTAL_SUPPLY_ROLE, UPGRADE_ROLE, SLASH_ROLE, MINT_ROLE, BURN_ROLE } = require('./roles')
 const { sendEth } = require('./utils/send-eth')
+
+const { CHANGE_MAX_TOTAL_SUPPLY_ROLE, UPGRADE_ROLE, SLASH_ROLE, MINT_ROLE, BURN_ROLE } = getAllRoles(ethers)
 
 describe('StakingManager', () => {
   let pntHolder1, daoRoot, owner, stakingManager, StakingManager, fakeForwarder, challenger, acl, pnt, daoPnt

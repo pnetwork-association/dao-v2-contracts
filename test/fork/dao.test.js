@@ -2,7 +2,13 @@ const { mineUpTo, time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const hre = require('hardhat')
 
-const { encodeMetadata } = require('../../lib/metadata')
+const AclAbi = require('../../lib/abi/ACL.json')
+const DandelionVotingAbi = require('../../lib/abi/DandelionVoting.json')
+const DaoPntAbi = require('../../lib/abi/daoPNT.json')
+const ERC20VaultAbi = require('../../lib/abi/ERC20Vault.json')
+const EthPntAbi = require('../../lib/abi/ethPNT.json')
+const FinanceAbi = require('../../lib/abi/Finance.json')
+const VaultAbi = require('../../lib/abi/Vault.json')
 const {
   SAFE_ADDRESS,
   STAKING_MANAGER,
@@ -19,19 +25,15 @@ const {
   PNT_ON_ETH_ADDRESS,
   DANDELION_VOTING_V1_ADDRESS,
   ETHPNT_ADDRESS
-} = require('../../tasks/config')
-const AclAbi = require('../abi/ACL.json')
-const DandelionVotingAbi = require('../abi/DandelionVoting.json')
-const DaoPntAbi = require('../abi/daoPNT.json')
-const ERC20VaultAbi = require('../abi/ERC20Vault.json')
-const EthPntAbi = require('../abi/ethPNT.json')
-const FinanceAbi = require('../abi/Finance.json')
-const VaultAbi = require('../abi/Vault.json')
+} = require('../../lib/constants')
+const { encodeMetadata } = require('../../lib/metadata')
+const { getAllRoles } = require('../../lib/roles')
 const { PNETWORK_NETWORK_IDS, ZERO_ADDRESS, PNETWORK_ADDRESS, ASSOCIATION_ON_ETH_ADDRESS } = require('../constants')
-const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, UPGRADE_ROLE } = require('../roles')
 const { encode } = require('../utils')
 const { hardhatReset } = require('../utils/hardhat-reset')
 const { sendEth } = require('../utils/send-eth')
+
+const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, UPGRADE_ROLE } = getAllRoles(hre.ethers)
 
 const PNT_ON_GNOSIS_MINTER = '0x53d51f8801f40657ca566a1ae25b27eada97413c'
 

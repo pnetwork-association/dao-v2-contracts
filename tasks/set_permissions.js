@@ -8,7 +8,7 @@ const {
   STAKING_MANAGER_RM,
   LENDING_MANAGER,
   REGISTRATION_MANAGER
-} = require('./config')
+} = require('../lib/constants')
 
 const setPermissions = async (_args, _hre) => {
   const getRole = (_message) => _hre.ethers.keccak256(_hre.ethers.toUtf8Bytes(_message))

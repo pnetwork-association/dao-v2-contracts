@@ -18,7 +18,7 @@ const {
   REGISTRATION_MANAGER,
   FEES_MANAGER,
   REWARDS_MANAGER
-} = require('./config')
+} = require('../lib/constants')
 
 const deploy = async (_args, _hre) => {
   const StakingManager = await _hre.ethers.getContractFactory('StakingManager')

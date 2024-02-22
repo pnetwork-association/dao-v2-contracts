@@ -2,7 +2,8 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades, config, network } = require('hardhat')
 
-const { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../tasks/config')
+const { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../lib/constants')
+const { getAllRoles } = require('../lib/roles')
 
 const {
   EPOCH_DURATION,
@@ -13,6 +14,10 @@ const {
   PNT_MAX_TOTAL_SUPPLY,
   VOTE_STATUS
 } = require('./constants')
+const { getSentinelIdentity } = require('./utils')
+const { hardhatReset } = require('./utils/hardhat-reset')
+const { sendEth } = require('./utils/send-eth')
+
 const {
   BORROW_ROLE,
   RELEASE_ROLE,
@@ -22,10 +27,7 @@ const {
   REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE,
   MINT_ROLE,
   BURN_ROLE
-} = require('./roles')
-const { getSentinelIdentity } = require('./utils')
-const { hardhatReset } = require('./utils/hardhat-reset')
-const { sendEth } = require('./utils/send-eth')
+} = getAllRoles(ethers)
 
 let stakingManagerLM,
   stakingManagerRM,

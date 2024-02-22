@@ -1,6 +1,6 @@
 const { task, types } = require('hardhat/config')
 
-const { ACL_ADDRESS } = require('../tasks/config')
+const { ACL_ADDRESS } = require('../lib/constants')
 
 task('acl-assign-permission', 'Assing an ACL permission')
   .addParam('entity', 'The entity receiving the permission', undefined, types.string, true)

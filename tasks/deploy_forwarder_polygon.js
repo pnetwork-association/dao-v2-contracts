@@ -1,6 +1,6 @@
 const { task } = require('hardhat/config')
 
-const { PNT_ON_POLYGON_ADDRESS } = require('../tasks/config')
+const { PNT_ON_POLYGON_ADDRESS } = require('../lib/constants')
 
 const deploy = async (_args, _hre) => {
   const Forwarder = await _hre.ethers.getContractFactory('ForwarderHost')

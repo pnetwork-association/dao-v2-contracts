@@ -1,7 +1,8 @@
 const { expect } = require('chai')
 const hre = require('hardhat')
 
-const { encodeMetadata } = require('../../lib/metadata')
+const pntOnGnosisAbi = require('../../lib/abi/PNTonGnosis.json')
+const pntOnPolygonAbi = require('../../lib/abi/PNTonPolygon.json')
 const {
   PNT_ON_GNOSIS_ADDRESS,
   PNT_ON_POLYGON_ADDRESS,
@@ -9,9 +10,8 @@ const {
   FORWARDER_ON_POLYGON,
   STAKING_MANAGER,
   DAOPNT_ON_GNOSIS_ADDRESS
-} = require('../../tasks/config')
-const pntOnGnosisAbi = require('../abi/PNTonGnosis.json')
-const pntOnPolygonAbi = require('../abi/PNTonPolygon.json')
+} = require('../../lib/constants')
+const { encodeMetadata } = require('../../lib/metadata')
 const { PNETWORK_NETWORK_IDS } = require('../constants')
 const { hardhatReset } = require('../utils/hardhat-reset')
 const { sendEth } = require('../utils/send-eth')
