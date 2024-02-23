@@ -2,6 +2,7 @@ const { mineUpTo, time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const hre = require('hardhat')
 
+const { encodeMetadata } = require('../../lib/metadata')
 const {
   SAFE_ADDRESS,
   STAKING_MANAGER,
@@ -13,32 +14,87 @@ const {
   FINANCE,
   REGISTRATION_MANAGER,
   DAOPNT_ON_GNOSIS_ADDRESS,
-  ACL_ADDRESS
+  ACL_ADDRESS,
+  ERC20_VAULT,
+  PNT_ON_ETH_ADDRESS,
+  DANDELION_VOTING_V1_ADDRESS,
+  ETHPNT_ADDRESS
 } = require('../../tasks/config')
 const AclAbi = require('../abi/ACL.json')
 const DandelionVotingAbi = require('../abi/DandelionVoting.json')
 const DaoPntAbi = require('../abi/daoPNT.json')
+const ERC20VaultAbi = require('../abi/ERC20Vault.json')
+const EthPntAbi = require('../abi/ethPNT.json')
 const FinanceAbi = require('../abi/Finance.json')
 const VaultAbi = require('../abi/Vault.json')
-const { PNETWORK_NETWORK_IDS } = require('../constants')
+const { PNETWORK_NETWORK_IDS, ZERO_ADDRESS, PNETWORK_ADDRESS, ASSOCIATION_ON_ETH_ADDRESS } = require('../constants')
 const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, UPGRADE_ROLE } = require('../roles')
+const { encode } = require('../utils')
 const { hardhatReset } = require('../utils/hardhat-reset')
 const { sendEth } = require('../utils/send-eth')
 
-// addresses
-const TOKEN_HOLDERS_ADDRESSES = [
-  '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
-  '0xe8b43e7d55337ab735f6e1932d4a1e98de70eabc',
-  '0x9ad4550759389ca7f0488037daa4332b1f30cdac',
-  '0x100a70b9e50e91367d571332e76cfa70e9307059'
-]
 const PNT_ON_GNOSIS_MINTER = '0x53d51f8801f40657ca566a1ae25b27eada97413c'
 
 const USER_ADDRESS = '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B'
+const ADDRESS_PLACEHOLDER = '0x0123456789012345678901234567890123456789'
 
 const getBytes = (_hexString) => Buffer.from(_hexString.slice(2), 'hex')
 
 const parseEther = (_input) => hre.ethers.parseEther(_input)
+
+const createExecutorId = (id) => `0x${String(id).padStart(8, '0')}`
+
+const encodeCallScript = (actions, specId = 1) =>
+  actions.reduce((script, { to, calldata }) => {
+    const encoder = new hre.ethers.AbiCoder()
+    const addr = encoder.encode(['address'], [to])
+    const length = encoder.encode(['uint256'], [(calldata.length - 2) / 2])
+    // Remove 12 first 0s of padding for addr and 28 0s for uint32
+    return script + addr.slice(26) + length.slice(58) + calldata.slice(2)
+  }, createExecutorId(specId))
+
+const encodeFunctionCall = (_to, _calldata) => ({
+  to: _to,
+  calldata: _calldata
+})
+
+const hasPermission = (acl, who, where, what) => acl['hasPermission(address,address,bytes32)'](who, where, what)
+
+const setPermission = (acl, permissionManager, entity, app, role) =>
+  acl.connect(permissionManager).grantPermission(entity, app, role)
+
+const grantCreateVotesPermission = async (_acl, _permissionManager, _who) => {
+  let hasPerm = await hasPermission(_acl, _who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
+  expect(hasPerm).to.be.false
+  await setPermission(_acl, _permissionManager, _who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
+  hasPerm = await hasPermission(_acl, _who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
+  expect(hasPerm).to.be.true
+}
+
+const openNewVoteAndReachQuorum = async (_votingContract, _voteCreator, _voters, _executionScript, _metadata) => {
+  const supports = true
+  const executionScriptBytes = getBytes(_executionScript)
+
+  const voteId = (await _votingContract.votesLength()) + 1n
+  await expect(_votingContract.connect(_voteCreator).newVote(executionScriptBytes, _metadata, supports))
+    .to.emit(_votingContract, 'StartVote')
+    .withArgs(voteId, _voteCreator.address, _metadata)
+
+  for (const voter of _voters) {
+    if (voter === _voteCreator) {
+      await expect(_votingContract.connect(voter).vote(voteId, supports)).to.be.revertedWith(
+        'DANDELION_VOTING_CAN_NOT_VOTE'
+      )
+    } else {
+      await expect(_votingContract.connect(voter).vote(voteId, supports)).to.emit(_votingContract, 'CastVote')
+    }
+  }
+
+  const vote = await _votingContract.getVote(voteId)
+  const executionBlock = vote[3]
+  await mineUpTo(executionBlock + 1n)
+  return voteId
+}
 
 describe('Integration tests on Gnosis deployment', () => {
   let faucet,
@@ -61,6 +117,13 @@ describe('Integration tests on Gnosis deployment', () => {
     RegistrationManager,
     daoTreasury,
     finance
+
+  const TOKEN_HOLDERS_ADDRESSES = [
+    '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
+    '0xe8b43e7d55337ab735f6e1932d4a1e98de70eabc',
+    '0x9ad4550759389ca7f0488037daa4332b1f30cdac',
+    '0x100a70b9e50e91367d571332e76cfa70e9307059'
+  ]
 
   const missingSteps = async () => {
     await upgradeContracts()
@@ -130,46 +193,9 @@ describe('Integration tests on Gnosis deployment', () => {
     await Promise.all(tokenHolders.map((_holder) => stake(_holder, 5000)))
   })
 
-  const openNewVoteAndReachQuorum = async (_voteId, _executionScript, _metadata) => {
-    const supports = true
-    const voteCreator = tokenHolders[0]
-    const executionScriptBytes = getBytes(_executionScript)
-
-    await grantCreateVotesPermission(voteCreator.address)
-    daoVoting = daoVoting.connect(voteCreator)
-
-    await expect(daoVoting.newVote(executionScriptBytes, _metadata, supports))
-      .to.emit(daoVoting, 'StartVote')
-      .withArgs(_voteId, voteCreator.address, _metadata)
-
-    for (const tokenHolder of tokenHolders) {
-      if (tokenHolder === voteCreator) {
-        await expect(daoVoting.vote(_voteId, supports)).to.be.revertedWith('DANDELION_VOTING_CAN_NOT_VOTE')
-      } else {
-        await expect(daoVoting.connect(tokenHolder).vote(_voteId, supports)).to.emit(daoVoting, 'CastVote')
-      }
-    }
-
-    const vote = await daoVoting.getVote(_voteId)
-    const executionBlock = vote[3]
-    await mineUpTo(executionBlock + 1n)
-  }
-
-  const hasPermission = (who, where, what) => acl['hasPermission(address,address,bytes32)'](who, where, what)
-
-  const setPermission = async (entity, app, role) => acl.connect(daoOwner).grantPermission(entity, app, role)
-
-  const grantCreateVotesPermission = async (_who) => {
-    let hasPerm = await hasPermission(_who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
-    expect(hasPerm).to.be.false
-    await setPermission(_who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
-    hasPerm = await hasPermission(_who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
-    expect(hasPerm).to.be.true
-  }
-
-  const mintPntOnGnosis = async (receiver, amount) => {
+  const mintPntOnGnosis = async (receiver, amount, userData = '0x') => {
     const balance = await pntOnGnosis.balanceOf(receiver)
-    await pntOnGnosis.connect(pntMinter).mint(receiver, amount, '0x', '0x')
+    await expect(pntOnGnosis.connect(pntMinter).mint(receiver, amount, userData, '0x')).to.emit(pntOnGnosis, 'Transfer')
     expect(await pntOnGnosis.balanceOf(receiver)).to.be.eq(balance + amount)
   }
 
@@ -184,24 +210,7 @@ describe('Integration tests on Gnosis deployment', () => {
   const encodeVaultTransfer = (token, to, value) =>
     daoTreasury.interface.encodeFunctionData('transfer', [token, to, value])
 
-  const encodeFunctionCall = (_to, _calldata) => ({
-    to: _to,
-    calldata: _calldata
-  })
-
-  const createExecutorId = (id) => `0x${String(id).padStart(8, '0')}`
-
-  const encodeCallScript = (actions, specId = 1) =>
-    actions.reduce((script, { to, calldata }) => {
-      const encoder = new hre.ethers.AbiCoder()
-      const addr = encoder.encode(['address'], [to])
-      const length = encoder.encode(['uint256'], [(calldata.length - 2) / 2])
-      // Remove 12 first 0s of padding for addr and 28 0s for uint32
-      return script + addr.slice(26) + length.slice(58) + calldata.slice(2)
-    }, createExecutorId(specId))
-
   it('should open a vote for registering a guardian and execute it', async () => {
-    const voteId = 1
     const metadata = 'Should we register a new guardian?'
     const executionScript = encodeCallScript(
       [[REGISTRATION_MANAGER, encodeUpdateGuardianRegistrationFunctionData(faucet.address, 10, faucet.address)]].map(
@@ -215,7 +224,8 @@ describe('Integration tests on Gnosis deployment', () => {
     currentBlock = await hre.ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
 
-    await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
+    await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
+    const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
     await expect(daoVoting.executeVote(voteId))
       .to.emit(daoVoting, 'ExecuteVote')
       .withArgs(voteId)
@@ -307,14 +317,14 @@ describe('Integration tests on Gnosis deployment', () => {
     expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000'))
     expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
 
-    const voteId = 1
     const metadata = 'Should we transfer from vault to user?'
     const executionScript = encodeCallScript(
       [[FINANCE_VAULT, encodeVaultTransfer(await pntOnGnosis.getAddress(), user.address, parseEther('1'))]].map(
         (_args) => encodeFunctionCall(..._args)
       )
     )
-    await openNewVoteAndReachQuorum(voteId, executionScript, metadata)
+    await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
+    const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
 
     await expect(daoVoting.executeVote(voteId))
       .to.emit(daoVoting, 'ExecuteVote')
@@ -328,7 +338,7 @@ describe('Integration tests on Gnosis deployment', () => {
   })
 
   it('should create an immediate payment via finance app', async () => {
-    await setPermission(faucet.address, await finance.getAddress(), CREATE_PAYMENTS_ROLE)
+    await setPermission(acl, daoOwner, faucet.address, await finance.getAddress(), CREATE_PAYMENTS_ROLE)
     const amount = parseEther('1.5')
     await mintPntOnGnosis(await daoTreasury.getAddress(), parseEther('200000'))
     expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000'))
@@ -345,7 +355,7 @@ describe('Integration tests on Gnosis deployment', () => {
   })
 
   it('should open a vote (1)', async () => {
-    await setPermission(user.address, await daoVoting.getAddress(), CREATE_VOTES_ROLE)
+    await setPermission(acl, daoOwner, user.address, await daoVoting.getAddress(), CREATE_VOTES_ROLE)
     await expect(
       user.sendTransaction({
         to: '0x0cf759bcCfEf5f322af58ADaE2D28885658B5e02',
@@ -356,5 +366,177 @@ describe('Integration tests on Gnosis deployment', () => {
     )
       .to.emit(daoVoting, 'StartVote')
       .withArgs(1, USER_ADDRESS, 'test https://ipfs.io/ipfs/QmSnuWmxptJZdLJpKRarxBMS2Ju2oANVrgbr2xWbie9b2D')
+  })
+
+  // this test is coupled with Integration tests on Ethereum deployment -> should process pegOut, withdrawInflation, and pegIn to treasury
+  it('should call withdrawInflation from Gnosis', async () => {
+    const FORWARDER_ETH = ADDRESS_PLACEHOLDER
+    const ETH_PTN_ADDRESS = ETHPNT_ADDRESS
+
+    const amount = 10
+    const metadata = 'Should we inflate more?'
+
+    const userData = encode(
+      ['address[]', 'bytes[]'],
+      [
+        [ETH_PTN_ADDRESS, ETH_PTN_ADDRESS, ERC20_VAULT],
+        [
+          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('withdrawInflation', [FORWARDER_ETH, amount]),
+          new hre.ethers.Interface(EthPntAbi).encodeFunctionData('approve', [ERC20_VAULT, amount]),
+          new hre.ethers.Interface(ERC20VaultAbi).encodeFunctionData('pegIn(uint256,address,string,bytes,bytes4)', [
+            amount,
+            ETHPNT_ADDRESS,
+            FINANCE_VAULT,
+            '0x',
+            PNETWORK_NETWORK_IDS.gnosisMainnet
+          ])
+        ]
+      ]
+    )
+    const executionScript = encodeCallScript(
+      [
+        [
+          await pntOnGnosis.getAddress(),
+          pntOnGnosis.interface.encodeFunctionData('redeem(uint256,bytes,string,bytes4)', [
+            1,
+            userData,
+            FORWARDER_ETH,
+            PNETWORK_NETWORK_IDS.ethereumMainnet
+          ])
+        ]
+      ].map((_args) => encodeFunctionCall(..._args))
+    )
+    let currentBlock = await hre.ethers.provider.getBlockNumber()
+    expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(20000)
+    await mintPntOnGnosis(faucet.address, 10000n)
+    await mintPntOnGnosis(DANDELION_VOTING_ADDRESS, 10000n)
+    await stake(faucet, 10000)
+    currentBlock = await hre.ethers.provider.getBlockNumber()
+    expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
+    await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
+    const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
+    await expect(daoVoting.executeVote(voteId))
+      .to.emit(daoVoting, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(pntOnGnosis, 'Redeem')
+      .withArgs(
+        DANDELION_VOTING_ADDRESS,
+        1,
+        FORWARDER_ETH,
+        // secretlint-disable-next-line
+        '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+        PNETWORK_NETWORK_IDS.gnosisMainnet,
+        PNETWORK_NETWORK_IDS.ethereumMainnet
+      )
+  })
+
+  it('should be possible to pegin to finance vault', async () => {
+    await mintPntOnGnosis(FINANCE_VAULT, '10', '0xc0ffee')
+  })
+})
+
+describe('Integration tests on Ethereum deployment', () => {
+  let vault, crossExecutor, pnetwork, faucet, daoVotingV1, tokenHolders, association, ethPnt
+
+  const TOKEN_HOLDERS_ADDRESSES = [
+    '0x100a70b9e50e91367d571332E76cFa70e9307059',
+    '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
+    '0xF03f2303cC57bC5Cd63255749e86Ed8886Ca68Fc',
+    '0xe0EDF3bAee2eE71903FbD43D93ce54420e5933F2'
+  ]
+
+  const missingSteps = async () => {
+    const CrossExecutor = await hre.ethers.getContractFactory('CrossExecutor')
+    crossExecutor = await CrossExecutor.deploy(PNT_ON_ETH_ADDRESS, ERC20_VAULT)
+    await crossExecutor.whitelistOriginAddress(DANDELION_VOTING_ADDRESS)
+    daoVotingV1 = await hre.ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_V1_ADDRESS)
+    // open vote to change inflationOwner
+    const executionScript = encodeCallScript(
+      [
+        [
+          ETHPNT_ADDRESS,
+          ethPnt.interface.encodeFunctionData('whitelistInflationRecipient', [await crossExecutor.getAddress()])
+        ],
+        [ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [await crossExecutor.getAddress()])]
+      ].map((_args) => encodeFunctionCall(..._args))
+    )
+    const voteId = await openNewVoteAndReachQuorum(
+      daoVotingV1,
+      association,
+      tokenHolders,
+      executionScript,
+      'change inflation owner?'
+    )
+    expect(await ethPnt.inflationRecipientsWhitelist(await crossExecutor.getAddress())).to.be.false
+    await expect(daoVotingV1.executeVote(voteId))
+      .to.emit(daoVotingV1, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(ethPnt, 'InflationRecipientWhitelisted')
+      .and.to.emit(ethPnt, 'NewInflationOwner')
+    expect(await ethPnt.inflationRecipientsWhitelist(await crossExecutor.getAddress())).to.be.true
+    expect(await ethPnt.inflationOwner()).to.be.eq(await crossExecutor.getAddress())
+  }
+
+  beforeEach(async () => {
+    const rpc = hre.config.networks.mainnet.url
+    await hardhatReset(hre.network.provider, rpc)
+    ;[faucet] = await hre.ethers.getSigners()
+    tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(hre.ethers.getImpersonatedSigner))
+    pnetwork = await hre.ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
+    association = await hre.ethers.getImpersonatedSigner(ASSOCIATION_ON_ETH_ADDRESS)
+    ethPnt = await hre.ethers.getContractAt(EthPntAbi, ETHPNT_ADDRESS)
+    vault = await hre.ethers.getContractAt('IErc20Vault', ERC20_VAULT)
+    await sendEth(hre.ethers, faucet, pnetwork.address, '10')
+    await sendEth(hre.ethers, faucet, association.address, '10')
+    await Promise.all(TOKEN_HOLDERS_ADDRESSES.map((_address) => sendEth(hre.ethers, faucet, _address, '10')))
+    await missingSteps()
+  })
+
+  // this test is coupled with Integration tests on Gnosis deployment -> should call withdrawInflation from Gnosis
+  it('should process pegOut, withdrawInflation, and pegIn to treasury', async () => {
+    const metadata = encodeMetadata(hre.ethers, {
+      userData:
+        // secretlint-disable-next-line
+        '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'.replaceAll(
+          ADDRESS_PLACEHOLDER.slice(2),
+          (await crossExecutor.getAddress()).slice(2)
+        ),
+      sourceNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+      senderAddress: DANDELION_VOTING_ADDRESS,
+      destinationNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+      receiverAddress: await crossExecutor.getAddress()
+    })
+    await expect(vault.connect(pnetwork).pegOut(await crossExecutor.getAddress(), PNT_ON_ETH_ADDRESS, 1, metadata))
+      .to.emit(ethPnt, 'Transfer')
+      .withArgs(ZERO_ADDRESS, await crossExecutor.getAddress(), 10)
+      .and.to.emit(vault, 'PegIn')
+      .withArgs(
+        PNT_ON_ETH_ADDRESS,
+        await crossExecutor.getAddress(),
+        10,
+        FINANCE_VAULT,
+        '0x',
+        PNETWORK_NETWORK_IDS.ethereumMainnet,
+        PNETWORK_NETWORK_IDS.gnosisMainnet
+      )
+  })
+
+  it('should not process pegout if not required by dandelion voting', async () => {
+    const attacker = hre.ethers.Wallet.createRandom().connect(hre.ethers.provider)
+    const metadata = encodeMetadata(hre.ethers, {
+      userData:
+        // secretlint-disable-next-line
+        '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'.replaceAll(
+          ADDRESS_PLACEHOLDER,
+          (await crossExecutor.getAddress()).slice(2)
+        ),
+      sourceNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+      senderAddress: attacker.address,
+      destinationNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+      receiverAddress: await crossExecutor.getAddress()
+    })
+    await expect(vault.connect(pnetwork).pegOut(await crossExecutor.getAddress(), PNT_ON_ETH_ADDRESS, 1, metadata))
+      .to.be.revertedWithCustomError(crossExecutor, 'InvalidOriginAddress')
+      .withArgs(attacker.address)
   })
 })

@@ -2,6 +2,7 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
+const { encodeMetadata, decodeMetadata } = require('../lib/metadata')
 const { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS } = require('../tasks/config')
 
 const {
@@ -270,19 +271,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
 
-      const metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      const metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
         .to.emit(voting, 'CastVote')
@@ -322,19 +317,14 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
 
-      const metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, attacker.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      const metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, attacker.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
+
       if (_ptokenContract === MOCK_PTOKEN_ERC20) {
         await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
           .to.emit(pToken, 'ReceiveUserDataFailed')
@@ -361,19 +351,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       )
 
       expect(await pToken.balanceOf(await forwarderHost.getAddress())).to.be.eq(0)
-      const metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          attacker.address,
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      const metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: attacker.address,
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       if (_ptokenContract === MOCK_PTOKEN_ERC20) {
         await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), 1, metadata, '0x'))
@@ -410,19 +394,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
-      const metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      const metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), stakeAmount, metadata, '0x'))
         .to.emit(stakingManager, 'Staked')
@@ -451,19 +429,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
-      const metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      const metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), lendAmount, metadata, '0x'))
         .to.emit(lendingManager, 'Lended')
@@ -499,19 +471,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       // NOTE: at this point let's suppose that a pNetwork node processes the pegin...
 
-      const metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      const metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), stakeAmount, metadata, '0x'))
         .to.emit(registrationManager, 'SentinelRegistrationUpdated')
@@ -539,19 +505,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         .connect(pntHolder2)
         .call(lendAmount, await forwarderHost.getAddress(), userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
-      let metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder2.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      let metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder2.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), lendAmount, metadata, '0x'))
         .to.emit(lendingManager, 'Lended')
@@ -578,19 +538,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         .connect(pntHolder1)
         .call(0, await forwarderHost.getAddress(), userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
-      metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
         .to.emit(registrationManager, 'SentinelRegistrationUpdated')
@@ -625,19 +579,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         .connect(pntHolder1)
         .call(amount, await forwarderHost.getAddress(), userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
-      let metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      let metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
       await pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), amount, metadata, '0x')
 
       // U N S T A K E (from Ethereum to Gnosis and tokens should come back to ethereum)
@@ -661,19 +609,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         .connect(pntHolder1)
         .call(0, await forwarderHost.getAddress(), userData, PNETWORK_NETWORK_IDS.gnosisMainnet)
 
-      metadata = encode(
-        ['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'],
-        [
-          '0x02',
-          getUserDataGeneratedByForwarder(userData, pntHolder1.address),
-          PNETWORK_NETWORK_IDS.ethereumMainnet,
-          await forwarderNative.getAddress(),
-          PNETWORK_NETWORK_IDS.gnosisMainnet,
-          await forwarderHost.getAddress(),
-          '0x',
-          '0x'
-        ]
-      )
+      metadata = encodeMetadata(ethers, {
+        userData: getUserDataGeneratedByForwarder(userData, pntHolder1.address),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+        senderAddress: await forwarderNative.getAddress(),
+        destinationNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+        receiverAddress: await forwarderHost.getAddress()
+      })
 
       await expect(pToken.connect(pnetwork).mint(await forwarderHost.getAddress(), amount, metadata, '0x'))
         .to.emit(stakingManager, 'Unstaked')
@@ -697,8 +639,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       const bytes =
         // secretlint-disable-next-line
         '0x02000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100ffffffff0000000000000000000000000000000000000000000000000000000000000000000000000000000054d5a0638f23f0b89053f86eed60237bbc56e98c0075dd4c00000000000000000000000000000000000000000000000000000000000000000000000000000000257a984836f4459954ce09955e3c00e8c5b1fb8900000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000003e000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000060000000000000000000000000728ee450b8c75699149dd297ed6ec4176d8df65e00000000000000000000000067071fc7f4cf8a0fd272d66a5d06fba850198f740000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000b6bcae6468760bc0cdfb9c8ef4ee75c9dd23e1ed0000000000000000000000001491733a4c3fa754e895fcd99acdeca0d33645c30000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000044095ea7b30000000000000000000000001491733a4c3fa754e895fcd99acdeca0d33645c30000000000000000000000000000000000000000000000af30bbc818391df0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000642b54f55100000000000000000000000067071fc7f4cf8a0fd272d66a5d06fba850198f740000000000000000000000000000000000000000000000af30bbc818391df0000000000000000000000000000000000000000000000000000000000000093a800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
-      const decoder = new ethers.AbiCoder()
-      decoder.decode(['bytes1', 'bytes', 'bytes4', 'address', 'bytes4', 'address', 'bytes', 'bytes'], bytes)
+      decodeMetadata(ethers, bytes)
     })
   })
 )
