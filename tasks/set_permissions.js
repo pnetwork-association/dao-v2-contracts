@@ -1,13 +1,17 @@
 const { task } = require('hardhat/config')
 
 const {
-  ACL_ADDRESS,
-  TOKEN_MANAGER_ADDRESS,
-  STAKING_MANAGER,
-  STAKING_MANAGER_LM,
-  STAKING_MANAGER_RM,
-  LENDING_MANAGER,
-  REGISTRATION_MANAGER
+  ADDRESSES: {
+    GNOSIS: {
+      ACL_ADDRESS,
+      TOKEN_MANAGER_ADDRESS,
+      STAKING_MANAGER,
+      STAKING_MANAGER_LM,
+      STAKING_MANAGER_RM,
+      LENDING_MANAGER,
+      REGISTRATION_MANAGER
+    }
+  }
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
