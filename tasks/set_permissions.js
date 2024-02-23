@@ -9,16 +9,17 @@ const {
   LENDING_MANAGER,
   REGISTRATION_MANAGER
 } = require('../lib/constants')
+const { getAllRoles } = require('../lib/roles')
 
-const setPermissions = async (_args, _hre) => {
-  const getRole = (_message) => _hre.ethers.keccak256(_hre.ethers.toUtf8Bytes(_message))
-  const [signer] = await _hre.ethers.getSigners()
+const setPermissions = async (_args, { ethers }) => {
+  const { MINT_ROLE, BURN_ROLE, STAKE_ROLE, INCREASE_DURATION_ROLE, BORROW_ROLE } = getAllRoles(ethers)
+  const [signer] = await ethers.getSigners()
 
-  const ACL = await _hre.ethers.getContractFactory('ACL')
-  const StakingManager = await _hre.ethers.getContractFactory('StakingManager')
-  const StakingManagerPermissioned = await _hre.ethers.getContractFactory('StakingManagerPermissioned')
-  const LendingManager = await _hre.ethers.getContractFactory('LendingManager')
-  const RegistrationManager = await _hre.ethers.getContractFactory('RegistrationManager')
+  const ACL = await ethers.getContractFactory('ACL')
+  const StakingManager = await ethers.getContractFactory('StakingManager')
+  const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
+  const LendingManager = await ethers.getContractFactory('LendingManager')
+  const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
 
   const acl = ACL.attach(ACL_ADDRESS)
   const stakingManager = StakingManager.attach(STAKING_MANAGER)
@@ -28,21 +29,21 @@ const setPermissions = async (_args, _hre) => {
   const registrationManager = RegistrationManager.attach(REGISTRATION_MANAGER)
 
   console.log('Setting ACL permissions ...')
-  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, getRole('MINT_ROLE'))
-  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, getRole('BURN_ROLE'))
-  await stakingManagerLM.grantRole(getRole('STAKE_ROLE'), lendingManager.target)
-  await stakingManagerLM.grantRole(getRole('INCREASE_DURATION_ROLE'), lendingManager.target)
-  await stakingManagerRM.grantRole(getRole('STAKE_ROLE'), registrationManager.target)
-  await stakingManagerRM.grantRole(getRole('INCREASE_DURATION_ROLE'), registrationManager.target)
+  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
+  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+  await stakingManagerLM.grantRole(STAKE_ROLE, lendingManager.target)
+  await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, lendingManager.target)
+  await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.target)
+  await stakingManagerRM.grantRole(INCREASE_DURATION_ROLE, registrationManager.target)
 
   console.log('Assigning roles and whitelisting origin addresses ...')
-  await lendingManager.grantRole(getRole('BORROW_ROLE'), registrationManager.target)
+  await lendingManager.grantRole(BORROW_ROLE, registrationManager.target)
   // await forwarder.whitelistOriginAddress(FORWARDER_ON_MAINNET)
   // await forwarder.whitelistOriginAddress(FORWARDER_ON_BSC)
 
