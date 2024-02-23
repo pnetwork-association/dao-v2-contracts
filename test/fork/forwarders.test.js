@@ -12,6 +12,7 @@ const {
 } = require('../../lib/constants')
 const { encodeMetadata } = require('../../lib/metadata')
 const { hardhatReset } = require('../utils/hardhat-reset')
+const { mintPToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
 describe('Polygon Forwarder', () => {
@@ -50,6 +51,8 @@ describe('Polygon Forwarder', () => {
 })
 
 describe('Gnosis Forwarder', () => {
+  let pToken, daoPNT, minter
+
   const missingSteps = async () => {
     const owner = await hre.ethers.getImpersonatedSigner('0xfe0BC5fAc8f624093C9CeaeCF1EF14B4a5F84cE9')
     const forwarder = await hre.ethers.getContractAt('ForwarderHost', FORWARDER_ON_GNOSIS)
@@ -60,15 +63,17 @@ describe('Gnosis Forwarder', () => {
     const rpc = hre.config.networks.gnosis.url
     await hardhatReset(hre.network.provider, rpc)
     await missingSteps()
+    pToken = await hre.ethers.getContractAt(pntOnGnosisAbi, PNT_ON_GNOSIS_ADDRESS)
+    daoPNT = await hre.ethers.getContractAt('ERC20', DAOPNT_ON_GNOSIS_ADDRESS)
+    minter = await hre.ethers.getImpersonatedSigner('0x53d51f8801f40657ca566a1ae25b27eada97413c')
   })
+
+  const mintPnt = (_recipient, _value, _metadata) => mintPToken(pToken, minter, _recipient, _value, _metadata)
 
   it('should stake from forwarder call', async () => {
     const USER_ADDRESS = '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B'
-    const pnetwork = await hre.ethers.getImpersonatedSigner('0x53d51f8801f40657ca566a1ae25b27eada97413c')
     const stakingManager = await hre.ethers.getContractAt('StakingManager', STAKING_MANAGER)
     await hre.ethers.provider.getBalance(USER_ADDRESS)
-    const pToken = await hre.ethers.getContractAt(pntOnGnosisAbi, PNT_ON_GNOSIS_ADDRESS)
-    const daoPNT = await hre.ethers.getContractAt('ERC20', DAOPNT_ON_GNOSIS_ADDRESS)
     const metadata = encodeMetadata(hre.ethers, {
       userData:
         // secretlint-disable-next-line
@@ -78,10 +83,7 @@ describe('Gnosis Forwarder', () => {
       destinationNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
       receiverAddress: FORWARDER_ON_GNOSIS
     })
-    await expect(pToken.connect(pnetwork).mint(FORWARDER_ON_GNOSIS, 100000000000000000n, metadata, '0x')).to.emit(
-      stakingManager,
-      'Staked'
-    )
+    await expect(mintPnt(FORWARDER_ON_GNOSIS, 100000000000000000n, metadata)).to.emit(stakingManager, 'Staked')
     expect(await daoPNT.balanceOf(USER_ADDRESS)).to.be.eq(hre.ethers.parseUnits('0.0999'))
     expect(await pToken.balanceOf(STAKING_MANAGER)).to.be.eq(hre.ethers.parseUnits('0.0999'))
   })

@@ -14,33 +14,11 @@ const { encodeMetadata, decodeMetadata } = require('../lib/metadata')
 const { getAllRoles } = require('../lib/roles')
 
 const { encode, getSentinelIdentity, getUserDataGeneratedByForwarder } = require('./utils')
+const { mintPToken } = require('./utils/pnetwork')
 const { sendEth } = require('./utils/send-eth')
 
 const { BORROW_ROLE, STAKE_ROLE, INCREASE_DURATION_ROLE, UPGRADE_ROLE, MINT_ROLE, BURN_ROLE, SET_FORWARDER_ROLE } =
   getAllRoles(ethers)
-
-let acl,
-  forwarderNative,
-  forwarderHost,
-  stakingManager,
-  stakingManagerLM,
-  stakingManagerRM,
-  lendingManager,
-  registrationManager,
-  epochsManager,
-  vault,
-  voting,
-  owner,
-  pnt,
-  pToken,
-  minter,
-  sentinel1,
-  daoRoot,
-  pntHolder1,
-  pntHolder2,
-  fakeForwarder,
-  forwarderRecipientUpgradeableTestData,
-  fakeDandelionVoting
 
 const MOCK_PTOKEN_ERC777 = 'MockPTokenERC777'
 const MOCK_PTOKEN_ERC20 = 'MockPTokenERC20'
@@ -48,6 +26,32 @@ const PTOKEN_CONTRACTS = [MOCK_PTOKEN_ERC777, MOCK_PTOKEN_ERC20]
 
 PTOKEN_CONTRACTS.map((_ptokenContract) =>
   describe(`Forwarders with host pToken as ${_ptokenContract.slice(4)}`, () => {
+    let acl,
+      forwarderNative,
+      forwarderHost,
+      stakingManager,
+      stakingManagerLM,
+      stakingManagerRM,
+      lendingManager,
+      registrationManager,
+      epochsManager,
+      vault,
+      voting,
+      owner,
+      pnt,
+      pToken,
+      minter,
+      sentinel1,
+      daoRoot,
+      pntHolder1,
+      pntHolder2,
+      fakeForwarder,
+      forwarderRecipientUpgradeableTestData,
+      fakeDandelionVoting
+
+    const mintPTokenWithMetaData = (_recipient, _value, _metadata) =>
+      mintPToken(pToken, minter, _recipient, _value, _metadata)
+
     beforeEach(async () => {
       const ForwarderNative = await ethers.getContractFactory('ForwarderNative')
       const ForwarderHost = await ethers.getContractFactory('ForwarderHost')
@@ -268,7 +272,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         receiverAddress: await forwarderHost.getAddress()
       })
 
-      await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
+      await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), 0, metadata, '0x'))
         .to.emit(voting, 'CastVote')
         .withArgs(voteId, pntHolder1.address, true)
     })
@@ -315,11 +319,11 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       })
 
       if (_ptokenContract === MOCK_PTOKEN_ERC20) {
-        await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
+        await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), 0, metadata, '0x'))
           .to.emit(pToken, 'ReceiveUserDataFailed')
           .and.to.not.emit(voting, 'CastVote')
       } else if (_ptokenContract === MOCK_PTOKEN_ERC777) {
-        await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
+        await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), 0, metadata, '0x'))
           .to.be.revertedWithCustomError(forwarderHost, 'InvalidCaller')
           .withArgs(attacker.address, pntHolder1.address)
       } else expect.fail('Unsupported pToken contract')
@@ -349,12 +353,12 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       })
 
       if (_ptokenContract === MOCK_PTOKEN_ERC20) {
-        await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), 1, metadata, '0x'))
+        await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), 1, metadata, '0x'))
           .to.emit(pToken, 'ReceiveUserDataFailed')
           .and.to.not.emit(voting, 'CastVote')
         expect(await pToken.balanceOf(await forwarderHost.getAddress())).to.be.eq(1)
       } else if (_ptokenContract === MOCK_PTOKEN_ERC777) {
-        await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
+        await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), 0, metadata, '0x'))
           .to.be.revertedWithCustomError(forwarderHost, 'InvalidOriginAddress')
           .withArgs(attacker.address)
         expect(await pToken.balanceOf(await forwarderHost.getAddress())).to.be.eq(0)
@@ -391,7 +395,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         receiverAddress: await forwarderHost.getAddress()
       })
 
-      await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), stakeAmount, metadata, '0x'))
+      await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), stakeAmount, metadata, '0x'))
         .to.emit(stakingManager, 'Staked')
         .withArgs(pntHolder1.address, stakeAmount, duration)
     })
@@ -426,7 +430,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         receiverAddress: await forwarderHost.getAddress()
       })
 
-      await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), lendAmount, metadata, '0x'))
+      await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), lendAmount, metadata, '0x'))
         .to.emit(lendingManager, 'Lended')
         .withArgs(pntHolder1.address, 1, 12, lendAmount)
     })
@@ -468,7 +472,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         receiverAddress: await forwarderHost.getAddress()
       })
 
-      await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), stakeAmount, metadata, '0x'))
+      await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), stakeAmount, metadata, '0x'))
         .to.emit(registrationManager, 'SentinelRegistrationUpdated')
         .withArgs(pntHolder1.address, 1, 12, sentinel1.address, REGISTRATION_SENTINEL_STAKING, stakeAmount)
     })
@@ -502,7 +506,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         receiverAddress: await forwarderHost.getAddress()
       })
 
-      await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), lendAmount, metadata, '0x'))
+      await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), lendAmount, metadata, '0x'))
         .to.emit(lendingManager, 'Lended')
         .withArgs(pntHolder2.address, 1, 14, lendAmount)
 
@@ -535,7 +539,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         receiverAddress: await forwarderHost.getAddress()
       })
 
-      await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), 0, metadata, '0x'))
+      await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), 0, metadata, '0x'))
         .to.emit(registrationManager, 'SentinelRegistrationUpdated')
         .withArgs(
           pntHolder1.address,
@@ -575,7 +579,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         destinationNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
         receiverAddress: await forwarderHost.getAddress()
       })
-      await pToken.connect(minter).mint(await forwarderHost.getAddress(), amount, metadata, '0x')
+      await mintPTokenWithMetaData(await forwarderHost.getAddress(), amount, metadata, '0x')
 
       // U N S T A K E (from Ethereum to Gnosis and tokens should come back to ethereum)
       await time.increase(duration + 1)
@@ -606,7 +610,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
         receiverAddress: await forwarderHost.getAddress()
       })
 
-      await expect(pToken.connect(minter).mint(await forwarderHost.getAddress(), amount, metadata, '0x'))
+      await expect(mintPTokenWithMetaData(await forwarderHost.getAddress(), amount, metadata, '0x'))
         .to.emit(stakingManager, 'Unstaked')
         .withArgs(pntHolder1.address, amount)
     })

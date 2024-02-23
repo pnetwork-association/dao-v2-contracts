@@ -40,6 +40,7 @@ const { encodeMetadata } = require('../../lib/metadata')
 const { getAllRoles } = require('../../lib/roles')
 const { encode } = require('../utils')
 const { hardhatReset } = require('../utils/hardhat-reset')
+const { mintPToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
 const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, UPGRADE_ROLE } = getAllRoles(hre.ethers)
@@ -201,7 +202,7 @@ describe('Integration tests on Gnosis deployment', () => {
 
   const mintPntOnGnosis = async (receiver, amount, userData = '0x') => {
     const balance = await pntOnGnosis.balanceOf(receiver)
-    await expect(pntOnGnosis.connect(pntMinter).mint(receiver, amount, userData, '0x')).to.emit(pntOnGnosis, 'Transfer')
+    await expect(mintPToken(pntOnGnosis, pntMinter, receiver, amount, userData)).to.emit(pntOnGnosis, 'Transfer')
     expect(await pntOnGnosis.balanceOf(receiver)).to.be.eq(balance + amount)
   }
 
@@ -287,7 +288,7 @@ describe('Integration tests on Gnosis deployment', () => {
       await expect(stakingManager.connect(daoOwner).changeToken(await newToken.getAddress()))
         .to.emit(stakingManager, 'TokenChanged')
         .withArgs(await pntOnGnosis.getAddress(), await newToken.getAddress())
-      await newToken.connect(faucet).mint(faucet.address, hre.ethers.parseEther('200000'), '0x', '0x')
+      await mintPToken(newToken, faucet, faucet.address, hre.ethers.parseEther('200000'), '0x', '0x')
       await newToken.connect(faucet).approve(await stakingManager.getAddress(), 10000)
       await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7))
         .to.be.revertedWithCustomError(stakingManager, 'InvalidToken')
