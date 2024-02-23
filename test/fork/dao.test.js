@@ -40,7 +40,7 @@ const { encodeMetadata } = require('../../lib/metadata')
 const { getAllRoles } = require('../../lib/roles')
 const { encode } = require('../utils')
 const { hardhatReset } = require('../utils/hardhat-reset')
-const { mintPToken } = require('../utils/pnetwork')
+const { mintPToken, pegoutToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
 const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, UPGRADE_ROLE } = getAllRoles(hre.ethers)
@@ -450,6 +450,9 @@ describe('Integration tests on Ethereum deployment', () => {
     '0xe0EDF3bAee2eE71903FbD43D93ce54420e5933F2'
   ]
 
+  const pegoutPntOnEth = (_recipient, _value, _metadata) =>
+    pegoutToken(vault, pnetwork, _recipient, PNT_ON_ETH_ADDRESS, _value, _metadata)
+
   const missingSteps = async () => {
     const CrossExecutor = await hre.ethers.getContractFactory('CrossExecutor')
     crossExecutor = await CrossExecutor.deploy(PNT_ON_ETH_ADDRESS, ERC20_VAULT)
@@ -508,7 +511,7 @@ describe('Integration tests on Ethereum deployment', () => {
       destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
       receiverAddress: crossExecutor.target
     })
-    await expect(vault.connect(pnetwork).pegOut(crossExecutor.target, PNT_ON_ETH_ADDRESS, 1, metadata))
+    await expect(pegoutPntOnEth(crossExecutor.target, 1, metadata))
       .to.emit(ethPnt, 'Transfer')
       .withArgs(ZERO_ADDRESS, crossExecutor.target, 10)
       .and.to.emit(vault, 'PegIn')
@@ -537,7 +540,7 @@ describe('Integration tests on Ethereum deployment', () => {
       destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
       receiverAddress: crossExecutor.target
     })
-    await expect(vault.connect(pnetwork).pegOut(crossExecutor.target, PNT_ON_ETH_ADDRESS, 1, metadata))
+    await expect(pegoutPntOnEth(crossExecutor.target, 1, metadata))
       .to.be.revertedWithCustomError(crossExecutor, 'InvalidOriginAddress')
       .withArgs(attacker.address)
   })
