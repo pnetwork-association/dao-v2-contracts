@@ -2,8 +2,12 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
-const { ONE_DAY } = require('./constants')
-const { UPGRADE_ROLE } = require('./roles')
+const {
+  MISC: { ONE_DAY }
+} = require('../lib/constants')
+const { getAllRoles } = require('../lib/roles')
+
+const { UPGRADE_ROLE } = getAllRoles(ethers)
 
 const EPOCH_DURATION = ONE_DAY // 1 day
 
@@ -24,7 +28,7 @@ describe('EpochsManager', () => {
     const latestBlockTimestamp = await time.latest()
     await time.increaseTo(latestBlockTimestamp + EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
-    await upgrades.upgradeProxy(await epochsManager.getAddress(), EpochsManager)
+    await upgrades.upgradeProxy(epochsManager.target, EpochsManager)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
   })
 

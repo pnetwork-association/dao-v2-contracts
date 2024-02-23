@@ -3,14 +3,21 @@ const { expect } = require('chai')
 const { ethers, upgrades, config, network } = require('hardhat')
 const R = require('ramda')
 
-const { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS } = require('../tasks/config')
+const AclAbi = require('../lib/abi/ACL.json')
+const TokenManagerAbi = require('../lib/abi/TokenManager.json')
+const {
+  ADDRESSES: {
+    GNOSIS: { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS }
+  },
+  MISC: { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY },
+  VOTE_STATUS
+} = require('../lib/constants')
+const { getAllRoles } = require('../lib/roles')
 
-const AclAbi = require('./abi/ACL.json')
-const TokenManagerAbi = require('./abi/TokenManager.json')
-const { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY, VOTE_STATUS } = require('./constants')
-const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = require('./roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
+
+const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = getAllRoles(ethers)
 
 describe('RewardsManager', () => {
   let epochsManager,
@@ -35,13 +42,13 @@ describe('RewardsManager', () => {
 
   const depositRewardsForEpoch = async (_amount, _epoch) => {
     await rewardsManager.grantRole(DEPOSIT_REWARD_ROLE, owner.address)
-    await pnt.approve(await rewardsManager.getAddress(), _amount)
+    await pnt.approve(rewardsManager.target, _amount)
     const pntOwnerBalancePre = await pnt.balanceOf(owner.address)
-    const pntRewardsManagerBalancePre = await pnt.balanceOf(await rewardsManager.getAddress())
+    const pntRewardsManagerBalancePre = await pnt.balanceOf(rewardsManager.target)
     const depositedRewards = await rewardsManager.depositedAmountByEpoch(_epoch)
     await rewardsManager.depositForEpoch(_epoch, _amount)
     const pntOwnerBalancePost = await pnt.balanceOf(owner.address)
-    const pntRewardsManagerBalancePost = await pnt.balanceOf(await rewardsManager.getAddress())
+    const pntRewardsManagerBalancePost = await pnt.balanceOf(rewardsManager.target)
     expect(pntOwnerBalancePost).to.be.eq(pntOwnerBalancePre - _amount)
     expect(pntRewardsManagerBalancePost).to.be.eq(pntRewardsManagerBalancePre + _amount)
     expect(await rewardsManager.depositedAmountByEpoch(_epoch)).to.be.eq(depositedRewards + _amount)
@@ -90,7 +97,7 @@ describe('RewardsManager', () => {
     const signers = await ethers.getSigners()
     owner = signers[0]
     daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
-    sendEth(ethers, owner, daoRoot.address, '1')
+    await sendEth(ethers, owner, daoRoot.address, '1')
 
     randomGuy = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
@@ -117,25 +124,19 @@ describe('RewardsManager', () => {
 
     rewardsManager = await upgrades.deployProxy(
       RewardsManager,
-      [
-        await epochsManager.getAddress(),
-        await dandelionVoting.getAddress(),
-        await pnt.getAddress(),
-        await tokenManager.getAddress(),
-        PNT_MAX_TOTAL_SUPPLY
-      ],
+      [epochsManager.target, dandelionVoting.target, pnt.target, tokenManager.target, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
       }
     )
-    await setPermission(await rewardsManager.getAddress(), await tokenManager.getAddress(), MINT_ROLE)
-    await setPermission(await rewardsManager.getAddress(), await tokenManager.getAddress(), BURN_ROLE)
+    await setPermission(rewardsManager.target, tokenManager.target, MINT_ROLE)
+    await setPermission(rewardsManager.target, tokenManager.target, BURN_ROLE)
   })
 
   it('should deploy correctly', async () => {
-    expect(await rewardsManager.token()).to.eq(await pnt.getAddress())
-    expect(await rewardsManager.tokenManager()).to.eq(await tokenManager.getAddress())
+    expect(await rewardsManager.token()).to.eq(pnt.target)
+    expect(await rewardsManager.tokenManager()).to.eq(tokenManager.target)
   })
 
   it('should be possible to deposit tokens', async () => {
@@ -157,7 +158,7 @@ describe('RewardsManager', () => {
 
   it('should register and assign rewards correctly', async () => {
     const amount = (ethers.parseUnits('660000') * 10n) / 100n
-    await setPermission(owner.address, await tokenManager.getAddress(), MINT_ROLE)
+    await setPermission(owner.address, tokenManager.target, MINT_ROLE)
 
     await assertDaoPntBalances(['0', '0', '0', '0'])
     // mint daoPNT to simulate staking
@@ -201,7 +202,7 @@ describe('RewardsManager', () => {
     await time.increase(ONE_MONTH * 12 + ONE_DAY)
     await expect(rewardsManager.connect(pntHolder1).claimRewardByEpoch(0))
       .to.emit(pnt, 'Transfer')
-      .withArgs(await rewardsManager.getAddress(), pntHolder1.address, ethers.parseUnits('20000'))
+      .withArgs(rewardsManager.target, pntHolder1.address, ethers.parseUnits('20000'))
     await expect(rewardsManager.connect(pntHolder1).claimRewardByEpoch(0)).to.be.revertedWithCustomError(
       rewardsManager,
       'NothingToClaim'
@@ -213,7 +214,7 @@ describe('RewardsManager', () => {
     await time.increase(ONE_MONTH)
     await expect(rewardsManager.connect(pntHolder2).claimRewardByEpoch(0))
       .to.emit(pnt, 'Transfer')
-      .withArgs(await rewardsManager.getAddress(), pntHolder2.address, ethers.parseUnits('40000'))
+      .withArgs(rewardsManager.target, pntHolder2.address, ethers.parseUnits('40000'))
     await expect(rewardsManager.connect(randomGuy).claimRewardByEpoch(0)).to.be.revertedWithCustomError(
       rewardsManager,
       'NothingToClaim'
@@ -238,7 +239,7 @@ describe('RewardsManager', () => {
 
   it('should not register anything if there is no vote in the epoch', async () => {
     const amount = (ethers.parseUnits('660000') * 10n) / 100n
-    await setPermission(owner.address, await tokenManager.getAddress(), MINT_ROLE)
+    await setPermission(owner.address, tokenManager.target, MINT_ROLE)
 
     await assertDaoPntBalances(['0', '0', '0', '0'])
     // mint daoPNT to simulate staking
