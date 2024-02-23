@@ -1,5 +1,4 @@
 require('./decode-forwarder-metadata')
-require('./acl-assign-permission')
 require('./check-all-permissions')
 require('./check-permissions')
 require('./deploy-dao')
