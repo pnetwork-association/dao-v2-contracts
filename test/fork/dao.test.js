@@ -373,6 +373,21 @@ describe('Integration tests on Gnosis deployment', () => {
       .withArgs(1, USER_ADDRESS, 'test https://ipfs.io/ipfs/QmSnuWmxptJZdLJpKRarxBMS2Ju2oANVrgbr2xWbie9b2D')
   })
 
+  it('should open a vote (2)', async () => {
+    const from = await hre.ethers.getImpersonatedSigner('0xa41657bf225F8Ec7E2010C89c3F084172948264D')
+    await setPermission(acl, daoOwner, from.address, daoVoting.target, CREATE_VOTES_ROLE)
+    await expect(
+      from.sendTransaction({
+        to: '0x0cf759bcCfEf5f322af58ADaE2D28885658B5e02',
+        // secretlint-disable-next-line
+        data: '0x24160baa000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000001139ad01cacbbe51b4a2b099e52c47693ba87351b00000064beabacc8000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f1f6568a76559d85cf68e6597fa587544184dd460000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000004948656c6c6f2068747470733a2f2f697066732e696f2f697066732f516d52534a31335a79387731785570794b454469795a455763545856633461726a623161674a6b757631476872690000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    )
+      .to.emit(daoVoting, 'StartVote')
+      .withArgs(1, from.address, 'Hello https://ipfs.io/ipfs/QmRSJ13Zy8w1xUpyKEDiyZEWcTXVc4arjb1agJkuv1Ghri')
+  })
+
   // this test is coupled with Integration tests on Ethereum deployment -> should process pegOut, withdrawInflation, and pegIn to treasury
   it('should call withdrawInflation from Gnosis', async () => {
     const FORWARDER_ETH = ADDRESS_PLACEHOLDER
