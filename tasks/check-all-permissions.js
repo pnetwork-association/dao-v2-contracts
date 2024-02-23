@@ -16,4 +16,4 @@ const main = async (_, _hre) => {
   }
 }
 
-task('permissions:check-all').setAction(main)
+task('permissions:check-all', 'Check permissions for all contracts').setAction(main)

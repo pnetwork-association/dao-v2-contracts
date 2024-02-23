@@ -50,4 +50,4 @@ const setPermissions = async (_args, { ethers }) => {
   // NOTE: remember to send 1 pnt to FORWARDER_ON_MAINNET and FORWARDER_ON_BSC
 }
 
-task('dao:set-permissions', 'Set permissions', setPermissions)
+task('permissions:set-permissions', 'Set permissions', setPermissions)

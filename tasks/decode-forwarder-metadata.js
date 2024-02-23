@@ -2,7 +2,7 @@ const { task, types } = require('hardhat/config')
 
 const { decodeMetadata } = require('../lib/metadata')
 
-task('decode-forwarder-metadata', 'Decode the pNetwork Forwarder Metadata')
+task('utils:decode-forwarder-metadata', 'Decode the pNetwork Forwarder Metadata')
   .addPositionalParam('metadata', 'The pNetwork Metadata', undefined, types.string, false)
   .setAction(async (_taskArgs, { ethers }) => {
     const { metadata } = _taskArgs

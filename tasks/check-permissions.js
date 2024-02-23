@@ -76,4 +76,4 @@ const main = async (_params, { ethers, network }) => {
   await tryCheckOwner(_params[PARAM_CONTRACT_ADDRESS])
 }
 
-task('permissions:check').setAction(main).addPositionalParam(PARAM_CONTRACT_ADDRESS)
+task('permissions:check', 'Check permissions for a contract').setAction(main).addPositionalParam(PARAM_CONTRACT_ADDRESS)
