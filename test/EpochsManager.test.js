@@ -2,9 +2,10 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers')
 const { expect } = require('chai')
 const { ethers, upgrades } = require('hardhat')
 
+const {
+  MISC: { ONE_DAY }
+} = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
-
-const { ONE_DAY } = require('./constants')
 
 const { UPGRADE_ROLE } = getAllRoles(ethers)
 

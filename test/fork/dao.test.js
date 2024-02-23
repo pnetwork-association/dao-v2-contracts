@@ -24,12 +24,20 @@ const {
       DAOPNT_ON_GNOSIS_ADDRESS,
       ACL_ADDRESS
     },
-    MAINNET: { ERC20_VAULT, DANDELION_VOTING_ADDRESS: DANDELION_VOTING_V1_ADDRESS, PNT_ON_ETH_ADDRESS, ETHPNT_ADDRESS }
-  }
+    MAINNET: {
+      ERC20_VAULT,
+      DANDELION_VOTING_ADDRESS: DANDELION_VOTING_V1_ADDRESS,
+      PNT_ON_ETH_ADDRESS,
+      ETHPNT_ADDRESS,
+      PNETWORK_ADDRESS,
+      ASSOCIATION_ON_ETH_ADDRESS
+    },
+    ZERO_ADDRESS
+  },
+  PNETWORK_NETWORK_IDS
 } = require('../../lib/constants')
 const { encodeMetadata } = require('../../lib/metadata')
 const { getAllRoles } = require('../../lib/roles')
-const { PNETWORK_NETWORK_IDS, ZERO_ADDRESS, PNETWORK_ADDRESS, ASSOCIATION_ON_ETH_ADDRESS } = require('../constants')
 const { encode } = require('../utils')
 const { hardhatReset } = require('../utils/hardhat-reset')
 const { sendEth } = require('../utils/send-eth')
@@ -131,12 +139,7 @@ describe('Integration tests on Gnosis deployment', () => {
   const missingSteps = async () => {
     await upgradeContracts()
     const MockPToken = await hre.ethers.getContractFactory('MockPTokenERC20')
-    pntOnGnosis = await MockPToken.deploy(
-      'Host Token (pToken)',
-      'HTKN',
-      pntMinter.address,
-      PNETWORK_NETWORK_IDS.gnosisMainnet
-    )
+    pntOnGnosis = await MockPToken.deploy('Host Token (pToken)', 'HTKN', pntMinter.address, PNETWORK_NETWORK_IDS.GNOSIS)
     await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await stakingManagerLm.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await stakingManagerRm.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
@@ -391,7 +394,7 @@ describe('Integration tests on Gnosis deployment', () => {
             ETHPNT_ADDRESS,
             FINANCE_VAULT,
             '0x',
-            PNETWORK_NETWORK_IDS.gnosisMainnet
+            PNETWORK_NETWORK_IDS.GNOSIS
           ])
         ]
       ]
@@ -404,7 +407,7 @@ describe('Integration tests on Gnosis deployment', () => {
             1,
             userData,
             FORWARDER_ETH,
-            PNETWORK_NETWORK_IDS.ethereumMainnet
+            PNETWORK_NETWORK_IDS.MAINNET
           ])
         ]
       ].map((_args) => encodeFunctionCall(..._args))
@@ -428,8 +431,8 @@ describe('Integration tests on Gnosis deployment', () => {
         FORWARDER_ETH,
         // secretlint-disable-next-line
         '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
-        PNETWORK_NETWORK_IDS.gnosisMainnet,
-        PNETWORK_NETWORK_IDS.ethereumMainnet
+        PNETWORK_NETWORK_IDS.GNOSIS,
+        PNETWORK_NETWORK_IDS.MAINNET
       )
   })
 
@@ -504,9 +507,9 @@ describe('Integration tests on Ethereum deployment', () => {
           ADDRESS_PLACEHOLDER.slice(2),
           (await crossExecutor.getAddress()).slice(2)
         ),
-      sourceNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+      sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
       senderAddress: DANDELION_VOTING_ADDRESS,
-      destinationNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+      destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
       receiverAddress: await crossExecutor.getAddress()
     })
     await expect(vault.connect(pnetwork).pegOut(await crossExecutor.getAddress(), PNT_ON_ETH_ADDRESS, 1, metadata))
@@ -519,8 +522,8 @@ describe('Integration tests on Ethereum deployment', () => {
         10,
         FINANCE_VAULT,
         '0x',
-        PNETWORK_NETWORK_IDS.ethereumMainnet,
-        PNETWORK_NETWORK_IDS.gnosisMainnet
+        PNETWORK_NETWORK_IDS.MAINNET,
+        PNETWORK_NETWORK_IDS.GNOSIS
       )
   })
 
@@ -533,9 +536,9 @@ describe('Integration tests on Ethereum deployment', () => {
           ADDRESS_PLACEHOLDER,
           (await crossExecutor.getAddress()).slice(2)
         ),
-      sourceNetworkId: PNETWORK_NETWORK_IDS.gnosisMainnet,
+      sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
       senderAddress: attacker.address,
-      destinationNetworkId: PNETWORK_NETWORK_IDS.ethereumMainnet,
+      destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
       receiverAddress: await crossExecutor.getAddress()
     })
     await expect(vault.connect(pnetwork).pegOut(await crossExecutor.getAddress(), PNT_ON_ETH_ADDRESS, 1, metadata))

@@ -5,21 +5,13 @@ const { ethers, upgrades, config, network } = require('hardhat')
 const {
   ADDRESSES: {
     GNOSIS: { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS }
-  }
+  },
+  PNETWORK_NETWORK_IDS,
+  MISC: { EPOCH_DURATION, INFINITE, LEND_MAX_EPOCHS, ONE_DAY, PNT_MAX_TOTAL_SUPPLY },
+  VOTE_STATUS
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
-const {
-  EPOCH_DURATION,
-  INFINITE,
-  LEND_MAX_EPOCHS,
-  ONE_DAY,
-  PNETWORK_NETWORK_IDS,
-  PNT_HOLDER_1_ADDRESS,
-  PNT_HOLDER_2_ADDRESS,
-  PNT_MAX_TOTAL_SUPPLY,
-  VOTE_STATUS
-} = require('./constants')
 const { truncateWithPrecision } = require('./utils')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
@@ -60,8 +52,8 @@ describe('LendingManager', () => {
     user1 = signers[1]
     user2 = signers[2]
     fakeForwarder = signers[3]
-    pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
-    pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
+    pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
+    pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
     daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
     sendEth(ethers, owner, daoRoot.address, '1')
 
@@ -514,13 +506,13 @@ describe('LendingManager', () => {
     expect(await lendingManager.borrowableAmountByEpoch(5)).to.be.eq(0)
 
     // prettier-ignore
-    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](depositAmountPntHolder1, PNETWORK_NETWORK_IDS.gnosisMainnet)).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](depositAmountPntHolder1, PNETWORK_NETWORK_IDS.GNOSIS)).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     await time.increase(ONE_DAY + 1)
     const pntHolder1BalancePre = await pnt.balanceOf(pntHolder1.address)
     await stakingManager
       .connect(pntHolder1)
-      ['unstake(uint256,bytes4)'](depositAmountPntHolder1, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      ['unstake(uint256,bytes4)'](depositAmountPntHolder1, PNETWORK_NETWORK_IDS.GNOSIS)
     const pntHolder1BalancePost = await pnt.balanceOf(pntHolder1.address)
     expect(pntHolder1BalancePost).to.be.equal(pntHolder1BalancePre + depositAmountPntHolder1)
   })
@@ -1587,27 +1579,25 @@ describe('LendingManager', () => {
     await time.increase(EPOCH_DURATION * 6)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManager.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(11)
-    await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
-    )
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })
@@ -1693,27 +1683,25 @@ describe('LendingManager', () => {
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(8)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManager.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
-    await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
-    )
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })
@@ -1768,21 +1756,19 @@ describe('LendingManager', () => {
     await time.increase(EPOCH_DURATION * 3)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManager.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(11)
-    await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
-    )
+    await expect(stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS))
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })

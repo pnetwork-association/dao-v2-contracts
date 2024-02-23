@@ -8,11 +8,12 @@ const TokenManagerAbi = require('../lib/abi/TokenManager.json')
 const {
   ADDRESSES: {
     GNOSIS: { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS }
-  }
+  },
+  MISC: { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY },
+  VOTE_STATUS
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
-const { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY, VOTE_STATUS } = require('./constants')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
 

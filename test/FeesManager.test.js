@@ -5,19 +5,12 @@ const { ethers, upgrades, config, network } = require('hardhat')
 const {
   ADDRESSES: {
     GNOSIS: { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS }
-  }
+  },
+  MISC: { EPOCH_DURATION, LEND_MAX_EPOCHS, MINIMUM_BORROWING_FEE, PNT_MAX_TOTAL_SUPPLY },
+  VOTE_STATUS
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
-const {
-  EPOCH_DURATION,
-  LEND_MAX_EPOCHS,
-  MINIMUM_BORROWING_FEE,
-  PNT_HOLDER_1_ADDRESS,
-  PNT_HOLDER_2_ADDRESS,
-  PNT_MAX_TOTAL_SUPPLY,
-  VOTE_STATUS
-} = require('./constants')
 const { getSentinelIdentity } = require('./utils')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
@@ -91,8 +84,8 @@ describe('FeesManager', () => {
     guardianOwner1 = signers[11]
     guardian2 = signers[12]
     guardianOwner2 = signers[13]
-    pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
-    pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
+    pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
+    pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
     daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
     sendEth(ethers, owner, daoRoot.address, '1')
 

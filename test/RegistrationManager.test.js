@@ -5,25 +5,21 @@ const { ethers, upgrades, config, network } = require('hardhat')
 const {
   ADDRESSES: {
     GNOSIS: { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS }
-  }
+  },
+  MISC: {
+    BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
+    EPOCH_DURATION,
+    LEND_MAX_EPOCHS,
+    ONE_DAY,
+    PNT_MAX_TOTAL_SUPPLY,
+    MINIMUM_BORROWING_FEE,
+    ONE_HOUR_IN_S
+  },
+  PNETWORK_NETWORK_IDS,
+  REGISTRATION_TYPE: { REGISTRATION_SENTINEL_STAKING, REGISTRATION_SENTINEL_BORROWING, REGISTRATON_GUARDIAN }
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
-const {
-  BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
-  EPOCH_DURATION,
-  LEND_MAX_EPOCHS,
-  ONE_DAY,
-  PNETWORK_NETWORK_IDS,
-  PNT_HOLDER_1_ADDRESS,
-  PNT_HOLDER_2_ADDRESS,
-  PNT_MAX_TOTAL_SUPPLY,
-  REGISTRATION_SENTINEL_BORROWING,
-  REGISTRATION_SENTINEL_STAKING,
-  REGISTRATON_GUARDIAN,
-  MINIMUM_BORROWING_FEE,
-  ONE_HOUR_IN_S
-} = require('./constants')
 const { getSentinelIdentity, truncateWithPrecision } = require('./utils')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
@@ -101,8 +97,8 @@ describe('RegistrationManager', () => {
     fakePnetworkHub = signers[9]
     challenger = signers[10]
     sentinel2 = signers[11]
-    pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
-    pntHolder2 = await ethers.getImpersonatedSigner(PNT_HOLDER_2_ADDRESS)
+    pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
+    pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
     daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
     sendEth(ethers, owner, daoRoot.address, '1')
 
@@ -420,16 +416,12 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 5)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
     await expect(
-      stakingManagerRM
-        .connect(pntHolder1)
-        ['unstake(uint256,bytes4)'](stakeAmount * 2n, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount * 2n, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(6)
-    await stakingManagerRM
-      .connect(pntHolder1)
-      ['unstake(uint256,bytes4)'](stakeAmount * 2n, PNETWORK_NETWORK_IDS.gnosisMainnet)
+    await stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount * 2n, PNETWORK_NETWORK_IDS.GNOSIS)
   })
 
   it('should be able to updateSentinelRegistrationByStaking 2 times in order to renew his registration (2)', async () => {
@@ -481,7 +473,7 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(4)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.not.be.reverted
 
     duration = EPOCH_DURATION * 3
@@ -527,13 +519,13 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(5)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION * 2)
     expect(await epochsManager.currentEpoch()).to.be.equal(7)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.not.be.reverted
   })
 
@@ -820,27 +812,25 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 6)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManagerRM.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(11)
-    await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
-    )
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS))
       .to.emit(stakingManagerRM, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })
@@ -951,27 +941,25 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 4)
     expect(await epochsManager.currentEpoch()).to.be.equal(8)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(9)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManagerRM.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
-    await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
-    )
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS))
       .to.emit(stakingManagerRM, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })
@@ -1047,21 +1035,19 @@ describe('RegistrationManager', () => {
     await time.increase(EPOCH_DURATION * 3)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     await time.increase(EPOCH_DURATION - ONE_DAY)
     expect(await epochsManager.currentEpoch()).to.be.equal(10)
     await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManagerRM, 'UnfinishedStakingPeriod')
 
     const stake = await stakingManagerRM.stakeOf(pntHolder1.address)
     await time.increaseTo(stake.endDate)
     expect(await epochsManager.currentEpoch()).to.be.equal(11)
-    await expect(
-      stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.gnosisMainnet)
-    )
+    await expect(stakingManagerRM.connect(pntHolder1)['unstake(uint256,bytes4)'](amount, PNETWORK_NETWORK_IDS.GNOSIS))
       .to.emit(stakingManagerRM, 'Unstaked')
       .withArgs(pntHolder1.address, amount)
   })

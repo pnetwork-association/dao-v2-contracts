@@ -4,19 +4,14 @@ const { ethers, upgrades } = require('hardhat')
 
 const {
   ADDRESSES: {
-    GNOSIS: { ACL_ADDRESS, DAOPNT_ON_GNOSIS_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS }
-  }
+    GNOSIS: { ACL_ADDRESS, DAOPNT_ON_GNOSIS_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS },
+    ZERO_ADDRESS
+  },
+  MISC: { MIN_LOCK_DURATION, ONE_DAY, PNT_MAX_TOTAL_SUPPLY },
+  PNETWORK_NETWORK_IDS
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
-const {
-  MIN_LOCK_DURATION,
-  ONE_DAY,
-  PNETWORK_NETWORK_IDS,
-  PNT_HOLDER_1_ADDRESS,
-  PNT_MAX_TOTAL_SUPPLY,
-  ZERO_ADDRESS
-} = require('./constants')
 const { sendEth } = require('./utils/send-eth')
 
 const { CHANGE_MAX_TOTAL_SUPPLY_ROLE, UPGRADE_ROLE, SLASH_ROLE, MINT_ROLE, BURN_ROLE } = getAllRoles(ethers)
@@ -34,7 +29,7 @@ describe('StakingManager', () => {
     owner = signers[0]
     fakeForwarder = signers[1]
     challenger = signers[2]
-    pntHolder1 = await ethers.getImpersonatedSigner(PNT_HOLDER_1_ADDRESS)
+    pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
     daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
     sendEth(ethers, owner, daoRoot.address, '1')
 
@@ -196,7 +191,7 @@ describe('StakingManager', () => {
     const pntBalancePre = await pnt.balanceOf(pntHolder1.address)
 
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     )
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, stakeAmount)
@@ -230,7 +225,7 @@ describe('StakingManager', () => {
     const pntBalancePre = await pnt.balanceOf(pntHolder1.address)
 
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](unstakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](unstakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     )
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, unstakeAmount)
@@ -256,7 +251,7 @@ describe('StakingManager', () => {
       .withArgs(pntHolder1.address, stakeAmount, duration)
 
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
   })
 
@@ -272,9 +267,7 @@ describe('StakingManager', () => {
     await time.increase(duration + 1)
 
     await expect(
-      stakingManager
-        .connect(pntHolder1)
-        ['unstake(uint256,bytes4)'](stakeAmount + 1n, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount + 1n, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
   })
 
@@ -350,7 +343,7 @@ describe('StakingManager', () => {
     })
 
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     )
       .to.emit(stakingManager, 'Unstaked')
       .withArgs(pntHolder1.address, stakeAmount)
@@ -415,7 +408,7 @@ describe('StakingManager', () => {
     await time.increase(duration + 1)
 
     await expect(
-      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.gnosisMainnet)
+      stakingManager.connect(pntHolder1)['unstake(uint256,bytes4)'](stakeAmount, PNETWORK_NETWORK_IDS.GNOSIS)
     ).to.be.revertedWithCustomError(stakingManager, 'InvalidAmount')
   })
 
