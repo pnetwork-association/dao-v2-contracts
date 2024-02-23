@@ -25,6 +25,9 @@ const {
 } = require('../lib/constants')
 
 const deploy = async (_args, _hre) => {
+  if (_hre.network.name !== 'gnosis') {
+    throw new Error('Invalid network')
+  }
   const StakingManager = await _hre.ethers.getContractFactory('StakingManager')
   const StakingManagerPermissioned = await _hre.ethers.getContractFactory('StakingManagerPermissioned')
   const EpochsManager = await _hre.ethers.getContractFactory('EpochsManager')

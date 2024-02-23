@@ -15,7 +15,10 @@ const {
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
-const setPermissions = async (_args, { ethers }) => {
+const setPermissions = async (_args, { ethers, network }) => {
+  if (network.name !== 'gnosis') {
+    throw new Error('Invalid network')
+  }
   const { MINT_ROLE, BURN_ROLE, STAKE_ROLE, INCREASE_DURATION_ROLE, BORROW_ROLE } = getAllRoles(ethers)
   const [signer] = await ethers.getSigners()
 
