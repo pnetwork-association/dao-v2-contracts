@@ -71,7 +71,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
       pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
       daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
-      sendEth(ethers, owner, daoRoot.address, '1')
+      await sendEth(ethers, owner, daoRoot.address, '1')
 
       acl = ACL.attach(ACL_ADDRESS)
       pnt = await TestToken.deploy('PNT', 'PNT')

@@ -97,7 +97,7 @@ describe('RewardsManager', () => {
     const signers = await ethers.getSigners()
     owner = signers[0]
     daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
-    sendEth(ethers, owner, daoRoot.address, '1')
+    await sendEth(ethers, owner, daoRoot.address, '1')
 
     randomGuy = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
