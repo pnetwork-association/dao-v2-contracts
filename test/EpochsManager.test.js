@@ -28,7 +28,7 @@ describe('EpochsManager', () => {
     const latestBlockTimestamp = await time.latest()
     await time.increaseTo(latestBlockTimestamp + EPOCH_DURATION)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
-    await upgrades.upgradeProxy(await epochsManager.getAddress(), EpochsManager)
+    await upgrades.upgradeProxy(epochsManager.target, EpochsManager)
     expect(await epochsManager.currentEpoch()).to.be.eq(1)
   })
 

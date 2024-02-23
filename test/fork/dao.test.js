@@ -146,11 +146,11 @@ describe('Integration tests on Gnosis deployment', () => {
     await stakingManagerRm.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await lendingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await registrationManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
-    await stakingManager.connect(daoOwner).changeToken(await pntOnGnosis.getAddress())
-    await stakingManagerLm.connect(daoOwner).changeToken(await pntOnGnosis.getAddress())
-    await stakingManagerRm.connect(daoOwner).changeToken(await pntOnGnosis.getAddress())
-    await lendingManager.connect(daoOwner).changeToken(await pntOnGnosis.getAddress())
-    await registrationManager.connect(daoOwner).changeToken(await pntOnGnosis.getAddress())
+    await stakingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
+    await stakingManagerLm.connect(daoOwner).changeToken(pntOnGnosis.target)
+    await stakingManagerRm.connect(daoOwner).changeToken(pntOnGnosis.target)
+    await lendingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
+    await registrationManager.connect(daoOwner).changeToken(pntOnGnosis.target)
   }
 
   const upgradeContracts = async () => {
@@ -282,22 +282,22 @@ describe('Integration tests on Gnosis deployment', () => {
       const ERC20Factory = await hre.ethers.getContractFactory(_pTokenContract)
       const newToken = await ERC20Factory.deploy('new PNT', 'nPNT', faucet.address, '0x00112233')
 
-      await pntOnGnosis.connect(faucet).approve(await stakingManager.getAddress(), 10000)
+      await pntOnGnosis.connect(faucet).approve(stakingManager.target, 10000)
       await mintPntOnGnosis(faucet.address, 10000n)
       await stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7)
-      await expect(stakingManager.connect(daoOwner).changeToken(await newToken.getAddress()))
+      await expect(stakingManager.connect(daoOwner).changeToken(newToken.target))
         .to.emit(stakingManager, 'TokenChanged')
-        .withArgs(await pntOnGnosis.getAddress(), await newToken.getAddress())
+        .withArgs(pntOnGnosis.target, newToken.target)
       await mintPToken(newToken, faucet, faucet.address, hre.ethers.parseEther('200000'), '0x', '0x')
-      await newToken.connect(faucet).approve(await stakingManager.getAddress(), 10000)
+      await newToken.connect(faucet).approve(stakingManager.target, 10000)
       await expect(stakingManager.connect(faucet).stake(faucet.address, 10000, 86400 * 7))
         .to.be.revertedWithCustomError(stakingManager, 'InvalidToken')
-        .withArgs(await newToken.getAddress(), await pntOnGnosis.getAddress())
+        .withArgs(newToken.target, pntOnGnosis.target)
     })
   )
 
   it('should stake and unstake', async () => {
-    await pntOnGnosis.connect(faucet).approve(await stakingManager.getAddress(), 10000)
+    await pntOnGnosis.connect(faucet).approve(stakingManager.target, 10000)
     await mintPntOnGnosis(faucet.address, 10000n)
     expect(await pntOnGnosis.balanceOf(faucet.address)).to.be.eq(10000)
     expect(await daoPNT.balanceOf(faucet.address)).to.be.eq(0)
@@ -320,14 +320,14 @@ describe('Integration tests on Gnosis deployment', () => {
   })
 
   it('should move tokens to treasury and transfer from it following a vote', async () => {
-    await mintPntOnGnosis(await daoTreasury.getAddress(), parseEther('200000'))
-    expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000'))
+    await mintPntOnGnosis(daoTreasury.target, parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(daoTreasury.target)).to.be.eq(parseEther('200000'))
     expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
 
     const metadata = 'Should we transfer from vault to user?'
     const executionScript = encodeCallScript(
-      [[FINANCE_VAULT, encodeVaultTransfer(await pntOnGnosis.getAddress(), user.address, parseEther('1'))]].map(
-        (_args) => encodeFunctionCall(..._args)
+      [[FINANCE_VAULT, encodeVaultTransfer(pntOnGnosis.target, user.address, parseEther('1'))]].map((_args) =>
+        encodeFunctionCall(..._args)
       )
     )
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
@@ -337,32 +337,30 @@ describe('Integration tests on Gnosis deployment', () => {
       .to.emit(daoVoting, 'ExecuteVote')
       .withArgs(voteId)
       .and.to.emit(daoTreasury, 'VaultTransfer')
-      .withArgs(await pntOnGnosis.getAddress(), user.address, parseEther('1'))
+      .withArgs(pntOnGnosis.target, user.address, parseEther('1'))
       .and.to.emit(pntOnGnosis, 'Transfer')
-      .withArgs(await daoTreasury.getAddress(), user.address, parseEther('1'))
+      .withArgs(daoTreasury.target, user.address, parseEther('1'))
 
     expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1'))
   })
 
   it('should create an immediate payment via finance app', async () => {
-    await setPermission(acl, daoOwner, faucet.address, await finance.getAddress(), CREATE_PAYMENTS_ROLE)
+    await setPermission(acl, daoOwner, faucet.address, finance.target, CREATE_PAYMENTS_ROLE)
     const amount = parseEther('1.5')
-    await mintPntOnGnosis(await daoTreasury.getAddress(), parseEther('200000'))
-    expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000'))
+    await mintPntOnGnosis(daoTreasury.target, parseEther('200000'))
+    expect(await pntOnGnosis.balanceOf(daoTreasury.target)).to.be.eq(parseEther('200000'))
     expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
-    await expect(
-      finance.connect(faucet).newImmediatePayment(await pntOnGnosis.getAddress(), user.address, amount, 'test')
-    )
+    await expect(finance.connect(faucet).newImmediatePayment(pntOnGnosis.target, user.address, amount, 'test'))
       .to.emit(daoTreasury, 'VaultTransfer')
-      .withArgs(await pntOnGnosis.getAddress(), user.address, amount)
+      .withArgs(pntOnGnosis.target, user.address, amount)
       .and.to.emit(pntOnGnosis, 'Transfer')
-      .withArgs(await daoTreasury.getAddress(), user.address, amount)
-    expect(await pntOnGnosis.balanceOf(await daoTreasury.getAddress())).to.be.eq(parseEther('200000') - amount)
+      .withArgs(daoTreasury.target, user.address, amount)
+    expect(await pntOnGnosis.balanceOf(daoTreasury.target)).to.be.eq(parseEther('200000') - amount)
     expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(amount)
   })
 
   it('should open a vote (1)', async () => {
-    await setPermission(acl, daoOwner, user.address, await daoVoting.getAddress(), CREATE_VOTES_ROLE)
+    await setPermission(acl, daoOwner, user.address, daoVoting.target, CREATE_VOTES_ROLE)
     await expect(
       user.sendTransaction({
         to: '0x0cf759bcCfEf5f322af58ADaE2D28885658B5e02',
@@ -403,7 +401,7 @@ describe('Integration tests on Gnosis deployment', () => {
     const executionScript = encodeCallScript(
       [
         [
-          await pntOnGnosis.getAddress(),
+          pntOnGnosis.target,
           pntOnGnosis.interface.encodeFunctionData('redeem(uint256,bytes,string,bytes4)', [
             1,
             userData,
@@ -460,11 +458,8 @@ describe('Integration tests on Ethereum deployment', () => {
     // open vote to change inflationOwner
     const executionScript = encodeCallScript(
       [
-        [
-          ETHPNT_ADDRESS,
-          ethPnt.interface.encodeFunctionData('whitelistInflationRecipient', [await crossExecutor.getAddress()])
-        ],
-        [ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [await crossExecutor.getAddress()])]
+        [ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('whitelistInflationRecipient', [crossExecutor.target])],
+        [ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [crossExecutor.target])]
       ].map((_args) => encodeFunctionCall(..._args))
     )
     const voteId = await openNewVoteAndReachQuorum(
@@ -474,14 +469,14 @@ describe('Integration tests on Ethereum deployment', () => {
       executionScript,
       'change inflation owner?'
     )
-    expect(await ethPnt.inflationRecipientsWhitelist(await crossExecutor.getAddress())).to.be.false
+    expect(await ethPnt.inflationRecipientsWhitelist(crossExecutor.target)).to.be.false
     await expect(daoVotingV1.executeVote(voteId))
       .to.emit(daoVotingV1, 'ExecuteVote')
       .withArgs(voteId)
       .and.to.emit(ethPnt, 'InflationRecipientWhitelisted')
       .and.to.emit(ethPnt, 'NewInflationOwner')
-    expect(await ethPnt.inflationRecipientsWhitelist(await crossExecutor.getAddress())).to.be.true
-    expect(await ethPnt.inflationOwner()).to.be.eq(await crossExecutor.getAddress())
+    expect(await ethPnt.inflationRecipientsWhitelist(crossExecutor.target)).to.be.true
+    expect(await ethPnt.inflationOwner()).to.be.eq(crossExecutor.target)
   }
 
   beforeEach(async () => {
@@ -506,20 +501,20 @@ describe('Integration tests on Ethereum deployment', () => {
         // secretlint-disable-next-line
         '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'.replaceAll(
           ADDRESS_PLACEHOLDER.slice(2),
-          (await crossExecutor.getAddress()).slice(2)
+          crossExecutor.target.slice(2)
         ),
       sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
       senderAddress: DANDELION_VOTING_ADDRESS,
       destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
-      receiverAddress: await crossExecutor.getAddress()
+      receiverAddress: crossExecutor.target
     })
-    await expect(vault.connect(pnetwork).pegOut(await crossExecutor.getAddress(), PNT_ON_ETH_ADDRESS, 1, metadata))
+    await expect(vault.connect(pnetwork).pegOut(crossExecutor.target, PNT_ON_ETH_ADDRESS, 1, metadata))
       .to.emit(ethPnt, 'Transfer')
-      .withArgs(ZERO_ADDRESS, await crossExecutor.getAddress(), 10)
+      .withArgs(ZERO_ADDRESS, crossExecutor.target, 10)
       .and.to.emit(vault, 'PegIn')
       .withArgs(
         PNT_ON_ETH_ADDRESS,
-        await crossExecutor.getAddress(),
+        crossExecutor.target,
         10,
         FINANCE_VAULT,
         '0x',
@@ -535,14 +530,14 @@ describe('Integration tests on Ethereum deployment', () => {
         // secretlint-disable-next-line
         '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000003000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000443352d49b0000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db8000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000124c322525d000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783632333939363865363233313136343638374342343066383338396439333364443766376530413500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'.replaceAll(
           ADDRESS_PLACEHOLDER,
-          (await crossExecutor.getAddress()).slice(2)
+          crossExecutor.target.slice(2)
         ),
       sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
       senderAddress: attacker.address,
       destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
-      receiverAddress: await crossExecutor.getAddress()
+      receiverAddress: crossExecutor.target
     })
-    await expect(vault.connect(pnetwork).pegOut(await crossExecutor.getAddress(), PNT_ON_ETH_ADDRESS, 1, metadata))
+    await expect(vault.connect(pnetwork).pegOut(crossExecutor.target, PNT_ON_ETH_ADDRESS, 1, metadata))
       .to.be.revertedWithCustomError(crossExecutor, 'InvalidOriginAddress')
       .withArgs(attacker.address)
   })

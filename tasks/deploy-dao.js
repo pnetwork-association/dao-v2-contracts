@@ -47,7 +47,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('StakingManager:', await stakingManager.getAddress())
+  console.info('StakingManager:', stakingManager.target)
 
   console.info('StakingManager LM ...')
   let stakingManagerLM
@@ -63,7 +63,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('StakingManager LM:', await stakingManagerLM.getAddress())
+  console.info('StakingManager LM:', stakingManagerLM.target)
 
   console.info('StakingManager RM ...')
   let stakingManagerRM
@@ -79,7 +79,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('StakingManager RM:', await stakingManagerRM.getAddress())
+  console.info('StakingManager RM:', stakingManagerRM.target)
 
   console.info('EpochsManager ...')
   let epochsManager
@@ -95,7 +95,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('EpochsManager:', await epochsManager.getAddress())
+  console.info('EpochsManager:', epochsManager.target)
 
   console.info('LendingManager ...')
   let lendingManager
@@ -106,8 +106,8 @@ const deploy = async (_args, _hre) => {
       LendingManager,
       [
         PNT_ON_GNOSIS_ADDRESS,
-        await stakingManagerLM.getAddress(),
-        await epochsManager.getAddress(),
+        stakingManagerLM.target,
+        epochsManager.target,
         FORWARDER_ON_GNOSIS,
         DANDELION_VOTING_ADDRESS,
         LEND_MAX_EPOCHS
@@ -118,7 +118,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('LendingManager:', await lendingManager.getAddress())
+  console.info('LendingManager:', lendingManager.target)
 
   console.info('RegistrationManager ...')
   let registrationManager
@@ -129,9 +129,9 @@ const deploy = async (_args, _hre) => {
       RegistrationManager,
       [
         PNT_ON_GNOSIS_ADDRESS,
-        await stakingManagerRM.getAddress(),
-        await epochsManager.getAddress(),
-        await lendingManager.getAddress(),
+        stakingManagerRM.target,
+        epochsManager.target,
+        lendingManager.target,
         FORWARDER_ON_GNOSIS
       ],
       {
@@ -140,7 +140,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('RegistrationManager:', await registrationManager.getAddress())
+  console.info('RegistrationManager:', registrationManager.target)
 
   console.info('FeesManager ...')
   let feesManager
@@ -150,9 +150,9 @@ const deploy = async (_args, _hre) => {
     feesManager = await _hre.upgrades.deployProxy(
       FeesManager,
       [
-        await epochsManager.getAddress(),
-        await lendingManager.getAddress(),
-        await registrationManager.getAddress(),
+        epochsManager.target,
+        lendingManager.target,
+        registrationManager.target,
         FORWARDER_ON_GNOSIS,
         MINIMUM_BORROWING_FEE
       ],
@@ -162,7 +162,7 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('FeesManager:', await feesManager.getAddress())
+  console.info('FeesManager:', feesManager.target)
 
   console.info('RewardsManager ...')
   let rewardsManager
@@ -172,7 +172,7 @@ const deploy = async (_args, _hre) => {
     rewardsManager = await _hre.upgrades.deployProxy(
       RewardsManager,
       [
-        await epochsManager.getAddress(),
+        epochsManager.target,
         DANDELION_VOTING_ADDRESS,
         PNT_ON_GNOSIS_ADDRESS,
         TOKEN_MANAGER_ADDRESS,
@@ -184,18 +184,18 @@ const deploy = async (_args, _hre) => {
       }
     )
   }
-  console.info('RewardsManager:', await rewardsManager.getAddress())
+  console.info('RewardsManager:', rewardsManager.target)
 
   console.log(
     JSON.stringify({
-      stakingManager: await stakingManager.getAddress(),
-      stakingManagerLM: await stakingManagerLM.getAddress(),
-      stakingManagerRM: await stakingManagerRM.getAddress(),
-      epochsManager: await epochsManager.getAddress(),
-      lendingManager: await lendingManager.getAddress(),
-      registrationManager: await registrationManager.getAddress(),
-      feesManager: await feesManager.getAddress(),
-      rewardsManager: await rewardsManager.getAddress()
+      stakingManager: stakingManager.target,
+      stakingManagerLM: stakingManagerLM.target,
+      stakingManagerRM: stakingManagerRM.target,
+      epochsManager: epochsManager.target,
+      lendingManager: lendingManager.target,
+      registrationManager: registrationManager.target,
+      feesManager: feesManager.target,
+      rewardsManager: rewardsManager.target
     })
   )
 }

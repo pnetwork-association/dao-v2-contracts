@@ -39,7 +39,7 @@ describe('Polygon Forwarder', () => {
     )
       .to.emit(pToken, 'Redeem')
       .withArgs(
-        await forwarder.getAddress(),
+        forwarder.target,
         100000000000000000n,
         FORWARDER_ON_GNOSIS.toLowerCase().slice(2),
         // secretlint-disable-next-line
