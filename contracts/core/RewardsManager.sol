@@ -50,6 +50,13 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     }
 
     /// @inheritdoc IRewardsManager
+    function changeToken(address token_) external onlyRole(Roles.CHANGE_TOKEN_ROLE) {
+        address previousToken = token;
+        token = token_;
+        emit TokenChanged(previousToken, token);
+    }
+
+    /// @inheritdoc IRewardsManager
     function claimRewardByEpoch(uint16 epoch) external {
         address sender = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();

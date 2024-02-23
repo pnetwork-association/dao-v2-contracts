@@ -9,6 +9,21 @@ pragma solidity ^0.8.17;
  * @notice
  */
 interface IRewardsManager {
+    /**
+     * @dev Emitted when the token changes
+     *
+     * @param previousToken the previous token
+     * @param newToken the new token
+     */
+    event TokenChanged(address previousToken, address newToken);
+
+    /* @notice Change token
+     *
+     * @param token
+     *
+     */
+    function changeToken(address token) external;
+
     /*
      * Allows a staker to claim their rewards for a specific epoch.
      * @param {uint16} epoch - The epoch number for which rewards are being claimed.
