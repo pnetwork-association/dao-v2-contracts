@@ -5,7 +5,13 @@ const pntOnGnosisAbi = require('../../lib/abi/PNTonGnosis.json')
 const pntOnPolygonAbi = require('../../lib/abi/PNTonPolygon.json')
 const {
   ADDRESSES: {
-    GNOSIS: { PNT_ON_GNOSIS_ADDRESS, FORWARDER_ON_GNOSIS, STAKING_MANAGER, DAOPNT_ON_GNOSIS_ADDRESS },
+    GNOSIS: {
+      PNT_ON_GNOSIS_ADDRESS,
+      FORWARDER_ON_GNOSIS,
+      STAKING_MANAGER,
+      DAOPNT_ON_GNOSIS_ADDRESS,
+      PNT_ON_GNOSIS_MINTER
+    },
     POLYGON: { PNT_ON_POLYGON_ADDRESS, FORWARDER_ON_POLYGON }
   },
   PNETWORK_NETWORK_IDS
@@ -65,7 +71,7 @@ describe('Gnosis Forwarder', () => {
     await missingSteps()
     pToken = await ethers.getContractAt(pntOnGnosisAbi, PNT_ON_GNOSIS_ADDRESS)
     daoPNT = await ethers.getContractAt('ERC20', DAOPNT_ON_GNOSIS_ADDRESS)
-    minter = await ethers.getImpersonatedSigner('0x53d51f8801f40657ca566a1ae25b27eada97413c')
+    minter = await ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
   })
 
   const mintPnt = (_recipient, _value, _metadata) => mintPToken(pToken, minter, _recipient, _value, _metadata)
