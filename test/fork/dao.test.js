@@ -48,7 +48,7 @@ const { hardhatReset } = require('../utils/hardhat-reset')
 const { mintPToken, pegoutToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
-const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, DEPOSIT_REWARD_ROLE } = getAllRoles(ethers)
+const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE } = getAllRoles(ethers)
 
 const USER_ADDRESS = '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B'
 const ADDRESS_PLACEHOLDER = '0x0123456789012345678901234567890123456789'
@@ -168,7 +168,6 @@ describe('Integration tests on Gnosis deployment', () => {
     await lendingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     await registrationManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     await rewardsManager.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await rewardsManager.connect(daoOwner).grantRole(DEPOSIT_REWARD_ROLE, DANDELION_VOTING_ADDRESS)
   }
 
   const checkInitialized = async () => {
