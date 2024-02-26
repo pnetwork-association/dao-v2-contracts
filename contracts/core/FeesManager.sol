@@ -29,6 +29,11 @@ contract FeesManager is IFeesManager, Initializable, UUPSUpgradeable, ForwarderR
     address public lendingManager;
     address public registrationManager;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address _epochsManager,
         address _lendingManager,

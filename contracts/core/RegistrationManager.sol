@@ -41,6 +41,11 @@ contract RegistrationManager is IRegistrationManager, Initializable, UUPSUpgrade
     address public feesManager;
     address public governanceMessageEmitter;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address _token,
         address _stakingManager,
