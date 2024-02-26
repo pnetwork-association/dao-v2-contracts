@@ -1,3 +1,4 @@
+const { assert } = require('chai')
 const { Confirm } = require('enquirer')
 const { task } = require('hardhat/config')
 
@@ -40,6 +41,10 @@ const proposeUpgrade = async (_args, _hre) => {
   if (_args[PARAM_IMPLEMENTATION]) {
     newImplementation = _args[PARAM_IMPLEMENTATION]
     console.info(`✔ Using new implementation ${newImplementation}`)
+    // check for length equality, better than nothing
+    const code = await _hre.ethers.provider.getCode(newImplementation)
+    const expected = (await _hre.artifacts.readArtifact(factoryName)).deployedBytecode
+    assert(code.length === expected.length, 'Invalid bytecode!')
   } else {
     console.info('✘ No new implementation provided')
     const deployConfirm = new Confirm({ message: 'Deploying new implementation?' })
