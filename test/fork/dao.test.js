@@ -24,7 +24,8 @@ const {
       DAOPNT_ON_GNOSIS_ADDRESS,
       ACL_ADDRESS,
       REWARDS_MANAGER,
-      PNT_ON_GNOSIS_MINTER
+      PNT_ON_GNOSIS_MINTER,
+      EPOCHS_MANAGER
     },
     MAINNET: {
       ERC20_VAULT,
@@ -139,7 +140,8 @@ describe('Integration tests on Gnosis deployment', () => {
     daoTreasury,
     finance,
     rewardsManager,
-    RewardsManager
+    RewardsManager,
+    epochsManager
 
   const TOKEN_HOLDERS_ADDRESSES = [
     '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
@@ -210,6 +212,7 @@ describe('Integration tests on Gnosis deployment', () => {
     registrationManager = RegistrationManager.attach(REGISTRATION_MANAGER)
     lendingManager = LendingManager.attach(LENDING_MANAGER)
     rewardsManager = RewardsManager.attach(REWARDS_MANAGER)
+    epochsManager = await ethers.getContractAt('EpochsManager', EPOCHS_MANAGER)
 
     await missingSteps()
 
@@ -475,36 +478,43 @@ describe('Integration tests on Gnosis deployment', () => {
   it('should be possible to deposit rewards from a vote', async () => {
     const metadata = 'Should we deposit rewards?'
     await mintPntOnGnosis(daoTreasury.target, parseEther('200000'))
+    const epoch = (await epochsManager.currentEpoch()) + 1n
+    const epochDuration = await epochsManager.epochDuration()
+    const startFirstEpochTimestamp = await epochsManager.startFirstEpochTimestamp()
+    // goto the beginning of next epoch
+    await time.increaseTo(startFirstEpochTimestamp + epoch * epochDuration + BigInt(ONE_DAY))
+    expect(await epochsManager.currentEpoch()).to.be.eq(epoch)
     const executionScript = encodeCallScript(
       [
         [FINANCE_VAULT, encodeVaultTransfer(pntOnGnosis.target, DANDELION_VOTING_ADDRESS, 100)],
         [pntOnGnosis.target, pntOnGnosis.interface.encodeFunctionData('approve', [REWARDS_MANAGER, 100])],
-        [REWARDS_MANAGER, rewardsManager.interface.encodeFunctionData('depositForEpoch', [2, 100])]
+        [REWARDS_MANAGER, rewardsManager.interface.encodeFunctionData('depositForEpoch', [epoch, 100])]
       ].map((_args) => encodeFunctionCall(..._args))
     )
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
     const voteId = await openNewVoteAndReachQuorum(daoVoting, tokenHolders[0], tokenHolders, executionScript, metadata)
     await expect(daoVoting.executeVote(voteId)).to.emit(daoVoting, 'ExecuteVote').withArgs(voteId)
-    await expect(rewardsManager.registerRewardsForEpoch(2, [tokenHolders[1].address])).to.be.reverted
+    await expect(rewardsManager.registerRewardsForEpoch(epoch, [tokenHolders[1].address])).to.be.reverted
+    // goto next epoch
     await time.increase(35 * ONE_DAY)
-    await expect(rewardsManager.registerRewardsForEpoch(2, [tokenHolders[1].address]))
+    await expect(rewardsManager.registerRewardsForEpoch(epoch, [tokenHolders[1].address]))
       .to.emit(rewardsManager, 'RewardRegistered')
-      .withArgs(2, tokenHolders[1].address, 25)
+      .withArgs(epoch, tokenHolders[1].address, 25)
     await time.increase(130 * ONE_DAY)
-    await expect(rewardsManager.registerRewardsForEpoch(2, [tokenHolders[0].address, tokenHolders[3].address]))
+    await expect(rewardsManager.registerRewardsForEpoch(epoch, [tokenHolders[0].address, tokenHolders[3].address]))
       .to.emit(rewardsManager, 'RewardRegistered')
-      .withArgs(2, tokenHolders[0].address, 25)
+      .withArgs(epoch, tokenHolders[0].address, 25)
       .and.to.emit(rewardsManager, 'RewardRegistered')
-      .withArgs(2, tokenHolders[3].address, 25)
-    await expect(rewardsManager.connect(tokenHolders[0]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+      .withArgs(epoch, tokenHolders[3].address, 25)
+    await expect(rewardsManager.connect(tokenHolders[0]).claimRewardByEpoch(epoch)).to.be.revertedWithCustomError(
       rewardsManager,
       'TooEarly'
     )
-    await expect(rewardsManager.connect(tokenHolders[1]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+    await expect(rewardsManager.connect(tokenHolders[1]).claimRewardByEpoch(epoch)).to.be.revertedWithCustomError(
       rewardsManager,
       'TooEarly'
     )
-    await expect(rewardsManager.connect(tokenHolders[3]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+    await expect(rewardsManager.connect(tokenHolders[3]).claimRewardByEpoch(epoch)).to.be.revertedWithCustomError(
       rewardsManager,
       'TooEarly'
     )
@@ -518,18 +528,18 @@ describe('Integration tests on Gnosis deployment', () => {
         .and.to.emit(daoPNT, 'Transfer')
         .withArgs(_holder, ZERO_ADDRESS, 25)
 
-    await claimRewardsAndAssertTransfer(tokenHolders[0], 2)
-    await claimRewardsAndAssertTransfer(tokenHolders[1], 2)
-    await claimRewardsAndAssertTransfer(tokenHolders[3], 2)
+    await claimRewardsAndAssertTransfer(tokenHolders[0], epoch)
+    await claimRewardsAndAssertTransfer(tokenHolders[1], epoch)
+    await claimRewardsAndAssertTransfer(tokenHolders[3], epoch)
 
-    await expect(rewardsManager.connect(tokenHolders[2]).claimRewardByEpoch(2)).to.be.revertedWithCustomError(
+    await expect(rewardsManager.connect(tokenHolders[2]).claimRewardByEpoch(epoch)).to.be.revertedWithCustomError(
       rewardsManager,
       'NothingToClaim'
     )
-    await expect(rewardsManager.connect(tokenHolders[2]).registerRewardsForEpoch(2, [tokenHolders[2]]))
+    await expect(rewardsManager.connect(tokenHolders[2]).registerRewardsForEpoch(epoch, [tokenHolders[2]]))
       .to.emit(rewardsManager, 'RewardRegistered')
-      .withArgs(2, tokenHolders[2].address, 25)
-    await claimRewardsAndAssertTransfer(tokenHolders[2], 2)
+      .withArgs(epoch, tokenHolders[2].address, 25)
+    await claimRewardsAndAssertTransfer(tokenHolders[2], epoch)
   })
 })
 
