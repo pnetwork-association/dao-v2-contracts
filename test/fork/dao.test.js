@@ -13,19 +13,20 @@ const {
   ADDRESSES: {
     GNOSIS: {
       SAFE_ADDRESS,
+      EPOCHS_MANAGER,
       STAKING_MANAGER,
       STAKING_MANAGER_LM,
       STAKING_MANAGER_RM,
+      REGISTRATION_MANAGER,
       LENDING_MANAGER,
+      FEES_MANAGER,
+      REWARDS_MANAGER,
+      ACL_ADDRESS,
       DANDELION_VOTING_ADDRESS,
       FINANCE_VAULT,
       FINANCE,
-      REGISTRATION_MANAGER,
       DAOPNT_ON_GNOSIS_ADDRESS,
-      ACL_ADDRESS,
-      REWARDS_MANAGER,
-      PNT_ON_GNOSIS_MINTER,
-      EPOCHS_MANAGER
+      PNT_ON_GNOSIS_MINTER
     },
     MAINNET: {
       ERC20_VAULT,
@@ -127,21 +128,24 @@ describe('Integration tests on Gnosis deployment', () => {
     daoOwner,
     pntOnGnosis,
     pntMinter,
+    EpochsManager,
+    epochsManager,
     StakingManager,
-    StakingManagerPermissioned,
     stakingManager,
+    StakingManagerPermissioned,
     stakingManagerLm,
     stakingManagerRm,
     LendingManager,
     lendingManager,
-    daoPNT,
-    registrationManager,
     RegistrationManager,
-    daoTreasury,
-    finance,
-    rewardsManager,
+    registrationManager,
+    FeesManager,
+    feesManager,
     RewardsManager,
-    epochsManager
+    rewardsManager,
+    daoPNT,
+    daoTreasury,
+    finance
 
   const TOKEN_HOLDERS_ADDRESSES = [
     '0xc4442915B1FB44972eE4D8404cE05a8D2A1248dA',
@@ -170,18 +174,71 @@ describe('Integration tests on Gnosis deployment', () => {
   }
 
   const upgradeContracts = async () => {
+    await epochsManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await stakingManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await stakingManagerLm.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await stakingManagerRm.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await lendingManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await registrationManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
+    await feesManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await rewardsManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
+
+    const currentEpoch = await epochsManager.currentEpoch()
+    await upgrades.upgradeProxy(epochsManager, EpochsManager)
+    expect(await await epochsManager.currentEpoch()).to.be.eq(currentEpoch)
     await upgrades.upgradeProxy(stakingManager, StakingManager)
     await upgrades.upgradeProxy(stakingManagerLm, StakingManagerPermissioned)
     await upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
     await upgrades.upgradeProxy(lendingManager, LendingManager)
     await upgrades.upgradeProxy(registrationManager, RegistrationManager)
+    await upgrades.upgradeProxy(feesManager, FeesManager)
     await upgrades.upgradeProxy(rewardsManager, RewardsManager)
+
+    // check implementations cannot be initialized
+    const checkInitialized = async (_factory, _proxyAddress, _initArgs) => {
+      const implAddress = await upgrades.erc1967.getImplementationAddress(_proxyAddress)
+      const contract = _factory.attach(implAddress)
+      await expect(contract.initialize(..._initArgs)).to.be.revertedWith(
+        'Initializable: contract is already initialized'
+      )
+    }
+    await checkInitialized(EpochsManager, epochsManager.target, [0, 0])
+    await checkInitialized(StakingManager, stakingManager.target, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, 0])
+    await checkInitialized(StakingManagerPermissioned, stakingManagerLm.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+    await checkInitialized(StakingManagerPermissioned, stakingManagerRm.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+    await checkInitialized(LendingManager, lendingManager.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+    await checkInitialized(RegistrationManager, registrationManager.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS
+    ])
+    await checkInitialized(FeesManager, feesManager.target, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, 0])
+    await checkInitialized(RewardsManager, rewardsManager.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
   }
 
   beforeEach(async () => {
@@ -195,10 +252,12 @@ describe('Integration tests on Gnosis deployment', () => {
     await sendEth(ethers, faucet, daoOwner.address, '5')
     pntMinter = await ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
 
+    EpochsManager = await ethers.getContractFactory('EpochsManager')
     StakingManager = await ethers.getContractFactory('StakingManager')
     StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
-    RegistrationManager = await ethers.getContractFactory('RegistrationManager')
     LendingManager = await ethers.getContractFactory('LendingManager')
+    RegistrationManager = await ethers.getContractFactory('RegistrationManager')
+    FeesManager = await ethers.getContractFactory('FeesManager')
     RewardsManager = await ethers.getContractFactory('RewardsManager')
 
     acl = await ethers.getContractAt(AclAbi, ACL_ADDRESS)
@@ -206,13 +265,14 @@ describe('Integration tests on Gnosis deployment', () => {
     daoTreasury = await ethers.getContractAt(VaultAbi, FINANCE_VAULT)
     finance = await ethers.getContractAt(FinanceAbi, FINANCE)
     daoPNT = await ethers.getContractAt(DaoPntAbi, DAOPNT_ON_GNOSIS_ADDRESS)
+    epochsManager = EpochsManager.attach(EPOCHS_MANAGER)
     stakingManager = StakingManager.attach(STAKING_MANAGER)
     stakingManagerLm = StakingManagerPermissioned.attach(STAKING_MANAGER_LM)
     stakingManagerRm = StakingManagerPermissioned.attach(STAKING_MANAGER_RM)
-    registrationManager = RegistrationManager.attach(REGISTRATION_MANAGER)
     lendingManager = LendingManager.attach(LENDING_MANAGER)
+    registrationManager = RegistrationManager.attach(REGISTRATION_MANAGER)
+    feesManager = EpochsManager.attach(FEES_MANAGER)
     rewardsManager = RewardsManager.attach(REWARDS_MANAGER)
-    epochsManager = await ethers.getContractAt('EpochsManager', EPOCHS_MANAGER)
 
     await missingSteps()
 
