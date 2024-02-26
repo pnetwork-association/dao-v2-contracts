@@ -3,19 +3,24 @@ const { task } = require('hardhat/config')
 
 const {
   TASKS: {
-    PARAM_NAME_FACTORY,
-    PARAM_NAME_PROXY_ADDRESS,
-    PARAM_NAME_SAFE_ADDRESS,
-    PARAM_FLAG_NEW_IMPLEMENTATION,
-    PARAM_FLAG_LEDGER_WALLET
+    PARAM_PROXY_ADDRESS,
+    PARAM_DESC_PROXY_ADDRESS,
+    PARAM_SAFE_ADDRESS,
+    PARAM_DESC_SAFE_ADDRESS,
+    PARAM_IMPLEMENTATION,
+    PARAM_DESC_IMPLEMENTATION,
+    PARAM_FLAG_LEDGER_WALLET,
+    PARAM_DESC_FLAG_LEDGER_WALLET,
+    PARAM_CONTRACT_FACTORY,
+    PARAM_DESC_CONTRACT_FACTORY
   }
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 const { getAdapter, proposeTransactionToSafe } = require('../lib/safe')
 
 const proposeUpgrade = async (_args, _hre) => {
-  const safeAddress = _args[PARAM_NAME_SAFE_ADDRESS]
-  const proxyAddress = _args[PARAM_NAME_PROXY_ADDRESS]
+  const safeAddress = _args[PARAM_SAFE_ADDRESS]
+  const proxyAddress = _args[PARAM_PROXY_ADDRESS]
   const { UPGRADE_ROLE } = getAllRoles(_hre.ethers)
   const proxyAccessControl = await _hre.ethers.getContractAt('AccessControlUpgradeable', proxyAddress)
 
@@ -25,15 +30,15 @@ const proposeUpgrade = async (_args, _hre) => {
     return
   }
 
-  const factoryName = _args[PARAM_NAME_FACTORY]
+  const factoryName = _args[PARAM_CONTRACT_FACTORY]
   const factory = await _hre.ethers.getContractFactory(factoryName)
 
   console.info(`✔ Validating new implementation of ${factoryName} against proxy ${proxyAddress}...`)
   await _hre.upgrades.validateUpgrade(proxyAddress, factory)
 
   let newImplementation
-  if (_args[PARAM_FLAG_NEW_IMPLEMENTATION]) {
-    newImplementation = _args[PARAM_FLAG_NEW_IMPLEMENTATION]
+  if (_args[PARAM_IMPLEMENTATION]) {
+    newImplementation = _args[PARAM_IMPLEMENTATION]
     console.info(`✔ Using new implementation ${newImplementation}`)
   } else {
     console.info('✘ No new implementation provided')
@@ -62,8 +67,8 @@ const proposeUpgrade = async (_args, _hre) => {
 
   await proposeTransactionToSafe(
     adapter,
-    _args[PARAM_NAME_SAFE_ADDRESS],
-    _args[PARAM_NAME_PROXY_ADDRESS],
+    _args[PARAM_SAFE_ADDRESS],
+    _args[PARAM_PROXY_ADDRESS],
     0,
     upgradeTransactionData
   )
@@ -71,9 +76,9 @@ const proposeUpgrade = async (_args, _hre) => {
 }
 
 task('upgrade:proxy-safe', 'Propose contract upgrade to safe multisig')
-  .addPositionalParam(PARAM_NAME_FACTORY, 'Name of the contract to upgrade')
-  .addPositionalParam(PARAM_NAME_PROXY_ADDRESS, 'Proxy address')
-  .addPositionalParam(PARAM_NAME_SAFE_ADDRESS, 'Safe address')
-  .addOptionalParam(PARAM_FLAG_NEW_IMPLEMENTATION, 'New implementation address')
-  .addFlag(PARAM_FLAG_LEDGER_WALLET, 'Use a Ledger wallet')
+  .addPositionalParam(PARAM_CONTRACT_FACTORY, PARAM_DESC_CONTRACT_FACTORY)
+  .addPositionalParam(PARAM_PROXY_ADDRESS, PARAM_DESC_PROXY_ADDRESS)
+  .addPositionalParam(PARAM_SAFE_ADDRESS, PARAM_DESC_SAFE_ADDRESS)
+  .addOptionalParam(PARAM_IMPLEMENTATION, PARAM_DESC_IMPLEMENTATION)
+  .addFlag(PARAM_FLAG_LEDGER_WALLET, PARAM_DESC_FLAG_LEDGER_WALLET)
   .setAction(proposeUpgrade)

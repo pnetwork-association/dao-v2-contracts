@@ -1,10 +1,12 @@
 const { task } = require('hardhat/config')
 
 const ACLAbi = require('../lib/abi/ACL.json')
-const { ADDRESSES } = require('../lib/constants')
+const {
+  ADDRESSES,
+  TASKS: { PARAM_ADDRESS, PARAM_DESC_ADDRESS }
+} = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 
-const PARAM_CONTRACT_ADDRESS = 'address'
 const FIRST_BLOCK = {
   GNOSIS: 31195110,
   MAINNET: 10565704
@@ -68,12 +70,14 @@ const main = async (_params, { ethers, network }) => {
   }
 
   try {
-    await tryAccessControlEnumerableUpgradeable(_params[PARAM_CONTRACT_ADDRESS], roles)
+    await tryAccessControlEnumerableUpgradeable(_params[PARAM_ADDRESS], roles)
   } catch (_err) {
     console.info('Failed with AccessControlEnumerableUpgradeable')
-    await tryACL(_params[PARAM_CONTRACT_ADDRESS], roles)
+    await tryACL(_params[PARAM_ADDRESS], roles)
   }
-  await tryCheckOwner(_params[PARAM_CONTRACT_ADDRESS])
+  await tryCheckOwner(_params[PARAM_ADDRESS])
 }
 
-task('permissions:check', 'Check permissions for a contract').setAction(main).addPositionalParam(PARAM_CONTRACT_ADDRESS)
+task('permissions:check', 'Check permissions for a contract')
+  .setAction(main)
+  .addPositionalParam(PARAM_ADDRESS, PARAM_DESC_ADDRESS)
