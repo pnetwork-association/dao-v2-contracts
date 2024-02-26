@@ -30,6 +30,11 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
 
     event RewardRegistered(uint16 indexed epoch, address indexed staker, uint256 amount);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address _epochsManager,
         address _dandelionVoting,

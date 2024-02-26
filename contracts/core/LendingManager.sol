@@ -34,6 +34,11 @@ contract LendingManager is ILendingManager, Initializable, UUPSUpgradeable, Forw
     address public dandelionVoting;
     uint16 public lendMaxEpochs;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address _token,
         address _stakingManager,

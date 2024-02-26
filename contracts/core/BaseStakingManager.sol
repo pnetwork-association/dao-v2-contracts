@@ -22,6 +22,11 @@ abstract contract BaseStakingManager is IBaseStakingManager, Initializable, Forw
     address public tokenManager;
     uint256 public maxTotalSupply;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function __BaseStakingManager_init(
         address _token,
         address _tokenManager,

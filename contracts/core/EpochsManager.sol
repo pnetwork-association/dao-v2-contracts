@@ -12,6 +12,11 @@ contract EpochsManager is IEpochsManager, Initializable, UUPSUpgradeable, Access
     uint256 private _epochDuration;
     uint256 private _startFirstEpochTimestamp;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(uint256 epochDuration_, uint256 startFirstEpochTimestamp_) public initializer {
         __UUPSUpgradeable_init();
         __AccessControlEnumerable_init();
