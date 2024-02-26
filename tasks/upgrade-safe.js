@@ -58,7 +58,7 @@ const proposeUpgrade = async (_args, _hre) => {
 
   const upgradeTransactionData = factory.interface.encodeFunctionData('upgradeTo', [newImplementation])
 
-  const adapter = getAdapter(_hre.ethers, _args[PARAM_FLAG_LEDGER_WALLET])
+  const adapter = await getAdapter(_hre.ethers, _args[PARAM_FLAG_LEDGER_WALLET])
 
   await proposeTransactionToSafe(
     adapter,
