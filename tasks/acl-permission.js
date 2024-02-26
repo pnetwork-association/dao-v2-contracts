@@ -3,24 +3,31 @@ const { task } = require('hardhat/config')
 
 const {
   TASKS: {
-    PARAM_NAME_ENTITY,
-    PARAM_NAME_TARGET,
-    PARAM_NAME_ROLE,
-    PARAM_NAME_SAFE_ADDRESS,
+    PARAM_ENTITY,
+    PARAM_DESC_ENTITY,
+    PARAM_TARGET,
+    PARAM_DESC_TARGET,
+    PARAM_ROLE,
+    PARAM_DESC_ROLE,
+    PARAM_SAFE_ADDRESS,
+    PARAM_DESC_SAFE_ADDRESS,
     PARAM_FLAG_LEDGER_WALLET,
-    PARAM_NAME_REVOKE,
-    PARAM_NAME_GRANT
+    PARAM_DESC_FLAG_LEDGER_WALLET,
+    PARAM_REVOKE,
+    PARAM_DESC_REVOKE,
+    PARAM_GRANT,
+    PARAM_DESC_GRANT
   }
 } = require('../lib/constants')
 const { getAllRoles } = require('../lib/roles')
 const { getAdapter, proposeTransactionToSafe } = require('../lib/safe')
 
 const proposeGrantRole = async (_args, _hre) => {
-  const safeAddress = _args[PARAM_NAME_SAFE_ADDRESS]
-  const targetAddress = _args[PARAM_NAME_TARGET]
-  const entity = _args[PARAM_NAME_ENTITY]
-  const role = _args[PARAM_NAME_ROLE]
-  const revoke = !_args[PARAM_NAME_GRANT] || _args[PARAM_NAME_REVOKE]
+  const safeAddress = _args[PARAM_SAFE_ADDRESS]
+  const targetAddress = _args[PARAM_TARGET]
+  const entity = _args[PARAM_ENTITY]
+  const role = _args[PARAM_ROLE]
+  const revoke = !_args[PARAM_GRANT] || _args[PARAM_REVOKE]
 
   const roles = getAllRoles(_hre.ethers)
 
@@ -45,7 +52,7 @@ const proposeGrantRole = async (_args, _hre) => {
   }
 
   const actionConfirm = new Confirm({
-    message: `${revoke ? 'Revoke' : 'Grant'} ${_args[PARAM_NAME_ROLE]} to ${entity} @ ${targetAddress}?`
+    message: `${revoke ? 'Revoke' : 'Grant'} ${_args[PARAM_ROLE]} to ${entity} @ ${targetAddress}?`
   })
   if (!(await actionConfirm.run())) {
     console.info('Quitting')
@@ -63,11 +70,11 @@ const proposeGrantRole = async (_args, _hre) => {
 }
 
 task('permissions:acl-manage', 'Propose grant/revoke role transaction to safe multisig')
-  .addFlag(PARAM_NAME_REVOKE, 'Revoke a role')
-  .addFlag(PARAM_NAME_GRANT, 'Grant a role')
-  .addPositionalParam(PARAM_NAME_ROLE, 'Role name to be managed')
-  .addPositionalParam(PARAM_NAME_ENTITY, 'Address to which role will be granted/revoked')
-  .addPositionalParam(PARAM_NAME_TARGET, 'Target contract address')
-  .addPositionalParam(PARAM_NAME_SAFE_ADDRESS, 'Safe address')
-  .addFlag(PARAM_FLAG_LEDGER_WALLET, 'Use a Ledger wallet')
+  .addFlag(PARAM_REVOKE, PARAM_DESC_REVOKE)
+  .addFlag(PARAM_GRANT, PARAM_DESC_GRANT)
+  .addPositionalParam(PARAM_ROLE, PARAM_DESC_ROLE)
+  .addPositionalParam(PARAM_ENTITY, PARAM_DESC_ENTITY)
+  .addPositionalParam(PARAM_TARGET, PARAM_DESC_TARGET)
+  .addPositionalParam(PARAM_SAFE_ADDRESS, PARAM_DESC_SAFE_ADDRESS)
+  .addFlag(PARAM_FLAG_LEDGER_WALLET, PARAM_DESC_FLAG_LEDGER_WALLET)
   .setAction(proposeGrantRole)
