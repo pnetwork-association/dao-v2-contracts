@@ -233,7 +233,6 @@ describe('Integration tests on Gnosis deployment', () => {
     await stakingManagerRm.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await lendingManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await registrationManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
-    await feesManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
 
     const currentEpoch = await epochsManager.currentEpoch()
     await upgrades.upgradeProxy(epochsManager, EpochsManager)
@@ -243,7 +242,6 @@ describe('Integration tests on Gnosis deployment', () => {
     await upgrades.upgradeProxy(stakingManagerRm, StakingManagerPermissioned)
     await upgrades.upgradeProxy(lendingManager, LendingManager)
     await upgrades.upgradeProxy(registrationManager, RegistrationManager)
-    await upgrades.upgradeProxy(feesManager, FeesManager)
   }
 
   beforeEach(async () => {
