@@ -173,6 +173,59 @@ describe('Integration tests on Gnosis deployment', () => {
     await rewardsManager.connect(daoOwner).grantRole(DEPOSIT_REWARD_ROLE, DANDELION_VOTING_ADDRESS)
   }
 
+  const checkInitialized = async () => {
+    // check implementations cannot be initialized
+    const _checkInitialized = async (_factory, _proxyAddress, _initArgs) => {
+      const implAddress = await upgrades.erc1967.getImplementationAddress(_proxyAddress)
+      const contract = _factory.attach(implAddress)
+      await expect(contract.initialize(..._initArgs)).to.be.revertedWith(
+        'Initializable: contract is already initialized'
+      )
+    }
+    await _checkInitialized(EpochsManager, epochsManager.target, [0, 0])
+    await _checkInitialized(StakingManager, stakingManager.target, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, 0])
+    await _checkInitialized(StakingManagerPermissioned, stakingManagerLm.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+    await _checkInitialized(StakingManagerPermissioned, stakingManagerRm.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+    await _checkInitialized(LendingManager, lendingManager.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+    await _checkInitialized(RegistrationManager, registrationManager.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS
+    ])
+    await _checkInitialized(FeesManager, feesManager.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+    await _checkInitialized(RewardsManager, rewardsManager.target, [
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      ZERO_ADDRESS,
+      0
+    ])
+  }
   const upgradeContracts = async () => {
     await epochsManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
     await stakingManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
@@ -193,52 +246,6 @@ describe('Integration tests on Gnosis deployment', () => {
     await upgrades.upgradeProxy(registrationManager, RegistrationManager)
     await upgrades.upgradeProxy(feesManager, FeesManager)
     await upgrades.upgradeProxy(rewardsManager, RewardsManager)
-
-    // check implementations cannot be initialized
-    const checkInitialized = async (_factory, _proxyAddress, _initArgs) => {
-      const implAddress = await upgrades.erc1967.getImplementationAddress(_proxyAddress)
-      const contract = _factory.attach(implAddress)
-      await expect(contract.initialize(..._initArgs)).to.be.revertedWith(
-        'Initializable: contract is already initialized'
-      )
-    }
-    await checkInitialized(EpochsManager, epochsManager.target, [0, 0])
-    await checkInitialized(StakingManager, stakingManager.target, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, 0])
-    await checkInitialized(StakingManagerPermissioned, stakingManagerLm.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      0
-    ])
-    await checkInitialized(StakingManagerPermissioned, stakingManagerRm.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      0
-    ])
-    await checkInitialized(LendingManager, lendingManager.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      0
-    ])
-    await checkInitialized(RegistrationManager, registrationManager.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS
-    ])
-    await checkInitialized(FeesManager, feesManager.target, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, 0])
-    await checkInitialized(RewardsManager, rewardsManager.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      0
-    ])
   }
 
   beforeEach(async () => {
@@ -275,6 +282,8 @@ describe('Integration tests on Gnosis deployment', () => {
     rewardsManager = RewardsManager.attach(REWARDS_MANAGER)
 
     await missingSteps()
+
+    await checkInitialized()
 
     await Promise.all(tokenHolders.map((_holder) => sendEth(ethers, faucet, _holder.address, '5')))
     await Promise.all(tokenHolders.map((_holder) => mintPntOnGnosis(_holder.address, 10000n)))
