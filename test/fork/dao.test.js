@@ -48,8 +48,7 @@ const { hardhatReset } = require('../utils/hardhat-reset')
 const { mintPToken, pegoutToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
-const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, DEPOSIT_REWARD_ROLE, UPGRADE_ROLE } =
-  getAllRoles(ethers)
+const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE, DEPOSIT_REWARD_ROLE } = getAllRoles(ethers)
 
 const USER_ADDRESS = '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B'
 const ADDRESS_PLACEHOLDER = '0x0123456789012345678901234567890123456789'
@@ -155,7 +154,6 @@ describe('Integration tests on Gnosis deployment', () => {
   ]
 
   const missingSteps = async () => {
-    await upgradeContracts()
     const MockPToken = await ethers.getContractFactory('MockPTokenERC20')
     pntOnGnosis = await MockPToken.deploy('Host Token (pToken)', 'HTKN', pntMinter.address, PNETWORK_NETWORK_IDS.GNOSIS)
     await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
@@ -225,13 +223,6 @@ describe('Integration tests on Gnosis deployment', () => {
       ZERO_ADDRESS,
       0
     ])
-  }
-  const upgradeContracts = async () => {
-    await epochsManager.connect(daoOwner).grantRole(UPGRADE_ROLE, faucet.address)
-
-    const currentEpoch = await epochsManager.currentEpoch()
-    await upgrades.upgradeProxy(epochsManager, EpochsManager)
-    expect(await await epochsManager.currentEpoch()).to.be.eq(currentEpoch)
   }
 
   beforeEach(async () => {
