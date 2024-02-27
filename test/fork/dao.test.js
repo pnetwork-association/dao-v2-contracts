@@ -48,7 +48,7 @@ const { hardhatReset } = require('../utils/hardhat-reset')
 const { mintPToken, pegoutToken } = require('../utils/pnetwork')
 const { sendEth } = require('../utils/send-eth')
 
-const { CHANGE_TOKEN_ROLE, CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE } = getAllRoles(ethers)
+const { CREATE_VOTES_ROLE, CREATE_PAYMENTS_ROLE } = getAllRoles(ethers)
 
 const USER_ADDRESS = '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B'
 const ADDRESS_PLACEHOLDER = '0x0123456789012345678901234567890123456789'
@@ -156,12 +156,6 @@ describe('Integration tests on Gnosis deployment', () => {
   const missingSteps = async () => {
     const MockPToken = await ethers.getContractFactory('MockPTokenERC20')
     pntOnGnosis = await MockPToken.deploy('Host Token (pToken)', 'HTKN', pntMinter.address, PNETWORK_NETWORK_IDS.GNOSIS)
-    await stakingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
-    await stakingManagerLm.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
-    await stakingManagerRm.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
-    await lendingManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
-    await registrationManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
-    await rewardsManager.connect(daoOwner).grantRole(CHANGE_TOKEN_ROLE, SAFE_ADDRESS)
     await stakingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     await stakingManagerLm.connect(daoOwner).changeToken(pntOnGnosis.target)
     await stakingManagerRm.connect(daoOwner).changeToken(pntOnGnosis.target)
