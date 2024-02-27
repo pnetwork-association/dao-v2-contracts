@@ -51,8 +51,7 @@ module.exports = {
       chainId: 100,
       forking: {
         url: getEnvironmentVariable('GNOSIS_NODE'),
-        blockNumber: parseInt(getEnvironmentVariable('BLOCK_NUMBER')),
-        accounts
+        blockNumber: parseInt(getEnvironmentVariable('BLOCK_NUMBER'))
       }
     },
     local: {
