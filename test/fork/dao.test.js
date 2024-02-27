@@ -583,6 +583,171 @@ describe('Integration tests on Gnosis deployment', () => {
       .withArgs(epoch, tokenHolders[2].address, 25)
     await claimRewardsAndAssertTransfer(tokenHolders[2], epoch)
   })
+
+  const approveAndStake = async () => {
+    await mintPntOnGnosis(user.address, ethers.parseUnits('110'))
+
+    // approve
+    await expect(
+      user.sendTransaction({
+        to: pntOnGnosis.target,
+        // secretlint-disable-next-line
+        data: '0x095ea7b3000000000000000000000000dee8ebe2b7152eccd935fd67134bf1bad55302bc000000000000000000000000000000000000000000000005f68e8131ecf80000',
+        value: 0
+      })
+    )
+      .to.emit(pntOnGnosis, 'Approval')
+      .withArgs(user.address, stakingManager.target, ethers.parseUnits('110'))
+
+    // stake
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x2b54f551000000000000000000000000ddb5f4535123daa5ae343c24006f4075abaf5f7b0000000000000000000000000000000000000000000000008ac7230489e800000000000000000000000000000000000000000000000000000000000000093a80',
+        value: 0
+      })
+    )
+      .to.emit(stakingManager, 'Staked')
+      .withArgs(user.address, ethers.parseUnits('10'), 604800)
+  }
+
+  it('[dapp] should propose correct approve transaction for staking, stake, and unstake to mainnet', async () => {
+    await approveAndStake()
+
+    // unstake to mainnet
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e80000005fe7f900000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await time.increase(ONE_DAY * 8)
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e80000005fe7f900000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    )
+      .to.emit(daoPNT, 'Transfer')
+      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .to.emit(pntOnGnosis, 'Redeem')
+      .withArgs(
+        stakingManager.target,
+        ethers.parseUnits('10'),
+        user.address.slice(2).toLowerCase(),
+        '0x',
+        PNETWORK_NETWORK_IDS.GNOSIS,
+        PNETWORK_NETWORK_IDS.MAINNET
+      )
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(user.address, ethers.parseUnits('10'))
+  })
+
+  it('[dapp] should propose correct approve transaction for staking, stake, and unstake to polygon', async () => {
+    await approveAndStake()
+
+    // unstake to polygon
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e800000075dd4c00000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await time.increase(ONE_DAY * 8)
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e800000075dd4c00000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    )
+      .to.emit(daoPNT, 'Transfer')
+      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .to.emit(pntOnGnosis, 'Redeem')
+      .withArgs(
+        stakingManager.target,
+        ethers.parseUnits('10'),
+        user.address.slice(2).toLowerCase(),
+        '0x',
+        PNETWORK_NETWORK_IDS.GNOSIS,
+        PNETWORK_NETWORK_IDS.POLYGON
+      )
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(user.address, ethers.parseUnits('10'))
+  })
+
+  it('[dapp] should propose correct approve transaction for staking, stake, and unstake to bsc', async () => {
+    await approveAndStake()
+
+    // unstake to bsc
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e8000000e4b17000000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await time.increase(ONE_DAY * 8)
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e8000000e4b17000000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    )
+      .to.emit(daoPNT, 'Transfer')
+      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .to.emit(pntOnGnosis, 'Redeem')
+      .withArgs(
+        stakingManager.target,
+        ethers.parseUnits('10'),
+        user.address.slice(2).toLowerCase(),
+        '0x',
+        PNETWORK_NETWORK_IDS.GNOSIS,
+        PNETWORK_NETWORK_IDS.BSC
+      )
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(user.address, ethers.parseUnits('10'))
+  })
+
+  it('[dapp] should propose correct approve transaction for staking, stake, and unstake to gnosis', async () => {
+    await approveAndStake()
+
+    // unstake to gnosis
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e8000000f1918e00000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    ).to.be.revertedWithCustomError(stakingManager, 'UnfinishedStakingPeriod')
+    await time.increase(ONE_DAY * 8)
+    await expect(
+      user.sendTransaction({
+        to: '0xdEE8ebE2b7152ECCd935fd67134BF1bad55302BC',
+        // secretlint-disable-next-line
+        data: '0x810f30da0000000000000000000000000000000000000000000000008ac7230489e8000000f1918e00000000000000000000000000000000000000000000000000000000',
+        value: 0
+      })
+    )
+      .to.emit(daoPNT, 'Transfer')
+      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .to.emit(pntOnGnosis, 'Transfer')
+      .withArgs(stakingManager.target, user.address, ethers.parseUnits('10'))
+      .to.emit(stakingManager, 'Unstaked')
+      .withArgs(user.address, ethers.parseUnits('10'))
+  })
 })
 
 describe('Integration tests on Ethereum deployment', () => {
