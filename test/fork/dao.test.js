@@ -855,6 +855,34 @@ describe('Integration tests on Ethereum deployment', () => {
       .to.be.revertedWithCustomError(crossExecutor, 'InvalidOriginAddress')
       .withArgs(attacker.address)
   })
+
+  it('should open a vote for whitelisting and changing inflation owner', async () => {
+    expect(await ethPnt.inflationOwner()).to.be.eq(crossExecutor.target)
+    const INFLATION_OWNER_SLOT = '0x131' // 305 (found brute forcing eth_getStorageAt())
+    await ethers.provider.send('hardhat_setStorageAt', [
+      ethPnt.target,
+      INFLATION_OWNER_SLOT,
+      ethers.zeroPadValue(daoVotingV1.target, 32)
+    ])
+    expect(await ethPnt.inflationOwner()).to.be.eq(daoVotingV1.target)
+    await daoVotingV1.connect(association).newVote(
+      // secretlint-disable-next-line
+      '0x00000001f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b20000002463d3e0f90000000000000000000000000123456789012345678901234567890123456789f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000246c5fbfa40000000000000000000000000123456789012345678901234567890123456789',
+      'a https://ipfs.io/ipfs/QmUmAhPhF7ABGZ7ypbDoqtbmqjSQDHL7p7y87rXAH5acvJ',
+      false
+    )
+    const voteId = await daoVotingV1.votesLength()
+    await Promise.all(tokenHolders.map((_holder) => daoVotingV1.connect(_holder).vote(voteId, true)))
+    const vote = await daoVotingV1.getVote(voteId)
+    await mineUpTo(vote[3] + 1n)
+    await expect(daoVotingV1.connect(association).executeVote(voteId))
+      .to.emit(daoVotingV1, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(ethPnt, 'InflationRecipientWhitelisted')
+      .withArgs(ADDRESS_PLACEHOLDER)
+      .and.to.emit(ethPnt, 'NewInflationOwner')
+      .withArgs(ADDRESS_PLACEHOLDER)
+  })
 })
 
 describe('Integration tests on Polygon deployment', () => {
