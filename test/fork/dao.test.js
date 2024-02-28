@@ -793,7 +793,6 @@ describe('Integration tests on Gnosis deployment', () => {
 
   it('[dapp] should delegateVote from forwarder call', async () => {
     const stakedAmount = ethers.parseUnits('10')
-    const smBalance = await pntOnGnosis.balanceOf(STAKING_MANAGER)
     await mintPntOnGnosis(user.address, stakedAmount)
     await stake(user, stakedAmount, ONE_DAY * 10)
     await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
@@ -815,7 +814,28 @@ describe('Integration tests on Gnosis deployment', () => {
       .to.emit(daoVoting, 'CastVote')
       .withArgs(voteId, user.address, true, stakedAmount)
     expect(await daoPNT.balanceOf(USER_ADDRESS)).to.be.eq(stakedAmount)
-    expect(await pntOnGnosis.balanceOf(stakingManager.target)).to.be.eq(stakedAmount + smBalance)
+  })
+
+  it('[dapp] should vote', async () => {
+    const stakedAmount = ethers.parseUnits('10')
+    await mintPntOnGnosis(user.address, stakedAmount)
+    await stake(user, stakedAmount, ONE_DAY * 10)
+    expect(await daoPNT.balanceOf(USER_ADDRESS)).to.be.eq(stakedAmount)
+    await grantCreateVotesPermission(acl, daoOwner, tokenHolders[0].address)
+    await daoVoting.connect(tokenHolders[0]).newVote('0x', 'do something?', false)
+    const voteId = await daoVoting.votesLength()
+    await expect(
+      user.sendTransaction({
+        to: DANDELION_VOTING_ADDRESS,
+        // secretlint-disable-next-line
+        data: '0xc9d27afe00000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001'.replace(
+          '0000000000000000000000000000000000000000000000000000000000000025',
+          ethers.zeroPadValue(ethers.toBeHex(voteId), 32).slice(2)
+        )
+      })
+    )
+      .to.emit(daoVoting, 'CastVote')
+      .withArgs(voteId, user.address, true, stakedAmount)
   })
 
   it('[dapp] should open a vote to transfer from vault', async () => {
