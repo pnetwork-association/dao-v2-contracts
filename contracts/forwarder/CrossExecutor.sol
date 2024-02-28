@@ -64,6 +64,13 @@ contract CrossExecutor is IERC777Recipient, Context, Ownable {
         }
     }
 
+    function call(address to, bytes memory data) external onlyOwner {
+        (bool success, ) = to.call(data);
+        if (!success) {
+            revert CallFailed(to, data);
+        }
+    }
+
     function whitelistOriginAddress(address originAddress) external onlyOwner {
         _whitelistedOriginAddresses[originAddress] = true;
     }

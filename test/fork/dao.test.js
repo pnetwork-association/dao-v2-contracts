@@ -898,7 +898,7 @@ describe('Integration tests on Gnosis deployment', () => {
 })
 
 describe('Integration tests on Ethereum deployment', () => {
-  let vault, crossExecutor, pnetwork, faucet, daoVotingV1, tokenHolders, association, ethPnt
+  let vault, crossExecutor, pnetwork, faucet, daoVotingV1, tokenHolders, association, ethPnt, safe
 
   const TOKEN_HOLDERS_ADDRESSES = [
     '0x100a70b9e50e91367d571332E76cFa70e9307059',
@@ -912,7 +912,8 @@ describe('Integration tests on Ethereum deployment', () => {
 
   const missingSteps = async () => {
     const CrossExecutor = await ethers.getContractFactory('CrossExecutor')
-    crossExecutor = await CrossExecutor.deploy(PNT_ON_ETH_ADDRESS, ERC20_VAULT)
+    crossExecutor = await CrossExecutor.connect(safe).deploy(PNT_ON_ETH_ADDRESS, ERC20_VAULT)
+    expect(await crossExecutor.owner()).to.be.eq(SAFE_ADDRESS)
     await crossExecutor.whitelistOriginAddress(DANDELION_VOTING_ADDRESS)
     daoVotingV1 = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_V1_ADDRESS)
     // open vote to change inflationOwner
@@ -949,8 +950,10 @@ describe('Integration tests on Ethereum deployment', () => {
     association = await ethers.getImpersonatedSigner(ASSOCIATION_ON_ETH_ADDRESS)
     ethPnt = await ethers.getContractAt(EthPntAbi, ETHPNT_ADDRESS)
     vault = await ethers.getContractAt('IErc20Vault', ERC20_VAULT)
+    safe = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
     await sendEth(ethers, faucet, pnetwork.address, '10')
     await sendEth(ethers, faucet, association.address, '10')
+    await sendEth(ethers, faucet, safe.address, '10')
     await Promise.all(TOKEN_HOLDERS_ADDRESSES.map((_address) => sendEth(ethers, faucet, _address, '10')))
     await missingSteps()
   })
@@ -1054,6 +1057,24 @@ describe('Integration tests on Ethereum deployment', () => {
       .withArgs(ADDRESS_PLACEHOLDER)
       .and.to.emit(ethPnt, 'NewInflationOwner')
       .withArgs(ADDRESS_PLACEHOLDER)
+  })
+
+  it('should be able to change inflationOwner from CrossExecutor', async () => {
+    await expect(
+      crossExecutor
+        .connect(safe)
+        .call(ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [association.address]))
+    ).to.emit(ethPnt, 'NewInflationOwner')
+    expect(await ethPnt.inflationOwner()).to.be.eq(association.address)
+  })
+
+  it('should not be able to change inflationOwner from CrossExecutor without ownership', async () => {
+    await expect(
+      crossExecutor
+        .connect(association)
+        .call(ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [association.address]))
+    ).to.be.revertedWith('Ownable: caller is not the owner')
+    expect(await ethPnt.inflationOwner()).to.be.eq(crossExecutor.target)
   })
 })
 
