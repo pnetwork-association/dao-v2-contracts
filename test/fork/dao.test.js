@@ -320,14 +320,15 @@ describe('Integration tests on Gnosis deployment', () => {
 
   it('should lend PNTs and register a borrowing sentinel', async () => {
     const amount = ethers.parseEther('200000', await pntOnGnosis.decimals())
+    const currentEpoch = await epochsManager.currentEpoch()
     await mintPntOnGnosis(faucet.address, ethers.parseEther('400000', await pntOnGnosis.decimals()))
     await pntOnGnosis.connect(faucet).approve(LENDING_MANAGER, amount)
     const balancePre = await pntOnGnosis.balanceOf(faucet.address)
-    await expect(lendingManager.lend(faucet.address, amount, 86400 * 90))
+    await expect(lendingManager.lend(faucet.address, amount, ONE_DAY * 90))
       .to.emit(lendingManager, 'Lended')
-      .withArgs(faucet.address, 3, 4, amount)
+      .withArgs(faucet.address, currentEpoch + 1n, currentEpoch + 2n, amount)
       .and.to.emit(stakingManagerLm, 'Staked')
-      .withArgs(faucet.address, amount, 86400 * 90)
+      .withArgs(faucet.address, amount, ONE_DAY * 90)
     const balancePost = await pntOnGnosis.balanceOf(faucet.address)
     expect(balancePre - amount).to.be.eq(balancePost)
 
