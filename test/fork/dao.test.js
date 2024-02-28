@@ -811,6 +811,32 @@ describe('Integration tests on Gnosis deployment', () => {
     expect(await daoPNT.balanceOf(USER_ADDRESS)).to.be.eq(stakedAmount)
     expect(await pntOnGnosis.balanceOf(stakingManager.target)).to.be.eq(stakedAmount + smBalance)
   })
+
+  it('[dapp] should open a vote to transfer from vault', async () => {
+    await mintPntOnGnosis(tokenHolders[0], ethers.parseUnits('200000'))
+    await mintPntOnGnosis(daoTreasury.target, ethers.parseUnits('1000000'))
+    await stake(tokenHolders[0], ethers.parseUnits('200000'))
+    await daoVoting
+      .connect(tokenHolders[0])
+      .newVote(
+        '0x000000016239968e6231164687cb40f8389d933dd7f7e0a500000064beabacc8000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2000000000000000000000000f1f6568a76559d85cf68e6597fa587544184dd4600000000000000000000000000000000000000000000000ad78ebc5ac6200000'.replace(
+          'f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b2',
+          pntOnGnosis.target.slice(2)
+        ),
+        'A https://ipfs.io/ipfs/QmUmAhPhF7ABGZ7ypbDoqtbmqjSQDHL7p7y87rXAH5acvJ',
+        false
+      )
+    const voteId = await daoVoting.votesLength()
+    await Promise.all(tokenHolders.map((_holder) => daoVoting.connect(_holder).vote(voteId, true)))
+    await time.increase(ONE_DAY * 4)
+    await expect(daoVoting.executeVote(voteId))
+      .to.emit(daoVoting, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(pntOnGnosis, 'Transfer')
+      .withArgs(daoTreasury.target, ASSOCIATION_ON_ETH_ADDRESS, ethers.parseUnits('200'))
+      .and.to.emit(daoTreasury, 'VaultTransfer')
+      .withArgs(pntOnGnosis.target, ASSOCIATION_ON_ETH_ADDRESS, ethers.parseUnits('200'))
+  })
 })
 
 describe('Integration tests on Ethereum deployment', () => {
