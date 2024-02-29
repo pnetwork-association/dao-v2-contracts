@@ -4,7 +4,7 @@ const { ethers, upgrades } = require('hardhat')
 
 const {
   ADDRESSES: {
-    GNOSIS: { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS }
+    GNOSIS: { ACL, SAFE, TOKEN_MANAGER }
   },
   MISC: { BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION, EPOCH_DURATION, LEND_MAX_EPOCHS, ONE_DAY, PNT_MAX_TOTAL_SUPPLY },
   PNETWORK_NETWORK_IDS,
@@ -63,7 +63,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       const MockPToken = await ethers.getContractFactory(_ptokenContract)
       const MockPTokensVault = await ethers.getContractFactory('MockPTokensVault')
       const TestToken = await ethers.getContractFactory('TestToken')
-      const ACL = await ethers.getContractFactory('ACL')
+      const Acl = await ethers.getContractFactory('ACL')
       const DandelionVoting = await ethers.getContractFactory('DandelionVoting')
 
       const signers = await ethers.getSigners()
@@ -74,10 +74,10 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       minter = ethers.Wallet.createRandom().connect(ethers.provider)
       pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
       pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
-      daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+      daoRoot = await ethers.getImpersonatedSigner(SAFE)
       await sendEth(ethers, owner, daoRoot.address, '1')
 
-      acl = ACL.attach(ACL_ADDRESS)
+      acl = Acl.attach(ACL)
       pnt = await TestToken.deploy('PNT', 'PNT')
       vault = await MockPTokensVault.deploy(PNETWORK_NETWORK_IDS.MAINNET)
       pToken = await MockPToken.connect(owner).deploy(
@@ -96,7 +96,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       stakingManager = await upgrades.deployProxy(
         StakingManager,
-        [pToken.target, TOKEN_MANAGER_ADDRESS, forwarderHost.target, PNT_MAX_TOTAL_SUPPLY],
+        [pToken.target, TOKEN_MANAGER, forwarderHost.target, PNT_MAX_TOTAL_SUPPLY],
         {
           initializer: 'initialize',
           kind: 'uups'
@@ -105,7 +105,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       stakingManagerLM = await upgrades.deployProxy(
         StakingManagerPermissioned,
-        [pToken.target, TOKEN_MANAGER_ADDRESS, forwarderHost.target, PNT_MAX_TOTAL_SUPPLY],
+        [pToken.target, TOKEN_MANAGER, forwarderHost.target, PNT_MAX_TOTAL_SUPPLY],
         {
           initializer: 'initialize',
           kind: 'uups'
@@ -114,7 +114,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       stakingManagerRM = await upgrades.deployProxy(
         StakingManagerPermissioned,
-        [pToken.target, TOKEN_MANAGER_ADDRESS, forwarderHost.target, PNT_MAX_TOTAL_SUPPLY],
+        [pToken.target, TOKEN_MANAGER, forwarderHost.target, PNT_MAX_TOTAL_SUPPLY],
         {
           initializer: 'initialize',
           kind: 'uups'
@@ -155,12 +155,12 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       await voting.setForwarder(forwarderHost.target)
 
       // set permissions
-      await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-      await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-      await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-      await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-      await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-      await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+      await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER, MINT_ROLE)
+      await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER, BURN_ROLE)
+      await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER, MINT_ROLE)
+      await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER, BURN_ROLE)
+      await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER, MINT_ROLE)
+      await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER, BURN_ROLE)
       await lendingManager.grantRole(BORROW_ROLE, registrationManager.target)
       await stakingManagerLM.grantRole(STAKE_ROLE, lendingManager.target)
       await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, lendingManager.target)

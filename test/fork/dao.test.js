@@ -13,7 +13,7 @@ const VaultAbi = require('../../lib/abi/Vault.json')
 const {
   ADDRESSES: {
     GNOSIS: {
-      SAFE_ADDRESS,
+      SAFE,
       EPOCHS_MANAGER,
       STAKING_MANAGER,
       STAKING_MANAGER_LM,
@@ -22,24 +22,16 @@ const {
       LENDING_MANAGER,
       FEES_MANAGER,
       REWARDS_MANAGER,
-      ACL_ADDRESS,
-      DANDELION_VOTING_ADDRESS,
+      ACL,
+      DANDELION_VOTING,
       FINANCE_VAULT,
       FINANCE,
-      DAOPNT_ON_GNOSIS_ADDRESS,
-      PNT_ON_GNOSIS_MINTER,
-      FORWARDER_ON_GNOSIS
+      DAOPNT,
+      PNT_MINTER: PNT_MINTER_ON_GNOSIS,
+      FORWARDER: FORWARDER_ON_GNOSIS
     },
-    MAINNET: {
-      ERC20_VAULT,
-      DANDELION_VOTING_ADDRESS: DANDELION_VOTING_V1_ADDRESS,
-      PNT_ON_ETH_ADDRESS,
-      ETHPNT_ADDRESS,
-      PNETWORK_ADDRESS,
-      ASSOCIATION_ON_ETH_ADDRESS
-    },
-    POLYGON: { PNT_ON_POLYGON_ADDRESS, FORWARDER_ON_POLYGON, PNT_ON_POLYGON_MINTER },
-    ZERO_ADDRESS
+    MAINNET: { ERC20_VAULT, DANDELION_VOTING: DANDELION_VOTING_V1, PNT: PNT_ON_ETH, ETHPNT, PNETWORK, ASSOCIATION },
+    POLYGON: { PNT: PNT_ON_POLYGON, FORWARDER: FORWARDER_ON_POLYGON, PNT_MINTER: PNT_MINTER_ON_POLYGON }
   },
   MISC: { ONE_DAY },
   PNETWORK_NETWORK_IDS
@@ -95,10 +87,10 @@ const setPermission = (acl, permissionManager, entity, app, role) =>
   acl.connect(permissionManager).grantPermission(entity, app, role)
 
 const grantCreateVotesPermission = async (_acl, _permissionManager, _who) => {
-  let hasPerm = await hasPermission(_acl, _who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
+  let hasPerm = await hasPermission(_acl, _who, DANDELION_VOTING, CREATE_VOTES_ROLE)
   expect(hasPerm).to.be.false
-  await setPermission(_acl, _permissionManager, _who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
-  hasPerm = await hasPermission(_acl, _who, DANDELION_VOTING_ADDRESS, CREATE_VOTES_ROLE)
+  await setPermission(_acl, _permissionManager, _who, DANDELION_VOTING, CREATE_VOTES_ROLE)
+  hasPerm = await hasPermission(_acl, _who, DANDELION_VOTING, CREATE_VOTES_ROLE)
   expect(hasPerm).to.be.true
 }
 
@@ -198,46 +190,51 @@ describe('Integration tests on Gnosis deployment', () => {
       )
     }
     await _checkInitialized(EpochsManager, epochsManager.target, [0, 0])
-    await _checkInitialized(StakingManager, stakingManager.target, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, 0])
+    await _checkInitialized(StakingManager, stakingManager.target, [
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      0
+    ])
     await _checkInitialized(StakingManagerPermissioned, stakingManagerLm.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
       0
     ])
     await _checkInitialized(StakingManagerPermissioned, stakingManagerRm.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
       0
     ])
     await _checkInitialized(LendingManager, lendingManager.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
       0
     ])
     await _checkInitialized(RegistrationManager, registrationManager.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress
     ])
     await _checkInitialized(FeesManager, feesManager.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
       0
     ])
     await _checkInitialized(RewardsManager, rewardsManager.target, [
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
-      ZERO_ADDRESS,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
+      ethers.ZeroAddress,
       0
     ])
   }
@@ -249,9 +246,9 @@ describe('Integration tests on Gnosis deployment', () => {
     ;[faucet] = await ethers.getSigners()
     tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(ethers.getImpersonatedSigner))
     user = await ethers.getImpersonatedSigner(USER_ADDRESS)
-    daoOwner = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    daoOwner = await ethers.getImpersonatedSigner(SAFE)
     await sendEth(ethers, faucet, daoOwner.address, '5')
-    pntMinter = await ethers.getImpersonatedSigner(PNT_ON_GNOSIS_MINTER)
+    pntMinter = await ethers.getImpersonatedSigner(PNT_MINTER_ON_GNOSIS)
 
     EpochsManager = await ethers.getContractFactory('EpochsManager')
     StakingManager = await ethers.getContractFactory('StakingManager')
@@ -261,11 +258,11 @@ describe('Integration tests on Gnosis deployment', () => {
     FeesManager = await ethers.getContractFactory('FeesManager')
     RewardsManager = await ethers.getContractFactory('RewardsManager')
 
-    acl = await ethers.getContractAt(AclAbi, ACL_ADDRESS)
-    daoVoting = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_ADDRESS)
+    acl = await ethers.getContractAt(AclAbi, ACL)
+    daoVoting = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING)
     daoTreasury = await ethers.getContractAt(VaultAbi, FINANCE_VAULT)
     finance = await ethers.getContractAt(FinanceAbi, FINANCE)
-    daoPNT = await ethers.getContractAt(DaoPntAbi, DAOPNT_ON_GNOSIS_ADDRESS)
+    daoPNT = await ethers.getContractAt(DaoPntAbi, DAOPNT)
     epochsManager = EpochsManager.attach(EPOCHS_MANAGER)
     stakingManager = StakingManager.attach(STAKING_MANAGER)
     stakingManagerLm = StakingManagerPermissioned.attach(STAKING_MANAGER_LM)
@@ -476,7 +473,7 @@ describe('Integration tests on Gnosis deployment', () => {
   // this test is coupled with Integration tests on Ethereum deployment -> should process pegOut, withdrawInflation, and pegIn to treasury
   it('should call withdrawInflation from Gnosis', async () => {
     const CROSS_EXECUTOR_ETH = ADDRESS_PLACEHOLDER
-    const ETH_PTN_ADDRESS = ETHPNT_ADDRESS
+    const ETH_PTN_ADDRESS = ETHPNT
 
     const amount = 10
     const metadata = 'Should we inflate more?'
@@ -490,7 +487,7 @@ describe('Integration tests on Gnosis deployment', () => {
           new ethers.Interface(EthPntAbi).encodeFunctionData('approve', [ERC20_VAULT, amount]),
           new ethers.Interface(ERC20VaultAbi).encodeFunctionData('pegIn(uint256,address,string,bytes,bytes4)', [
             amount,
-            ETHPNT_ADDRESS,
+            ETHPNT,
             FINANCE_VAULT,
             '0x',
             PNETWORK_NETWORK_IDS.GNOSIS
@@ -514,7 +511,7 @@ describe('Integration tests on Gnosis deployment', () => {
     let currentBlock = await ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(20000)
     await mintPntOnGnosis(faucet.address, 10000n)
-    await mintPntOnGnosis(DANDELION_VOTING_ADDRESS, 10000n)
+    await mintPntOnGnosis(DANDELION_VOTING, 10000n)
     await stake(faucet, 10000)
     currentBlock = await ethers.provider.getBlockNumber()
     expect(await daoPNT.totalSupplyAt(currentBlock)).to.be.eq(30000)
@@ -525,7 +522,7 @@ describe('Integration tests on Gnosis deployment', () => {
       .withArgs(voteId)
       .and.to.emit(pntOnGnosis, 'Redeem')
       .withArgs(
-        DANDELION_VOTING_ADDRESS,
+        DANDELION_VOTING,
         1,
         CROSS_EXECUTOR_ETH,
         // secretlint-disable-next-line
@@ -550,7 +547,7 @@ describe('Integration tests on Gnosis deployment', () => {
     expect(await epochsManager.currentEpoch()).to.be.eq(epoch)
     const executionScript = encodeCallScript(
       [
-        [FINANCE_VAULT, encodeVaultTransfer(pntOnGnosis.target, DANDELION_VOTING_ADDRESS, 100)],
+        [FINANCE_VAULT, encodeVaultTransfer(pntOnGnosis.target, DANDELION_VOTING, 100)],
         [pntOnGnosis.target, pntOnGnosis.interface.encodeFunctionData('approve', [REWARDS_MANAGER, 100])],
         [REWARDS_MANAGER, rewardsManager.interface.encodeFunctionData('depositForEpoch', [epoch, 100])]
       ].map((_args) => encodeFunctionCall(..._args))
@@ -590,7 +587,7 @@ describe('Integration tests on Gnosis deployment', () => {
         .to.emit(pntOnGnosis, 'Transfer')
         .withArgs(REWARDS_MANAGER, _holder.address, 25)
         .and.to.emit(daoPNT, 'Transfer')
-        .withArgs(_holder, ZERO_ADDRESS, 25)
+        .withArgs(_holder, ethers.ZeroAddress, 25)
 
     await claimRewardsAndAssertTransfer(tokenHolders[0], epoch)
     await claimRewardsAndAssertTransfer(tokenHolders[1], epoch)
@@ -656,7 +653,7 @@ describe('Integration tests on Gnosis deployment', () => {
       })
     )
       .to.emit(daoPNT, 'Transfer')
-      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .withArgs(user.address, ethers.ZeroAddress, ethers.parseUnits('10'))
       .to.emit(pntOnGnosis, 'Redeem')
       .withArgs(
         stakingManager.target,
@@ -692,7 +689,7 @@ describe('Integration tests on Gnosis deployment', () => {
       })
     )
       .to.emit(daoPNT, 'Transfer')
-      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .withArgs(user.address, ethers.ZeroAddress, ethers.parseUnits('10'))
       .to.emit(pntOnGnosis, 'Redeem')
       .withArgs(
         stakingManager.target,
@@ -728,7 +725,7 @@ describe('Integration tests on Gnosis deployment', () => {
       })
     )
       .to.emit(daoPNT, 'Transfer')
-      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .withArgs(user.address, ethers.ZeroAddress, ethers.parseUnits('10'))
       .to.emit(pntOnGnosis, 'Redeem')
       .withArgs(
         stakingManager.target,
@@ -764,7 +761,7 @@ describe('Integration tests on Gnosis deployment', () => {
       })
     )
       .to.emit(daoPNT, 'Transfer')
-      .withArgs(user.address, ZERO_ADDRESS, ethers.parseUnits('10'))
+      .withArgs(user.address, ethers.ZeroAddress, ethers.parseUnits('10'))
       .to.emit(pntOnGnosis, 'Transfer')
       .withArgs(stakingManager.target, user.address, ethers.parseUnits('10'))
       .to.emit(stakingManager, 'Unstaked')
@@ -826,7 +823,7 @@ describe('Integration tests on Gnosis deployment', () => {
     const voteId = await daoVoting.votesLength()
     await expect(
       user.sendTransaction({
-        to: DANDELION_VOTING_ADDRESS,
+        to: DANDELION_VOTING,
         // secretlint-disable-next-line
         data: '0xc9d27afe00000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001'.replace(
           '0000000000000000000000000000000000000000000000000000000000000025',
@@ -859,9 +856,9 @@ describe('Integration tests on Gnosis deployment', () => {
       .to.emit(daoVoting, 'ExecuteVote')
       .withArgs(voteId)
       .and.to.emit(pntOnGnosis, 'Transfer')
-      .withArgs(daoTreasury.target, ASSOCIATION_ON_ETH_ADDRESS, ethers.parseUnits('200'))
+      .withArgs(daoTreasury.target, ASSOCIATION, ethers.parseUnits('200'))
       .and.to.emit(daoTreasury, 'VaultTransfer')
-      .withArgs(pntOnGnosis.target, ASSOCIATION_ON_ETH_ADDRESS, ethers.parseUnits('200'))
+      .withArgs(pntOnGnosis.target, ASSOCIATION, ethers.parseUnits('200'))
   })
 
   it('[dapp] should open a vote to withdraw inflation', async () => {
@@ -884,7 +881,7 @@ describe('Integration tests on Gnosis deployment', () => {
       .to.emit(daoVoting, 'ExecuteVote')
       .withArgs(voteId)
       .and.to.emit(pntOnGnosis, 'Transfer')
-      .withArgs(daoVoting.target, ZERO_ADDRESS, 1)
+      .withArgs(daoVoting.target, ethers.ZeroAddress, 1)
       .and.to.emit(pntOnGnosis, 'Redeem')
       .withArgs(
         daoVoting.target,
@@ -908,19 +905,19 @@ describe('Integration tests on Ethereum deployment', () => {
   ]
 
   const pegoutPntOnEth = (_recipient, _value, _metadata) =>
-    pegoutToken(vault, pnetwork, _recipient, PNT_ON_ETH_ADDRESS, _value, _metadata)
+    pegoutToken(vault, pnetwork, _recipient, PNT_ON_ETH, _value, _metadata)
 
   const missingSteps = async () => {
     const CrossExecutor = await ethers.getContractFactory('CrossExecutor')
-    crossExecutor = await CrossExecutor.connect(safe).deploy(PNT_ON_ETH_ADDRESS, ERC20_VAULT)
-    expect(await crossExecutor.owner()).to.be.eq(SAFE_ADDRESS)
-    await crossExecutor.whitelistOriginAddress(DANDELION_VOTING_ADDRESS)
-    daoVotingV1 = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_V1_ADDRESS)
+    crossExecutor = await CrossExecutor.connect(safe).deploy(PNT_ON_ETH, ERC20_VAULT)
+    expect(await crossExecutor.owner()).to.be.eq(SAFE)
+    await crossExecutor.whitelistOriginAddress(DANDELION_VOTING)
+    daoVotingV1 = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING_V1)
     // open vote to change inflationOwner
     const executionScript = encodeCallScript(
       [
-        [ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('whitelistInflationRecipient', [crossExecutor.target])],
-        [ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [crossExecutor.target])]
+        [ETHPNT, ethPnt.interface.encodeFunctionData('whitelistInflationRecipient', [crossExecutor.target])],
+        [ETHPNT, ethPnt.interface.encodeFunctionData('setInflationOwner', [crossExecutor.target])]
       ].map((_args) => encodeFunctionCall(..._args))
     )
     const voteId = await openNewVoteAndReachQuorum(
@@ -946,11 +943,11 @@ describe('Integration tests on Ethereum deployment', () => {
     await hardhatReset(network.provider, rpc)
     ;[faucet] = await ethers.getSigners()
     tokenHolders = await Promise.all(TOKEN_HOLDERS_ADDRESSES.map(ethers.getImpersonatedSigner))
-    pnetwork = await ethers.getImpersonatedSigner(PNETWORK_ADDRESS)
-    association = await ethers.getImpersonatedSigner(ASSOCIATION_ON_ETH_ADDRESS)
-    ethPnt = await ethers.getContractAt(EthPntAbi, ETHPNT_ADDRESS)
+    pnetwork = await ethers.getImpersonatedSigner(PNETWORK)
+    association = await ethers.getImpersonatedSigner(ASSOCIATION)
+    ethPnt = await ethers.getContractAt(EthPntAbi, ETHPNT)
     vault = await ethers.getContractAt('IErc20Vault', ERC20_VAULT)
-    safe = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    safe = await ethers.getImpersonatedSigner(SAFE)
     await sendEth(ethers, faucet, pnetwork.address, '10')
     await sendEth(ethers, faucet, association.address, '10')
     await sendEth(ethers, faucet, safe.address, '10')
@@ -968,16 +965,16 @@ describe('Integration tests on Ethereum deployment', () => {
           crossExecutor.target.slice(2)
         ),
       sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
-      senderAddress: DANDELION_VOTING_ADDRESS,
+      senderAddress: DANDELION_VOTING,
       destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
       receiverAddress: crossExecutor.target
     })
     await expect(pegoutPntOnEth(crossExecutor.target, 1, metadata))
       .to.emit(ethPnt, 'Transfer')
-      .withArgs(ZERO_ADDRESS, crossExecutor.target, 10)
+      .withArgs(ethers.ZeroAddress, crossExecutor.target, 10)
       .and.to.emit(vault, 'PegIn')
       .withArgs(
-        PNT_ON_ETH_ADDRESS,
+        PNT_ON_ETH,
         crossExecutor.target,
         10,
         FINANCE_VAULT,
@@ -996,19 +993,19 @@ describe('Integration tests on Ethereum deployment', () => {
           crossExecutor.target.slice(2)
         ),
       sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
-      senderAddress: DANDELION_VOTING_ADDRESS,
+      senderAddress: DANDELION_VOTING,
       destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
       receiverAddress: crossExecutor.target
     })
     await expect(pegoutPntOnEth(crossExecutor.target, 1, metadata))
       .to.emit(ethPnt, 'Transfer')
-      .withArgs(ZERO_ADDRESS, crossExecutor.target, ethers.parseUnits('100'))
+      .withArgs(ethers.ZeroAddress, crossExecutor.target, ethers.parseUnits('100'))
       .and.to.emit(vault, 'PegIn')
       .withArgs(
-        PNT_ON_ETH_ADDRESS,
+        PNT_ON_ETH,
         crossExecutor.target,
         ethers.parseUnits('100'),
-        ASSOCIATION_ON_ETH_ADDRESS,
+        ASSOCIATION,
         '0x',
         PNETWORK_NETWORK_IDS.MAINNET,
         PNETWORK_NETWORK_IDS.GNOSIS
@@ -1063,7 +1060,7 @@ describe('Integration tests on Ethereum deployment', () => {
     await expect(
       crossExecutor
         .connect(safe)
-        .call(ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [association.address]))
+        .call(ETHPNT, ethPnt.interface.encodeFunctionData('setInflationOwner', [association.address]))
     ).to.emit(ethPnt, 'NewInflationOwner')
     expect(await ethPnt.inflationOwner()).to.be.eq(association.address)
   })
@@ -1072,7 +1069,7 @@ describe('Integration tests on Ethereum deployment', () => {
     await expect(
       crossExecutor
         .connect(association)
-        .call(ETHPNT_ADDRESS, ethPnt.interface.encodeFunctionData('setInflationOwner', [association.address]))
+        .call(ETHPNT, ethPnt.interface.encodeFunctionData('setInflationOwner', [association.address]))
     ).to.be.revertedWith('Ownable: caller is not the owner')
     expect(await ethPnt.inflationOwner()).to.be.eq(crossExecutor.target)
   })
@@ -1088,9 +1085,9 @@ describe('Integration tests on Polygon deployment', () => {
   beforeEach(async () => {
     const rpc = config.networks.polygon.url
     await hardhatReset(network.provider, rpc)
-    pntOnPolygon = await ethers.getContractAt(pntOnPolygonAbi, PNT_ON_POLYGON_ADDRESS)
+    pntOnPolygon = await ethers.getContractAt(pntOnPolygonAbi, PNT_ON_POLYGON)
     forwarder = await ethers.getContractAt('IForwarder', FORWARDER_ON_POLYGON)
-    minter = await ethers.getImpersonatedSigner(PNT_ON_POLYGON_MINTER)
+    minter = await ethers.getImpersonatedSigner(PNT_MINTER_ON_POLYGON)
     ;[faucet] = await ethers.getSigners()
     user = await ethers.getImpersonatedSigner(USER_ADDRESS)
     await sendEth(ethers, faucet, user.address, '100')

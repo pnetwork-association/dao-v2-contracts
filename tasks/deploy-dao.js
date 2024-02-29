@@ -3,10 +3,10 @@ const { task } = require('hardhat/config')
 const {
   ADDRESSES: {
     GNOSIS: {
-      DANDELION_VOTING_ADDRESS,
-      PNT_ON_GNOSIS_ADDRESS,
-      FORWARDER_ON_GNOSIS,
-      TOKEN_MANAGER_ADDRESS,
+      DANDELION_VOTING,
+      PNT,
+      FORWARDER,
+      TOKEN_MANAGER,
       STAKING_MANAGER,
       STAKING_MANAGER_LM,
       STAKING_MANAGER_RM,
@@ -43,7 +43,7 @@ const deploy = async (_args, _hre) => {
   } else {
     stakingManager = await _hre.upgrades.deployProxy(
       StakingManager,
-      [PNT_ON_GNOSIS_ADDRESS, TOKEN_MANAGER_ADDRESS, FORWARDER_ON_GNOSIS, PNT_MAX_TOTAL_SUPPLY],
+      [PNT, TOKEN_MANAGER, FORWARDER, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -59,7 +59,7 @@ const deploy = async (_args, _hre) => {
   } else {
     stakingManagerLM = await _hre.upgrades.deployProxy(
       StakingManagerPermissioned,
-      [PNT_ON_GNOSIS_ADDRESS, TOKEN_MANAGER_ADDRESS, FORWARDER_ON_GNOSIS, PNT_MAX_TOTAL_SUPPLY],
+      [PNT, TOKEN_MANAGER, FORWARDER, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -75,7 +75,7 @@ const deploy = async (_args, _hre) => {
   } else {
     stakingManagerRM = await _hre.upgrades.deployProxy(
       StakingManagerPermissioned,
-      [PNT_ON_GNOSIS_ADDRESS, TOKEN_MANAGER_ADDRESS, FORWARDER_ON_GNOSIS, PNT_MAX_TOTAL_SUPPLY],
+      [PNT, TOKEN_MANAGER, FORWARDER, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -107,14 +107,7 @@ const deploy = async (_args, _hre) => {
   } else {
     lendingManager = await _hre.upgrades.deployProxy(
       LendingManager,
-      [
-        PNT_ON_GNOSIS_ADDRESS,
-        stakingManagerLM.target,
-        epochsManager.target,
-        FORWARDER_ON_GNOSIS,
-        DANDELION_VOTING_ADDRESS,
-        LEND_MAX_EPOCHS
-      ],
+      [PNT, stakingManagerLM.target, epochsManager.target, FORWARDER, DANDELION_VOTING, LEND_MAX_EPOCHS],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -130,13 +123,7 @@ const deploy = async (_args, _hre) => {
   } else {
     registrationManager = await _hre.upgrades.deployProxy(
       RegistrationManager,
-      [
-        PNT_ON_GNOSIS_ADDRESS,
-        stakingManagerRM.target,
-        epochsManager.target,
-        lendingManager.target,
-        FORWARDER_ON_GNOSIS
-      ],
+      [PNT, stakingManagerRM.target, epochsManager.target, lendingManager.target, FORWARDER],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -152,13 +139,7 @@ const deploy = async (_args, _hre) => {
   } else {
     feesManager = await _hre.upgrades.deployProxy(
       FeesManager,
-      [
-        epochsManager.target,
-        lendingManager.target,
-        registrationManager.target,
-        FORWARDER_ON_GNOSIS,
-        MINIMUM_BORROWING_FEE
-      ],
+      [epochsManager.target, lendingManager.target, registrationManager.target, FORWARDER, MINIMUM_BORROWING_FEE],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -174,13 +155,7 @@ const deploy = async (_args, _hre) => {
   } else {
     rewardsManager = await _hre.upgrades.deployProxy(
       RewardsManager,
-      [
-        epochsManager.target,
-        DANDELION_VOTING_ADDRESS,
-        PNT_ON_GNOSIS_ADDRESS,
-        TOKEN_MANAGER_ADDRESS,
-        PNT_MAX_TOTAL_SUPPLY
-      ],
+      [epochsManager.target, DANDELION_VOTING, PNT, TOKEN_MANAGER, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
