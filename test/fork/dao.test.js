@@ -8,6 +8,7 @@ const DaoPntAbi = require('../../lib/abi/daoPNT.json')
 const ERC20VaultAbi = require('../../lib/abi/ERC20Vault.json')
 const EthPntAbi = require('../../lib/abi/ethPNT.json')
 const FinanceAbi = require('../../lib/abi/Finance.json')
+const pntOnGnosisAbi = require('../../lib/abi/PNTonGnosis.json')
 const pntOnPolygonAbi = require('../../lib/abi/PNTonPolygon.json')
 const VaultAbi = require('../../lib/abi/Vault.json')
 const {
@@ -27,6 +28,7 @@ const {
       FINANCE_VAULT,
       FINANCE,
       DAOPNT,
+      PNT: PNT_ON_GNOSIS,
       PNT_MINTER: PNT_MINTER_ON_GNOSIS,
       FORWARDER: FORWARDER_ON_GNOSIS
     },
@@ -164,8 +166,6 @@ describe('Integration tests on Gnosis deployment', () => {
   ]
 
   const missingSteps = async () => {
-    const MockPToken = await ethers.getContractFactory('MockPTokenERC20')
-    pntOnGnosis = await MockPToken.deploy('Host Token (pToken)', 'HTKN', pntMinter.address, PNETWORK_NETWORK_IDS.GNOSIS)
     await stakingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     await stakingManagerLm.connect(daoOwner).changeToken(pntOnGnosis.target)
     await stakingManagerRm.connect(daoOwner).changeToken(pntOnGnosis.target)
@@ -262,6 +262,7 @@ describe('Integration tests on Gnosis deployment', () => {
     daoVoting = await ethers.getContractAt(DandelionVotingAbi, DANDELION_VOTING)
     daoTreasury = await ethers.getContractAt(VaultAbi, FINANCE_VAULT)
     finance = await ethers.getContractAt(FinanceAbi, FINANCE)
+    pntOnGnosis = await ethers.getContractAt(pntOnGnosisAbi, PNT_ON_GNOSIS)
     daoPNT = await ethers.getContractAt(DaoPntAbi, DAOPNT)
     epochsManager = EpochsManager.attach(EPOCHS_MANAGER)
     stakingManager = StakingManager.attach(STAKING_MANAGER)
