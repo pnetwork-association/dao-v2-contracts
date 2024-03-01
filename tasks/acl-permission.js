@@ -9,8 +9,8 @@ const {
     PARAM_DESC_TARGET,
     PARAM_ROLE,
     PARAM_DESC_ROLE,
-    PARAM_SAFE_ADDRESS,
-    PARAM_DESC_SAFE_ADDRESS,
+    PARAM_SAFE,
+    PARAM_DESC_SAFE,
     PARAM_FLAG_LEDGER_WALLET,
     PARAM_DESC_FLAG_LEDGER_WALLET,
     PARAM_REVOKE,
@@ -23,7 +23,7 @@ const { getAllRoles } = require('../lib/roles')
 const { getAdapter, proposeTransactionToSafe } = require('../lib/safe')
 
 const proposeGrantRole = async (_args, _hre) => {
-  const safeAddress = _args[PARAM_SAFE_ADDRESS]
+  const safeAddress = _args[PARAM_SAFE]
   const targetAddress = _args[PARAM_TARGET]
   const entity = _args[PARAM_ENTITY]
   const role = _args[PARAM_ROLE]
@@ -75,6 +75,6 @@ task('permissions:acl-manage', 'Propose grant/revoke role transaction to safe mu
   .addPositionalParam(PARAM_ROLE, PARAM_DESC_ROLE)
   .addPositionalParam(PARAM_ENTITY, PARAM_DESC_ENTITY)
   .addPositionalParam(PARAM_TARGET, PARAM_DESC_TARGET)
-  .addPositionalParam(PARAM_SAFE_ADDRESS, PARAM_DESC_SAFE_ADDRESS)
+  .addPositionalParam(PARAM_SAFE, PARAM_DESC_SAFE)
   .addFlag(PARAM_FLAG_LEDGER_WALLET, PARAM_DESC_FLAG_LEDGER_WALLET)
   .setAction(proposeGrantRole)

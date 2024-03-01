@@ -1,27 +1,5 @@
 [
     {
-        "inputs": [
-            {
-                "internalType": "string",
-                "name": "tokenName",
-                "type": "string"
-            },
-            {
-                "internalType": "string",
-                "name": "tokenSymbol",
-                "type": "string"
-            },
-            {
-                "internalType": "address[]",
-                "name": "defaultOperators",
-                "type": "address[]"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "constructor"
-    },
-    {
         "anonymous": false,
         "inputs": [
             {
@@ -173,6 +151,12 @@
     },
     {
         "anonymous": false,
+        "inputs": [],
+        "name": "ReceiveUserDataFailed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
         "inputs": [
             {
                 "indexed": true,
@@ -197,28 +181,21 @@
                 "internalType": "bytes",
                 "name": "userData",
                 "type": "bytes"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes4",
+                "name": "originChainId",
+                "type": "bytes4"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes4",
+                "name": "destinationChainId",
+                "type": "bytes4"
             }
         ],
         "name": "Redeem",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "oldRelayHub",
-                "type": "address"
-            },
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "newRelayHub",
-                "type": "address"
-            }
-        ],
-        "name": "RelayHubChanged",
         "type": "event"
     },
     {
@@ -238,6 +215,81 @@
             }
         ],
         "name": "RevokedOperator",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "previousAdminRole",
+                "type": "bytes32"
+            },
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "newAdminRole",
+                "type": "bytes32"
+            }
+        ],
+        "name": "RoleAdminChanged",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "sender",
+                "type": "address"
+            }
+        ],
+        "name": "RoleGranted",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "sender",
+                "type": "address"
+            }
+        ],
+        "name": "RoleRevoked",
         "type": "event"
     },
     {
@@ -309,73 +361,58 @@
         "type": "event"
     },
     {
-        "constant": true,
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "relay",
-                "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "from",
-                "type": "address"
-            },
-            {
-                "internalType": "bytes",
-                "name": "encodedFunction",
-                "type": "bytes"
-            },
-            {
-                "internalType": "uint256",
-                "name": "transactionFee",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "gasPrice",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "gasLimit",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "nonce",
-                "type": "uint256"
-            },
-            {
-                "internalType": "bytes",
-                "name": "approvalData",
-                "type": "bytes"
-            },
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "name": "acceptRelayedCall",
+        "inputs": [],
+        "name": "DEFAULT_ADMIN_ROLE",
         "outputs": [
             {
-                "internalType": "uint256",
+                "internalType": "bytes32",
                 "name": "",
-                "type": "uint256"
-            },
-            {
-                "internalType": "bytes",
-                "name": "",
-                "type": "bytes"
+                "type": "bytes32"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": true,
+        "inputs": [],
+        "name": "MINTER_ROLE",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "ORIGIN_CHAIN_ID",
+        "outputs": [
+            {
+                "internalType": "bytes4",
+                "name": "",
+                "type": "bytes4"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_adminOperator",
+                "type": "address"
+            }
+        ],
+        "name": "__ERC777WithAdminOperatorUpgradeable_init",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "inputs": [],
         "name": "adminOperator",
         "outputs": [
@@ -385,12 +422,10 @@
                 "type": "address"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -420,12 +455,10 @@
         ],
         "name": "adminTransfer",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": true,
         "inputs": [
             {
                 "internalType": "address",
@@ -446,12 +479,10 @@
                 "type": "uint256"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -472,12 +503,10 @@
                 "type": "bool"
             }
         ],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -487,12 +516,10 @@
         ],
         "name": "authorizeOperator",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": true,
         "inputs": [
             {
                 "internalType": "address",
@@ -508,12 +535,10 @@
                 "type": "uint256"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "uint256",
@@ -528,27 +553,29 @@
         ],
         "name": "burn",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
-                "internalType": "address",
-                "name": "newPNetwork",
-                "type": "address"
+                "internalType": "bytes4",
+                "name": "_newOriginChainId",
+                "type": "bytes4"
             }
         ],
-        "name": "changePNetwork",
-        "outputs": [],
-        "payable": false,
+        "name": "changeOriginChainId",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "success",
+                "type": "bool"
+            }
+        ],
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": true,
         "inputs": [],
         "name": "decimals",
         "outputs": [
@@ -558,12 +585,10 @@
                 "type": "uint8"
             }
         ],
-        "payable": false,
         "stateMutability": "pure",
         "type": "function"
     },
     {
-        "constant": true,
         "inputs": [],
         "name": "defaultOperators",
         "outputs": [
@@ -573,14 +598,42 @@
                 "type": "address[]"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": true,
-        "inputs": [],
-        "name": "getHubAddr",
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            }
+        ],
+        "name": "getRoleAdmin",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "index",
+                "type": "uint256"
+            }
+        ],
+        "name": "getRoleMember",
         "outputs": [
             {
                 "internalType": "address",
@@ -588,12 +641,60 @@
                 "type": "address"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": true,
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            }
+        ],
+        "name": "getRoleMemberCount",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_account",
+                "type": "address"
+            }
+        ],
+        "name": "grantMinterRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            }
+        ],
+        "name": "grantRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "inputs": [],
         "name": "granularity",
         "outputs": [
@@ -603,57 +704,81 @@
                 "type": "uint256"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": true,
-        "inputs": [],
-        "name": "gsnExtraGas",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [],
-        "name": "gsnFeeTarget",
-        "outputs": [
+        "inputs": [
             {
                 "internalType": "address",
-                "name": "",
+                "name": "_account",
                 "type": "address"
             }
         ],
-        "payable": false,
+        "name": "hasMinterRole",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": true,
-        "inputs": [],
-        "name": "gsnTrustedSigner",
-        "outputs": [
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
             {
                 "internalType": "address",
-                "name": "",
+                "name": "account",
                 "type": "address"
             }
         ],
-        "payable": false,
+        "name": "hasRole",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": true,
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "tokenName",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "tokenSymbol",
+                "type": "string"
+            },
+            {
+                "internalType": "address",
+                "name": "defaultAdmin",
+                "type": "address"
+            },
+            {
+                "internalType": "bytes4",
+                "name": "originChainId",
+                "type": "bytes4"
+            }
+        ],
+        "name": "initialize",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "internalType": "address",
@@ -674,12 +799,10 @@
                 "type": "bool"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -700,12 +823,10 @@
                 "type": "bool"
             }
         ],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -736,12 +857,10 @@
                 "type": "bool"
             }
         ],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": true,
         "inputs": [],
         "name": "name",
         "outputs": [
@@ -751,12 +870,10 @@
                 "type": "string"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -781,12 +898,10 @@
         ],
         "name": "operatorBurn",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -812,16 +927,19 @@
                 "internalType": "string",
                 "name": "underlyingAssetRecipient",
                 "type": "string"
+            },
+            {
+                "internalType": "bytes4",
+                "name": "destinationChainId",
+                "type": "bytes4"
             }
         ],
         "name": "operatorRedeem",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -851,104 +969,10 @@
         ],
         "name": "operatorSend",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": true,
-        "inputs": [],
-        "name": "pNetwork",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "bytes",
-                "name": "context",
-                "type": "bytes"
-            },
-            {
-                "internalType": "bool",
-                "name": "success",
-                "type": "bool"
-            },
-            {
-                "internalType": "uint256",
-                "name": "actualCharge",
-                "type": "uint256"
-            },
-            {
-                "internalType": "bytes32",
-                "name": "preRetVal",
-                "type": "bytes32"
-            }
-        ],
-        "name": "postRelayedCall",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "bytes",
-                "name": "context",
-                "type": "bytes"
-            }
-        ],
-        "name": "preRelayedCall",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            },
-            {
-                "internalType": "string",
-                "name": "underlyingAssetRecipient",
-                "type": "string"
-            }
-        ],
-        "name": "redeem",
-        "outputs": [
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "uint256",
@@ -964,31 +988,79 @@
                 "internalType": "string",
                 "name": "underlyingAssetRecipient",
                 "type": "string"
+            },
+            {
+                "internalType": "bytes4",
+                "name": "destinationChainId",
+                "type": "bytes4"
             }
         ],
         "name": "redeem",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": true,
-        "inputs": [],
-        "name": "relayHubVersion",
-        "outputs": [
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            },
             {
                 "internalType": "string",
-                "name": "",
+                "name": "underlyingAssetRecipient",
                 "type": "string"
+            },
+            {
+                "internalType": "bytes4",
+                "name": "destinationChainId",
+                "type": "bytes4"
             }
         ],
-        "payable": false,
-        "stateMutability": "view",
+        "name": "redeem",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            }
+        ],
+        "name": "renounceRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_account",
+                "type": "address"
+            }
+        ],
+        "name": "revokeMinterRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "internalType": "address",
@@ -998,12 +1070,28 @@
         ],
         "name": "revokeOperator",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "role",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            }
+        ],
+        "name": "revokeRole",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "internalType": "address",
@@ -1023,12 +1111,10 @@
         ],
         "name": "send",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -1038,57 +1124,10 @@
         ],
         "name": "setAdminOperator",
         "outputs": [],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "_gsnFeeTarget",
-                "type": "address"
-            }
-        ],
-        "name": "setFeeTarget",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "_gsnExtraGas",
-                "type": "uint256"
-            }
-        ],
-        "name": "setGSNExtraGas",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": false,
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "_gsnTrustedSigner",
-                "type": "address"
-            }
-        ],
-        "name": "setTrustedSigner",
-        "outputs": [],
-        "payable": false,
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "constant": true,
         "inputs": [],
         "name": "symbol",
         "outputs": [
@@ -1098,12 +1137,10 @@
                 "type": "string"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": true,
         "inputs": [],
         "name": "totalSupply",
         "outputs": [
@@ -1113,12 +1150,10 @@
                 "type": "uint256"
             }
         ],
-        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -1139,12 +1174,10 @@
                 "type": "bool"
             }
         ],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
-        "constant": false,
         "inputs": [
             {
                 "internalType": "address",
@@ -1170,7 +1203,6 @@
                 "type": "bool"
             }
         ],
-        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
     }

@@ -4,7 +4,7 @@ const { ethers, upgrades, config, network } = require('hardhat')
 
 const {
   ADDRESSES: {
-    GNOSIS: { ACL_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS }
+    GNOSIS: { ACL, SAFE, TOKEN_MANAGER }
   },
   MISC: {
     BORROW_AMOUNT_FOR_SENTINEL_REGISTRATION,
@@ -81,7 +81,7 @@ describe('RegistrationManager', () => {
     const StakingManager = await ethers.getContractFactory('StakingManagerPermissioned')
     const FeesManager = await ethers.getContractFactory('FeesManager')
     const TestToken = await ethers.getContractFactory('TestToken')
-    const ACL = await ethers.getContractFactory('ACL')
+    const Acl = await ethers.getContractFactory('ACL')
     const MockGovernanceMessageEmitter = await ethers.getContractFactory('MockGovernanceMessageEmitter')
 
     signers = await ethers.getSigners()
@@ -99,11 +99,11 @@ describe('RegistrationManager', () => {
     sentinel2 = signers[11]
     pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
     pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
-    daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    daoRoot = await ethers.getImpersonatedSigner(SAFE)
     await sendEth(ethers, owner, daoRoot.address, '1')
 
     pnt = await TestToken.deploy('PNT', 'PNT')
-    acl = ACL.attach(ACL_ADDRESS)
+    acl = Acl.attach(ACL)
 
     await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('500000'))
     await pnt.connect(owner).transfer(pntHolder2.address, ethers.parseEther('500000'))
@@ -113,7 +113,7 @@ describe('RegistrationManager', () => {
 
     stakingManagerLM = await upgrades.deployProxy(
       StakingManager,
-      [pnt.target, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
+      [pnt.target, TOKEN_MANAGER, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -122,7 +122,7 @@ describe('RegistrationManager', () => {
 
     stakingManagerRM = await upgrades.deployProxy(
       StakingManager,
-      [pnt.target, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
+      [pnt.target, TOKEN_MANAGER, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -194,10 +194,10 @@ describe('RegistrationManager', () => {
     await registrationManager.grantRole(SET_GOVERNANCE_MESSAGE_EMITTER_ROLE, owner.address)
     await registrationManager.grantRole(SET_FEES_MANAGER_ROLE, owner.address)
     await feesManager.grantRole(REDIRECT_CLAIM_TO_CHALLENGER_BY_EPOCH_ROLE, registrationManager.target)
-    await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-    await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-    await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-    await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(stakingManagerRM.target, TOKEN_MANAGER, BURN_ROLE)
+    await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(stakingManagerLM.target, TOKEN_MANAGER, BURN_ROLE)
 
     await registrationManager.setFeesManager(feesManager.target)
     await registrationManager.setGovernanceMessageEmitter(governanceMessageEmitter.target)

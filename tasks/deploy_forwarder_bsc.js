@@ -2,7 +2,7 @@ const { task } = require('hardhat/config')
 
 const {
   ADDRESSES: {
-    BSC: { PNT_ON_BSC_ADDRESS }
+    BSC: { PNT }
   }
 } = require('../lib/constants')
 
@@ -12,7 +12,7 @@ const deploy = async (_args, _hre) => {
   }
   const Forwarder = await _hre.ethers.getContractFactory('ForwarderHost')
   console.log('Deploying forwarder on BSC ...')
-  const forwarder = await Forwarder.deploy(PNT_ON_BSC_ADDRESS)
+  const forwarder = await Forwarder.deploy(PNT)
   console.log('Forwarder deployed at', forwarder.target)
 }
 

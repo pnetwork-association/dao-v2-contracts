@@ -3,8 +3,8 @@ const { task } = require('hardhat/config')
 const {
   ADDRESSES: {
     GNOSIS: {
-      ACL_ADDRESS,
-      TOKEN_MANAGER_ADDRESS,
+      ACL,
+      TOKEN_MANAGER,
       STAKING_MANAGER,
       STAKING_MANAGER_LM,
       STAKING_MANAGER_RM,
@@ -22,13 +22,13 @@ const setPermissions = async (_args, { ethers, network }) => {
   const { MINT_ROLE, BURN_ROLE, STAKE_ROLE, INCREASE_DURATION_ROLE, BORROW_ROLE } = getAllRoles(ethers)
   const [signer] = await ethers.getSigners()
 
-  const ACL = await ethers.getContractFactory('ACL')
+  const Acl = await ethers.getContractFactory('ACL')
   const StakingManager = await ethers.getContractFactory('StakingManager')
   const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
   const LendingManager = await ethers.getContractFactory('LendingManager')
   const RegistrationManager = await ethers.getContractFactory('RegistrationManager')
 
-  const acl = ACL.attach(ACL_ADDRESS)
+  const acl = Acl.attach(ACL)
   const stakingManager = StakingManager.attach(STAKING_MANAGER)
   const stakingManagerLM = StakingManagerPermissioned.attach(STAKING_MANAGER_LM)
   const stakingManagerRM = StakingManagerPermissioned.attach(STAKING_MANAGER_RM)
@@ -36,14 +36,14 @@ const setPermissions = async (_args, { ethers, network }) => {
   const registrationManager = RegistrationManager.attach(REGISTRATION_MANAGER)
 
   console.log('Setting ACL permissions ...')
-  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-  await acl.setPermissionManager(signer.address, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
-  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+  await acl.setPermissionManager(signer.address, TOKEN_MANAGER, MINT_ROLE)
+  await acl.setPermissionManager(signer.address, TOKEN_MANAGER, BURN_ROLE)
+  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER, MINT_ROLE)
+  await acl.grantPermission(stakingManager.target, TOKEN_MANAGER, BURN_ROLE)
+  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER, MINT_ROLE)
+  await acl.grantPermission(stakingManagerLM.target, TOKEN_MANAGER, BURN_ROLE)
+  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER, MINT_ROLE)
+  await acl.grantPermission(stakingManagerRM.target, TOKEN_MANAGER, BURN_ROLE)
   await stakingManagerLM.grantRole(STAKE_ROLE, lendingManager.target)
   await stakingManagerLM.grantRole(INCREASE_DURATION_ROLE, lendingManager.target)
   await stakingManagerRM.grantRole(STAKE_ROLE, registrationManager.target)
@@ -51,10 +51,10 @@ const setPermissions = async (_args, { ethers, network }) => {
 
   console.log('Assigning roles and whitelisting origin addresses ...')
   await lendingManager.grantRole(BORROW_ROLE, registrationManager.target)
-  // await forwarder.whitelistOriginAddress(FORWARDER_ON_MAINNET)
-  // await forwarder.whitelistOriginAddress(FORWARDER_ON_BSC)
+  // await forwarder.whitelistOriginAddress(FORWARDER)
+  // await forwarder.whitelistOriginAddress(FORWARDER)
 
-  // NOTE: remember to send 1 pnt to FORWARDER_ON_MAINNET and FORWARDER_ON_BSC
+  // NOTE: remember to send 1 pnt to FORWARDER and FORWARDER
 }
 
 task('permissions:set-permissions', 'Set permissions', setPermissions)

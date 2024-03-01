@@ -22,7 +22,7 @@ const checkPermission = async (_contract, _role) => {
 
 const checkAclPermission = async (_ethers, _acl, _address, _role, _fromBlock) => {
   const manager = await _acl.getPermissionManager(_address, _role[1])
-  if (manager !== ADDRESSES.ZERO_ADDRESS) console.info(`${_role[0]} manager: ${manager}`)
+  if (manager !== _ethers.ZeroAddress) console.info(`${_role[0]} manager: ${manager}`)
   const logs = await _ethers.provider.getLogs({
     address: _acl.target,
     topics: [SET_PERMISSION_TOPIC, null, _ethers.zeroPadValue(_address, 32), _ethers.zeroPadValue(_role[1], 32)],
@@ -47,7 +47,7 @@ const main = async (_params, { ethers, network }) => {
 
   const tryACL = async (_address, _roles) => {
     console.info('Trying Aragon ACL')
-    const aclAddress = ADDRESSES[network.name.toUpperCase()].ACL_ADDRESS
+    const aclAddress = ADDRESSES[network.name.toUpperCase()].ACL
     if (aclAddress === undefined) {
       console.warn('Missing ACL address')
       return

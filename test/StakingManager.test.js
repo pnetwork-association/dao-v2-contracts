@@ -4,8 +4,7 @@ const { ethers, upgrades } = require('hardhat')
 
 const {
   ADDRESSES: {
-    GNOSIS: { ACL_ADDRESS, DAOPNT_ON_GNOSIS_ADDRESS, SAFE_ADDRESS, TOKEN_MANAGER_ADDRESS },
-    ZERO_ADDRESS
+    GNOSIS: { ACL, DAOPNT, SAFE, TOKEN_MANAGER }
   },
   MISC: { MIN_LOCK_DURATION, ONE_DAY, PNT_MAX_TOTAL_SUPPLY },
   PNETWORK_NETWORK_IDS
@@ -21,7 +20,7 @@ describe('StakingManager', () => {
 
   beforeEach(async () => {
     StakingManager = await ethers.getContractFactory('StakingManager')
-    const ACL = await ethers.getContractFactory('ACL')
+    const Acl = await ethers.getContractFactory('ACL')
     const ERC20 = await ethers.getContractFactory('ERC20')
     const TestToken = await ethers.getContractFactory('TestToken')
 
@@ -30,18 +29,18 @@ describe('StakingManager', () => {
     fakeForwarder = signers[1]
     challenger = signers[2]
     pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
-    daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    daoRoot = await ethers.getImpersonatedSigner(SAFE)
     await sendEth(ethers, owner, daoRoot.address, '1')
 
-    acl = ACL.attach(ACL_ADDRESS)
+    acl = Acl.attach(ACL)
     pnt = await TestToken.deploy('PNT', 'PNT')
-    daoPnt = ERC20.attach(DAOPNT_ON_GNOSIS_ADDRESS)
+    daoPnt = ERC20.attach(DAOPNT)
 
     await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('400000'))
 
     stakingManager = await upgrades.deployProxy(
       StakingManager,
-      [pnt.target, TOKEN_MANAGER_ADDRESS, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
+      [pnt.target, TOKEN_MANAGER, fakeForwarder.address, PNT_MAX_TOTAL_SUPPLY],
       {
         initializer: 'initialize',
         kind: 'uups'
@@ -53,8 +52,8 @@ describe('StakingManager', () => {
     await stakingManager.grantRole(UPGRADE_ROLE, owner.address)
     await stakingManager.grantRole(SLASH_ROLE, owner.address)
     await stakingManager.grantRole(CHANGE_MAX_TOTAL_SUPPLY_ROLE, owner.address)
-    await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, MINT_ROLE)
-    await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER_ADDRESS, BURN_ROLE)
+    await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER, MINT_ROLE)
+    await acl.connect(daoRoot).grantPermission(stakingManager.target, TOKEN_MANAGER, BURN_ROLE)
 
     await sendEth(ethers, owner, pntHolder1.address, '10')
   })
@@ -447,7 +446,7 @@ describe('StakingManager', () => {
 
     stake = await stakingManager.stakeOf(pntHolder1.address)
     expect(stake.amount).to.be.eq(0)
-    expect(stake.token).to.be.eq(ZERO_ADDRESS)
+    expect(stake.token).to.be.eq(ethers.ZeroAddress)
     expect(stake.startDate).to.be.eq(0)
     expect(stake.endDate).to.be.eq(0)
   })

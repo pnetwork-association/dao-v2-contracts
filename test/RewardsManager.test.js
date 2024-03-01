@@ -7,7 +7,7 @@ const AclAbi = require('../lib/abi/ACL.json')
 const TokenManagerAbi = require('../lib/abi/TokenManager.json')
 const {
   ADDRESSES: {
-    GNOSIS: { ACL_ADDRESS, TOKEN_MANAGER_ADDRESS, SAFE_ADDRESS }
+    GNOSIS: { ACL, TOKEN_MANAGER, SAFE }
   },
   MISC: { EPOCH_DURATION, ONE_DAY, ONE_MONTH, PNT_MAX_TOTAL_SUPPLY },
   VOTE_STATUS
@@ -96,7 +96,7 @@ describe('RewardsManager', () => {
 
     const signers = await ethers.getSigners()
     owner = signers[0]
-    daoRoot = await ethers.getImpersonatedSigner(SAFE_ADDRESS)
+    daoRoot = await ethers.getImpersonatedSigner(SAFE)
     await sendEth(ethers, owner, daoRoot.address, '1')
 
     randomGuy = ethers.Wallet.createRandom().connect(ethers.provider)
@@ -108,8 +108,8 @@ describe('RewardsManager', () => {
 
     await Promise.all([...pntHolders, daoRoot, randomGuy].map((_dest) => sendEth(ethers, owner, _dest.address, '1001')))
 
-    acl = await ethers.getContractAt(AclAbi, ACL_ADDRESS)
-    tokenManager = await ethers.getContractAt(TokenManagerAbi, TOKEN_MANAGER_ADDRESS)
+    acl = await ethers.getContractAt(AclAbi, ACL)
+    tokenManager = await ethers.getContractAt(TokenManagerAbi, TOKEN_MANAGER)
     pnt = await TestToken.deploy('PNT', 'PNT')
     daoPnt = ERC20.attach(await tokenManager.token())
 
