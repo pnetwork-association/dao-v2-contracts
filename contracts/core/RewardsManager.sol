@@ -27,6 +27,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     mapping(uint16 => uint256) public claimedAmountByEpoch;
     mapping(uint16 => uint256) public unclaimableAmountByEpoch;
     mapping(uint16 => mapping(address => uint256)) public lockedRewardByEpoch;
+    mapping(uint16 => mapping(address => bool)) private _stakerSeenByEpoch;
 
     event RewardRegistered(uint16 indexed epoch, address indexed staker, uint256 amount);
 
@@ -90,7 +91,8 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         if (epoch >= currentEpoch) revert Errors.InvalidEpoch();
         (bool[] memory hasVoted, uint256[] memory amounts) = _getVotesAndBalancesForEpoch(epoch, stakers);
         for (uint256 i = 0; i < stakers.length; i++) {
-            if (lockedRewardByEpoch[epoch][stakers[i]] > 0) continue;
+            if (_stakerSeenByEpoch[epoch][stakers[i]]) continue;
+            _stakerSeenByEpoch[epoch][stakers[i]] = true;
             uint256 amount = amounts[i];
             if (hasVoted[i] && amount > 0) {
                 lockedRewardByEpoch[epoch][stakers[i]] = amount;
