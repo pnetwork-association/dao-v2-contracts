@@ -68,10 +68,10 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         if (currentEpoch - epoch < 12) revert Errors.TooEarly();
         uint256 amount = lockedRewardByEpoch[epoch][sender];
         if (amount > 0) {
-            ITokenManager(tokenManager).burn(sender, amount);
-            IERC20Upgradeable(token).safeTransfer(sender, amount);
             delete lockedRewardByEpoch[epoch][sender];
             claimedAmountByEpoch[epoch] += amount;
+            ITokenManager(tokenManager).burn(sender, amount);
+            IERC20Upgradeable(token).safeTransfer(sender, amount);
         } else revert Errors.NothingToClaim();
     }
 
@@ -80,8 +80,8 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         address sender = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch < currentEpoch) revert Errors.InvalidEpoch();
-        IERC20Upgradeable(token).safeTransferFrom(sender, address(this), amount);
         depositedAmountByEpoch[epoch] += amount;
+        IERC20Upgradeable(token).safeTransferFrom(sender, address(this), amount);
     }
 
     /// @inheritdoc IRewardsManager
@@ -93,9 +93,9 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
             if (lockedRewardByEpoch[epoch][stakers[i]] > 0) continue;
             uint256 amount = amounts[i];
             if (hasVoted[i] && amount > 0) {
+                lockedRewardByEpoch[epoch][stakers[i]] = amount;
                 ITokenManager(tokenManager).mint(stakers[i], amount);
                 _checkTotalSupply();
-                lockedRewardByEpoch[epoch][stakers[i]] = amount;
                 emit RewardRegistered(epoch, stakers[i], amount);
             } else if (amount > 0) {
                 unclaimableAmountByEpoch[epoch] += amount;
@@ -105,10 +105,11 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
 
     /// @inheritdoc IRewardsManager
     function withdrawUnclaimableRewardsForEpoch(uint16 epoch) external onlyRole(Roles.WITHDRAW_ROLE) {
-        if (unclaimableAmountByEpoch[epoch] > 0) {
+        uint256 amount = unclaimableAmountByEpoch[epoch];
+        if (amount > 0) {
             address sender = _msgSender();
-            IERC20Upgradeable(token).safeTransfer(sender, unclaimableAmountByEpoch[epoch]);
             delete unclaimableAmountByEpoch[epoch];
+            IERC20Upgradeable(token).safeTransfer(sender, amount);
         } else revert Errors.NothingToWithdraw();
     }
 
