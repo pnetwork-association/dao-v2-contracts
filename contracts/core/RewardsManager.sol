@@ -152,7 +152,8 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         for (uint256 voteId = numberOfVotes; voteId >= 1; voteId--) {
             (, , uint64 startTimestamp, , uint64 snapshotBlock, , , , , , ) = votingContract.getVote(voteId);
             uint64 voteEndTimestamp = startTimestamp + voteDuration;
-            if (voteEndTimestamp >= epochStartTimestamp && voteEndTimestamp <= epochEndTimestamp) {
+            if (voteEndTimestamp <= epochEndTimestamp) {
+                if (voteEndTimestamp < epochStartTimestamp) break;
                 if (lastVoteSnapshotBlock == 0) {
                     lastVoteSnapshotBlock = snapshotBlock;
                     supply = minime.totalSupplyAt(lastVoteSnapshotBlock);
