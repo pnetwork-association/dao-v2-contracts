@@ -216,6 +216,9 @@ describe('RewardsManager', () => {
     await assertDaoPntBalances(['200000', '440000', '55000', '10000'])
     await assertPntBalances(['420000', '400000', '400000', '400000'])
 
+    await expect(rewardsManager.connect(randomGuy).registerRewardsForEpoch(0, [pntHolder1.address])).to.not.be.reverted
+    await assertLockedRewardForEpoch(0, ['0', '40000', '5000', '0'])
+
     await time.increase(ONE_MONTH)
     await expect(rewardsManager.connect(pntHolder2).claimRewardByEpoch(0))
       .to.emit(pnt, 'Transfer')
@@ -234,6 +237,7 @@ describe('RewardsManager', () => {
     )
     await rewardsManager.grantRole(WITHDRAW_ROLE, owner.address)
     const ownerBalancePre = await pnt.balanceOf(owner.address)
+    expect(await rewardsManager.unclaimableAmountByEpoch(0)).to.be.eq(ethers.parseUnits('1000'))
     await rewardsManager.connect(owner).withdrawUnclaimableRewardsForEpoch(0)
     expect(await pnt.balanceOf(owner.address)).to.be.eq(ownerBalancePre + ethers.parseUnits('1000'))
     await expect(rewardsManager.connect(owner).withdrawUnclaimableRewardsForEpoch(0)).to.be.revertedWithCustomError(
