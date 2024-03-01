@@ -77,7 +77,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     }
 
     /// @inheritdoc IRewardsManager
-    function depositForEpoch(uint16 epoch, uint256 amount) external onlyRole(Roles.DEPOSIT_REWARD_ROLE) {
+    function depositForEpoch(uint16 epoch, uint256 amount) external {
         address sender = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch < currentEpoch) revert Errors.InvalidEpoch();

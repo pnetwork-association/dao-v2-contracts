@@ -17,7 +17,7 @@ const { getAllRoles } = require('../lib/roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
 
-const { DEPOSIT_REWARD_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = getAllRoles(ethers)
+const { MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = getAllRoles(ethers)
 
 describe('RewardsManager', () => {
   let epochsManager,
@@ -41,7 +41,6 @@ describe('RewardsManager', () => {
   const sendPnt = (_from, _to, _amount) => pnt.connect(_from).transfer(_to, ethers.parseEther(_amount))
 
   const depositRewardsForEpoch = async (_amount, _epoch) => {
-    await rewardsManager.grantRole(DEPOSIT_REWARD_ROLE, owner.address)
     await pnt.approve(rewardsManager.target, _amount)
     const pntOwnerBalancePre = await pnt.balanceOf(owner.address)
     const pntRewardsManagerBalancePre = await pnt.balanceOf(rewardsManager.target)
