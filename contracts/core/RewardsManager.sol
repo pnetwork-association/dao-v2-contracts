@@ -92,6 +92,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
 
     /// @inheritdoc IRewardsManager
     function registerRewardsForEpoch(uint16 epoch, address[] calldata stakers) external {
+        address minime = ITokenManager(tokenManager).token();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch >= currentEpoch) revert Errors.InvalidEpoch();
         (bool[] memory hasVoted, uint256[] memory amounts) = _getVotesAndBalancesForEpoch(epoch, stakers);
@@ -107,7 +108,9 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
                 unclaimableAmountByEpoch[epoch] += amount;
             }
         }
-        _checkTotalSupply();
+        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
+            revert Errors.MaxTotalSupplyExceeded();
+        }
     }
 
     /// @inheritdoc IRewardsManager
@@ -121,13 +124,6 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
-
-    function _checkTotalSupply() internal {
-        address minime = ITokenManager(tokenManager).token();
-        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
-            revert Errors.MaxTotalSupplyExceeded();
-        }
-    }
 
     function _getEpochTimestamps(uint16 epoch) private view returns (uint256, uint256) {
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
