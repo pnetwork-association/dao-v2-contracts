@@ -143,8 +143,8 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         uint64 voteDuration = votingContract.duration();
         (uint256 epochStartTimestamp, uint256 epochEndTimestamp) = _getEpochTimestamps(epoch);
 
-        uint64 lastVoteSnapshotBlock;
-        uint256 supply;
+        uint64 latestVoteSnapshotBlock;
+        uint256 totalStakedAmount;
 
         bool[] memory hasVoted = new bool[](stakers.length);
         uint256[] memory amounts = new uint256[](stakers.length);
@@ -154,9 +154,9 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
             uint64 voteEndTimestamp = startTimestamp + voteDuration;
             if (voteEndTimestamp <= epochEndTimestamp) {
                 if (voteEndTimestamp < epochStartTimestamp) break;
-                if (lastVoteSnapshotBlock == 0) {
-                    lastVoteSnapshotBlock = snapshotBlock;
-                    supply = minime.totalSupplyAt(lastVoteSnapshotBlock);
+                if (latestVoteSnapshotBlock == 0) {
+                    latestVoteSnapshotBlock = snapshotBlock;
+                    totalStakedAmount = minime.totalSupplyAt(latestVoteSnapshotBlock);
                 }
                 for (uint256 i = 0; i < stakers.length; i++) {
                     if (
@@ -167,13 +167,13 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
             }
         }
 
-        if (lastVoteSnapshotBlock == 0) {
+        if (latestVoteSnapshotBlock == 0) {
             revert Errors.NoVoteInEpoch();
         }
 
         for (uint256 i = 0; i < stakers.length; i++) {
-            uint256 balance = minime.balanceOfAt(stakers[i], lastVoteSnapshotBlock);
-            amounts[i] = (depositedAmountByEpoch[epoch] * balance) / supply;
+            uint256 stakedAmount = minime.balanceOfAt(stakers[i], latestVoteSnapshotBlock);
+            amounts[i] = (depositedAmountByEpoch[epoch] * stakedAmount) / totalStakedAmount;
         }
 
         return (hasVoted, amounts);
