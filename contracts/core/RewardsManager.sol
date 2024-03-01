@@ -95,12 +95,12 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
             if (hasVoted[i] && amount > 0) {
                 lockedRewardByEpoch[epoch][stakers[i]] = amount;
                 ITokenManager(tokenManager).mint(stakers[i], amount);
-                _checkTotalSupply();
                 emit RewardRegistered(epoch, stakers[i], amount);
             } else if (amount > 0) {
                 unclaimableAmountByEpoch[epoch] += amount;
             }
         }
+        _checkTotalSupply();
     }
 
     /// @inheritdoc IRewardsManager
