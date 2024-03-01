@@ -3,8 +3,8 @@
 pragma solidity ^0.8.17;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IDandelionVoting} from "../interfaces/external/IDandelionVoting.sol";
@@ -16,7 +16,7 @@ import {Errors} from "../libraries/Errors.sol";
 import {Roles} from "../libraries/Roles.sol";
 
 contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
     address public epochsManager;
     address public dandelionVoting;
     uint256 public maxTotalSupply;
@@ -77,7 +77,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
             delete lockedRewardByEpoch[epoch][sender];
             claimedAmountByEpoch[epoch] += amount;
             ITokenManager(tokenManager).burn(sender, amount);
-            IERC20Upgradeable(token).safeTransfer(sender, amount);
+            IERC20(token).safeTransfer(sender, amount);
         } else revert Errors.NothingToClaim();
     }
 
@@ -87,7 +87,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch < currentEpoch) revert Errors.InvalidEpoch();
         depositedAmountByEpoch[epoch] += amount;
-        IERC20Upgradeable(token).safeTransferFrom(sender, address(this), amount);
+        IERC20(token).safeTransferFrom(sender, address(this), amount);
     }
 
     /// @inheritdoc IRewardsManager
@@ -108,7 +108,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
                 unclaimableAmountByEpoch[epoch] += amount;
             }
         }
-        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
+        if (IERC20(minime).totalSupply() > maxTotalSupply) {
             revert Errors.MaxTotalSupplyExceeded();
         }
     }
@@ -119,7 +119,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         if (amount > 0) {
             address sender = _msgSender();
             delete unclaimableAmountByEpoch[epoch];
-            IERC20Upgradeable(token).safeTransfer(sender, amount);
+            IERC20(token).safeTransfer(sender, amount);
         } else revert Errors.NothingToWithdraw();
     }
 
