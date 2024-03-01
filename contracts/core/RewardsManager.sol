@@ -62,6 +62,11 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         emit TokenChanged(previousToken, token);
     }
 
+    function changeMaxTotalSupply(uint256 _maxTotalSupply) external onlyRole(Roles.CHANGE_MAX_TOTAL_SUPPLY_ROLE) {
+        maxTotalSupply = _maxTotalSupply;
+        emit MaxTotalSupplyChanged(_maxTotalSupply);
+    }
+
     /// @inheritdoc IRewardsManager
     function claimRewardByEpoch(uint16 epoch) external {
         address sender = _msgSender();

@@ -17,7 +17,7 @@ const { getAllRoles } = require('../lib/roles')
 const { hardhatReset } = require('./utils/hardhat-reset')
 const { sendEth } = require('./utils/send-eth')
 
-const { MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = getAllRoles(ethers)
+const { CHANGE_MAX_TOTAL_SUPPLY_ROLE, MINT_ROLE, BURN_ROLE, WITHDRAW_ROLE } = getAllRoles(ethers)
 
 describe('RewardsManager', () => {
   let epochsManager,
@@ -136,6 +136,19 @@ describe('RewardsManager', () => {
   it('should deploy correctly', async () => {
     expect(await rewardsManager.token()).to.eq(pnt.target)
     expect(await rewardsManager.tokenManager()).to.eq(tokenManager.target)
+  })
+
+  it('should be possible to change max total supply with role', async () => {
+    await rewardsManager.grantRole(CHANGE_MAX_TOTAL_SUPPLY_ROLE, owner.address)
+    await expect(rewardsManager.connect(owner).changeMaxTotalSupply(100))
+      .to.emit(rewardsManager, 'MaxTotalSupplyChanged')
+      .withArgs(100)
+  })
+
+  it('should not be possible to change max total supply without role', async () => {
+    await expect(rewardsManager.connect(owner).changeMaxTotalSupply(100)).to.be.revertedWith(
+      `AccessControl: account ${owner.address.toLowerCase()} is missing role ${CHANGE_MAX_TOTAL_SUPPLY_ROLE}`
+    )
   })
 
   it('should be possible to deposit tokens', async () => {
