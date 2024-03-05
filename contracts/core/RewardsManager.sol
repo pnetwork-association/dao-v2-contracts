@@ -3,8 +3,8 @@
 pragma solidity ^0.8.17;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IDandelionVoting} from "../interfaces/external/IDandelionVoting.sol";
@@ -16,7 +16,7 @@ import {Errors} from "../libraries/Errors.sol";
 import {Roles} from "../libraries/Roles.sol";
 
 contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
     address public epochsManager;
     address public dandelionVoting;
     uint256 public maxTotalSupply;
@@ -27,6 +27,7 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
     mapping(uint16 => uint256) public claimedAmountByEpoch;
     mapping(uint16 => uint256) public unclaimableAmountByEpoch;
     mapping(uint16 => mapping(address => uint256)) public lockedRewardByEpoch;
+    mapping(uint16 => mapping(address => bool)) private _stakerSeenByEpoch;
 
     event RewardRegistered(uint16 indexed epoch, address indexed staker, uint256 amount);
 
@@ -61,6 +62,11 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         emit TokenChanged(previousToken, token);
     }
 
+    function changeMaxTotalSupply(uint256 _maxTotalSupply) external onlyRole(Roles.CHANGE_MAX_TOTAL_SUPPLY_ROLE) {
+        maxTotalSupply = _maxTotalSupply;
+        emit MaxTotalSupplyChanged(_maxTotalSupply);
+    }
+
     /// @inheritdoc IRewardsManager
     function claimRewardByEpoch(uint16 epoch) external {
         address sender = _msgSender();
@@ -68,58 +74,56 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         if (currentEpoch - epoch < 12) revert Errors.TooEarly();
         uint256 amount = lockedRewardByEpoch[epoch][sender];
         if (amount > 0) {
-            ITokenManager(tokenManager).burn(sender, amount);
-            IERC20Upgradeable(token).safeTransfer(sender, amount);
             delete lockedRewardByEpoch[epoch][sender];
             claimedAmountByEpoch[epoch] += amount;
+            ITokenManager(tokenManager).burn(sender, amount);
+            IERC20(token).safeTransfer(sender, amount);
         } else revert Errors.NothingToClaim();
     }
 
     /// @inheritdoc IRewardsManager
-    function depositForEpoch(uint16 epoch, uint256 amount) external onlyRole(Roles.DEPOSIT_REWARD_ROLE) {
+    function depositForEpoch(uint16 epoch, uint256 amount) external {
         address sender = _msgSender();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch < currentEpoch) revert Errors.InvalidEpoch();
-        IERC20Upgradeable(token).safeTransferFrom(sender, address(this), amount);
         depositedAmountByEpoch[epoch] += amount;
+        IERC20(token).safeTransferFrom(sender, address(this), amount);
     }
 
     /// @inheritdoc IRewardsManager
     function registerRewardsForEpoch(uint16 epoch, address[] calldata stakers) external {
+        address minime = ITokenManager(tokenManager).token();
         uint16 currentEpoch = IEpochsManager(epochsManager).currentEpoch();
         if (epoch >= currentEpoch) revert Errors.InvalidEpoch();
         (bool[] memory hasVoted, uint256[] memory amounts) = _getVotesAndBalancesForEpoch(epoch, stakers);
         for (uint256 i = 0; i < stakers.length; i++) {
-            if (lockedRewardByEpoch[epoch][stakers[i]] > 0) continue;
+            if (_stakerSeenByEpoch[epoch][stakers[i]]) continue;
+            _stakerSeenByEpoch[epoch][stakers[i]] = true;
             uint256 amount = amounts[i];
             if (hasVoted[i] && amount > 0) {
-                ITokenManager(tokenManager).mint(stakers[i], amount);
-                _checkTotalSupply();
                 lockedRewardByEpoch[epoch][stakers[i]] = amount;
+                ITokenManager(tokenManager).mint(stakers[i], amount);
                 emit RewardRegistered(epoch, stakers[i], amount);
             } else if (amount > 0) {
                 unclaimableAmountByEpoch[epoch] += amount;
             }
         }
+        if (IERC20(minime).totalSupply() > maxTotalSupply) {
+            revert Errors.MaxTotalSupplyExceeded();
+        }
     }
 
     /// @inheritdoc IRewardsManager
     function withdrawUnclaimableRewardsForEpoch(uint16 epoch) external onlyRole(Roles.WITHDRAW_ROLE) {
-        if (unclaimableAmountByEpoch[epoch] > 0) {
+        uint256 amount = unclaimableAmountByEpoch[epoch];
+        if (amount > 0) {
             address sender = _msgSender();
-            IERC20Upgradeable(token).safeTransfer(sender, unclaimableAmountByEpoch[epoch]);
             delete unclaimableAmountByEpoch[epoch];
+            IERC20(token).safeTransfer(sender, amount);
         } else revert Errors.NothingToWithdraw();
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(Roles.UPGRADE_ROLE) {}
-
-    function _checkTotalSupply() internal {
-        address minime = ITokenManager(tokenManager).token();
-        if (IERC20Upgradeable(minime).totalSupply() > maxTotalSupply) {
-            revert Errors.MaxTotalSupplyExceeded();
-        }
-    }
 
     function _getEpochTimestamps(uint16 epoch) private view returns (uint256, uint256) {
         uint256 epochDuration = IEpochsManager(epochsManager).epochDuration();
@@ -140,8 +144,8 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         uint64 voteDuration = votingContract.duration();
         (uint256 epochStartTimestamp, uint256 epochEndTimestamp) = _getEpochTimestamps(epoch);
 
-        uint64 lastVoteSnapshotBlock;
-        uint256 supply;
+        uint64 latestVoteSnapshotBlock;
+        uint256 totalStakedAmount;
 
         bool[] memory hasVoted = new bool[](stakers.length);
         uint256[] memory amounts = new uint256[](stakers.length);
@@ -149,10 +153,11 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
         for (uint256 voteId = numberOfVotes; voteId >= 1; voteId--) {
             (, , uint64 startTimestamp, , uint64 snapshotBlock, , , , , , ) = votingContract.getVote(voteId);
             uint64 voteEndTimestamp = startTimestamp + voteDuration;
-            if (voteEndTimestamp >= epochStartTimestamp && voteEndTimestamp <= epochEndTimestamp) {
-                if (lastVoteSnapshotBlock == 0) {
-                    lastVoteSnapshotBlock = snapshotBlock;
-                    supply = minime.totalSupplyAt(lastVoteSnapshotBlock);
+            if (voteEndTimestamp <= epochEndTimestamp) {
+                if (voteEndTimestamp < epochStartTimestamp) break;
+                if (latestVoteSnapshotBlock == 0) {
+                    latestVoteSnapshotBlock = snapshotBlock;
+                    totalStakedAmount = minime.totalSupplyAt(latestVoteSnapshotBlock);
                 }
                 for (uint256 i = 0; i < stakers.length; i++) {
                     if (
@@ -163,13 +168,13 @@ contract RewardsManager is IRewardsManager, Initializable, UUPSUpgradeable, Acce
             }
         }
 
-        if (lastVoteSnapshotBlock == 0) {
+        if (latestVoteSnapshotBlock == 0) {
             revert Errors.NoVoteInEpoch();
         }
 
         for (uint256 i = 0; i < stakers.length; i++) {
-            uint256 balance = minime.balanceOfAt(stakers[i], lastVoteSnapshotBlock);
-            amounts[i] = (depositedAmountByEpoch[epoch] * balance) / supply;
+            uint256 stakedAmount = minime.balanceOfAt(stakers[i], latestVoteSnapshotBlock);
+            amounts[i] = (depositedAmountByEpoch[epoch] * stakedAmount) / totalStakedAmount;
         }
 
         return (hasVoted, amounts);

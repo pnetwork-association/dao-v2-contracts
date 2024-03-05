@@ -10,6 +10,13 @@ pragma solidity ^0.8.17;
  */
 interface IRewardsManager {
     /**
+     * @dev Emitted when the max total supply changes
+     *
+     * @param maxTotalSupply The maximun total supply
+     */
+    event MaxTotalSupplyChanged(uint256 maxTotalSupply);
+
+    /**
      * @dev Emitted when the token changes
      *
      * @param previousToken the previous token

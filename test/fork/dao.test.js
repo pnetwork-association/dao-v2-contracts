@@ -166,12 +166,6 @@ describe('Integration tests on Gnosis deployment', () => {
   ]
 
   const missingSteps = async () => {
-    await stakingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await stakingManagerLm.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await stakingManagerRm.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await lendingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await registrationManager.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await rewardsManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     ForwarderHost = await ethers.getContractFactory('ForwarderHost')
     forwarder = await ForwarderHost.deploy(pntOnGnosis.target)
     await forwarder.whitelistOriginAddress(FORWARDER_ON_POLYGON)
@@ -893,6 +887,24 @@ describe('Integration tests on Gnosis deployment', () => {
         PNETWORK_NETWORK_IDS.MAINNET
       )
   })
+
+  it('should correctly encode metadata', () => {
+    const userData = '0x0c0ffe01'
+    // secretlint-disable-next-line
+    // taken from https://gnosisscan.io/tx/0xab35e5da9e80f59ed417d1b6403f06819f75813c630739d392c419e439bb5556#eventlog
+    const expectedMetadata =
+      // secretlint-disable-next-line
+      '0x020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000075dd4c00000000000000000000000000000000000000000000000000000000000000000000000000000000ddb5f4535123daa5ae343c24006f4075abaf5f7b00f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000ddb5f4535123daa5ae343c24006f4075abaf5f7b0000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000040c0ffe010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    expect(
+      encodeMetadata(ethers, {
+        userData,
+        sourceNetworkId: PNETWORK_NETWORK_IDS.POLYGON,
+        destinationNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
+        senderAddress: '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B',
+        receiverAddress: '0xdDb5f4535123DAa5aE343c24006F4075aBAF5F7B'
+      })
+    ).to.be.eq(expectedMetadata)
+  })
 })
 
 describe('Integration tests on Ethereum deployment', () => {
@@ -1112,7 +1124,7 @@ describe('Integration tests on Polygon deployment', () => {
         FORWARDER_ON_GNOSIS.toLowerCase().slice(2),
         // secretlint-disable-next-line
         FORWARDER_STAKE_USER_DATA,
-        '0x00000000',
+        PNETWORK_NETWORK_IDS.POLYGON,
         PNETWORK_NETWORK_IDS.GNOSIS
       )
   })
@@ -1134,7 +1146,7 @@ describe('Integration tests on Polygon deployment', () => {
         FORWARDER_ON_GNOSIS.toLowerCase().slice(2),
         // secretlint-disable-next-line
         FORWARDER_DELEGATE_VOTE_USER_DATA,
-        '0x00000000',
+        PNETWORK_NETWORK_IDS.POLYGON,
         PNETWORK_NETWORK_IDS.GNOSIS
       )
   })
