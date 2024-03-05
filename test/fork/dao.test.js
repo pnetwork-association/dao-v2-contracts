@@ -8,6 +8,7 @@ const DaoPntAbi = require('../../lib/abi/daoPNT.json')
 const ERC20VaultAbi = require('../../lib/abi/ERC20Vault.json')
 const EthPntAbi = require('../../lib/abi/ethPNT.json')
 const FinanceAbi = require('../../lib/abi/Finance.json')
+const pBTConEthereumAbi = require('../../lib/abi/pBTConEthereum.json')
 const pntOnGnosisAbi = require('../../lib/abi/PNTonGnosis.json')
 const pntOnPolygonAbi = require('../../lib/abi/PNTonPolygon.json')
 const VaultAbi = require('../../lib/abi/Vault.json')
@@ -32,7 +33,17 @@ const {
       PNT_MINTER: PNT_MINTER_ON_GNOSIS,
       FORWARDER: FORWARDER_ON_GNOSIS
     },
-    MAINNET: { ERC20_VAULT, DANDELION_VOTING: DANDELION_VOTING_V1, PNT: PNT_ON_ETH, ETHPNT, PNETWORK, ASSOCIATION },
+    MAINNET: {
+      ERC20_VAULT,
+      DANDELION_VOTING: DANDELION_VOTING_V1,
+      PNT: PNT_ON_ETH,
+      ETHPNT,
+      PNETWORK,
+      ASSOCIATION,
+      FINANCE_VAULT: FINANCE_VAULT_V1,
+      PBTC: PBTC_ON_ETHEREUM,
+      PBTC_MINTER
+    },
     POLYGON: { PNT: PNT_ON_POLYGON, FORWARDER: FORWARDER_ON_POLYGON, PNT_MINTER: PNT_MINTER_ON_POLYGON }
   },
   MISC: { ONE_DAY },
@@ -1067,6 +1078,81 @@ describe('Integration tests on Ethereum deployment', () => {
       .withArgs(ADDRESS_PLACEHOLDER)
       .and.to.emit(ethPnt, 'NewInflationOwner')
       .withArgs(ADDRESS_PLACEHOLDER)
+  })
+
+  it('[dapp] should migrate v1 vault ethPNT liquidity to new v3 vault', async () => {
+    await crossExecutor
+      .connect(safe)
+      .call(
+        ethPnt.target,
+        ethPnt.interface.encodeFunctionData('withdrawInflation', [crossExecutor.target, ethers.parseUnits('100')])
+      )
+    await crossExecutor
+      .connect(safe)
+      .call(
+        ethPnt.target,
+        ethPnt.interface.encodeFunctionData('transfer', [FINANCE_VAULT_V1, ethers.parseUnits('100')])
+      )
+    await daoVotingV1.connect(association).newVote(
+      // secretlint-disable-next-line
+      '0x00000001dd92eb1478d3189707ab7f4a5ace3a615cdd047600000064beabacc8000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b20000000000000000000000002211bfd97b1c02ae8ac305d206e9780ba7d8bff40000000000000000000000000000000000000000000000056bc75e2d63100000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000056bc75e2d63100000e396757ec7e6ac7c8e5abe7285dde47b98f22db800000124c322525d0000000000000000000000000000000000000000000000056bc75e2d63100000000000000000000000000000f4ea6b892853413bd9d9f1a5d3a620a0ba39c5b200000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a307866316636353638613736353539643835634636384536353937664135383735343431383464443436000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+      'shall we move ethPNT to v3 vault?',
+      false
+    )
+    const voteId = await daoVotingV1.votesLength()
+    await Promise.all(tokenHolders.map((_holder) => daoVotingV1.connect(_holder).vote(voteId, true)))
+    const vote = await daoVotingV1.getVote(voteId)
+    await mineUpTo(vote[3] + 1n)
+    await expect(daoVotingV1.connect(association).executeVote(voteId))
+      .to.emit(daoVotingV1, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(ethPnt, 'Transfer')
+      .withArgs(daoVotingV1.target, vault.target, ethers.parseUnits('100'))
+      .and.to.emit(vault, 'PegIn')
+      .withArgs(
+        PNT_ON_ETH,
+        daoVotingV1.target,
+        ethers.parseUnits('100'),
+        ASSOCIATION,
+        '0x',
+        PNETWORK_NETWORK_IDS.MAINNET,
+        PNETWORK_NETWORK_IDS.GNOSIS
+      )
+  })
+
+  // pBTC is not native! so the execution script should not peg-in
+  it.skip('[dapp] should migrate v1 vault pBTC liquidity to new v3 vault', async () => {
+    const amount = ethers.parseEther('100')
+    const pbtc = await ethers.getContractAt(pBTConEthereumAbi, PBTC_ON_ETHEREUM)
+    const minter = await ethers.getImpersonatedSigner(PBTC_MINTER)
+    await sendEth(ethers, faucet, minter.address, amount)
+    await pbtc.connect(minter).mint(minter, amount)
+    await pbtc.connect(minter).transfer(FINANCE_VAULT_V1, amount)
+    await daoVotingV1.connect(association).newVote(
+      // secretlint-disable-next-line
+      '0x00000001dd92eb1478d3189707ab7f4a5ace3a615cdd047600000064beabacc800000000000000000000000062199b909fb8b8cf870f97bef2ce6783493c49080000000000000000000000002211bfd97b1c02ae8ac305d206e9780ba7d8bff40000000000000000000000000000000000000000000000056bc75e2d6310000062199b909fb8b8cf870f97bef2ce6783493c490800000044095ea7b3000000000000000000000000e396757ec7e6ac7c8e5abe7285dde47b98f22db80000000000000000000000000000000000000000000000056bc75e2d63100000e396757ec7e6ac7c8e5abe7285dde47b98f22db800000144c322525d0000000000000000000000000000000000000000000000056bc75e2d6310000000000000000000000000000062199b909fb8b8cf870f97bef2ce6783493c490800000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000010000f1918e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a307830313233343536373839303132333435363738393031323334353637383930313233343536373839000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004f00dbabe00000000000000000000000000000000000000000000000000000000',
+      'shall we move pbtc to v3 vault?',
+      false
+    )
+    const voteId = await daoVotingV1.votesLength()
+    await Promise.all(tokenHolders.map((_holder) => daoVotingV1.connect(_holder).vote(voteId, true)))
+    const vote = await daoVotingV1.getVote(voteId)
+    await mineUpTo(vote[3] + 1n)
+    await expect(daoVotingV1.connect(association).executeVote(voteId))
+      .to.emit(daoVotingV1, 'ExecuteVote')
+      .withArgs(voteId)
+      .and.to.emit(ethPnt, 'Transfer')
+      .withArgs(daoVotingV1.target, vault.target, ethers.parseUnits('100'))
+      .and.to.emit(vault, 'PegIn')
+      .withArgs(
+        PNT_ON_ETH,
+        daoVotingV1.target,
+        ethers.parseUnits('100'),
+        ASSOCIATION,
+        '0x',
+        PNETWORK_NETWORK_IDS.MAINNET,
+        PNETWORK_NETWORK_IDS.GNOSIS
+      )
   })
 
   it('should be able to change inflationOwner from CrossExecutor', async () => {
