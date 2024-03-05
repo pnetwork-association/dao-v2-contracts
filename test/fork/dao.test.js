@@ -166,12 +166,6 @@ describe('Integration tests on Gnosis deployment', () => {
   ]
 
   const missingSteps = async () => {
-    await stakingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await stakingManagerLm.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await stakingManagerRm.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await lendingManager.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await registrationManager.connect(daoOwner).changeToken(pntOnGnosis.target)
-    await rewardsManager.connect(daoOwner).changeToken(pntOnGnosis.target)
     ForwarderHost = await ethers.getContractFactory('ForwarderHost')
     forwarder = await ForwarderHost.deploy(pntOnGnosis.target)
     await forwarder.whitelistOriginAddress(FORWARDER_ON_POLYGON)
