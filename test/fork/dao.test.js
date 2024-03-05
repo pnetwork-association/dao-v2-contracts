@@ -1112,7 +1112,7 @@ describe('Integration tests on Polygon deployment', () => {
         FORWARDER_ON_GNOSIS.toLowerCase().slice(2),
         // secretlint-disable-next-line
         FORWARDER_STAKE_USER_DATA,
-        '0x00000000',
+        PNETWORK_NETWORK_IDS.POLYGON,
         PNETWORK_NETWORK_IDS.GNOSIS
       )
   })
@@ -1134,7 +1134,7 @@ describe('Integration tests on Polygon deployment', () => {
         FORWARDER_ON_GNOSIS.toLowerCase().slice(2),
         // secretlint-disable-next-line
         FORWARDER_DELEGATE_VOTE_USER_DATA,
-        '0x00000000',
+        PNETWORK_NETWORK_IDS.POLYGON,
         PNETWORK_NETWORK_IDS.GNOSIS
       )
   })
