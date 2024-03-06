@@ -915,6 +915,16 @@ describe('Integration tests on Gnosis deployment', () => {
       })
     ).to.be.eq(expectedMetadata)
   })
+
+  it('should not permit to open a vote even when staking a lot', async () => {
+    const amount = ethers.parseUnits('10000000')
+    await mintPntOnGnosis(tokenHolders[0].address, amount)
+    await stake(tokenHolders[0], amount)
+    expect(await daoPNT.balanceOf(tokenHolders[0])).to.be.gte(amount)
+    await expect(
+      daoVoting.connect(tokenHolders[0]).newVote('0x', 'Should I become the owner?', true)
+    ).to.be.revertedWith('DANDELION_VOTING_CAN_NOT_OPEN_VOTE')
+  })
 })
 
 describe('Integration tests on Ethereum deployment', () => {
