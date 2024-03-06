@@ -74,4 +74,8 @@ contract CrossExecutor is IERC777Recipient, Context, Ownable {
     function whitelistOriginAddress(address originAddress) external onlyOwner {
         _whitelistedOriginAddresses[originAddress] = true;
     }
+
+    function dewhitelistOriginAddress(address originAddress) external onlyOwner {
+        delete _whitelistedOriginAddresses[originAddress];
+    }
 }
