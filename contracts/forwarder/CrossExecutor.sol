@@ -37,9 +37,9 @@ contract CrossExecutor is IERC777Recipient, Context, Ownable {
         bytes calldata /*_operatorData*/
     ) external override {
         if (_msgSender() == token && _from == sender) {
-            (, bytes memory callsAndTargets, , address originAddress, , , , ) = abi.decode(
+            (, bytes memory callsAndTargets, , address originAddress) = abi.decode(
                 _metaData,
-                (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
+                (bytes1, bytes, bytes4, address)
             );
 
             if (!_whitelistedOriginAddresses[originAddress]) {
