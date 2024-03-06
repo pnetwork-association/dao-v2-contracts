@@ -46,9 +46,9 @@ contract ForwarderNative is IForwarder, IERC777Recipient, Context, Ownable {
         bytes calldata /*_operatorData*/
     ) external override {
         if (_msgSender() == token && _from == vault) {
-            (, bytes memory userData, , address originAddress, , , , ) = abi.decode(
+            (, bytes memory userData, , address originAddress) = abi.decode(
                 _userData,
-                (bytes1, bytes, bytes4, address, bytes4, address, bytes, bytes)
+                (bytes1, bytes, bytes4, address)
             );
 
             (bytes memory callsAndTargets, address caller) = abi.decode(
