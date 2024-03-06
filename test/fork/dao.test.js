@@ -178,8 +178,6 @@ describe('Integration tests on Gnosis deployment', () => {
   ]
 
   const missingSteps = async () => {
-    await forwarder.connect(daoOwner).whitelistOriginAddress(FORWARDER_ON_POLYGON)
-    await daoVoting.connect(daoOwner).changeForwarder(forwarder.target)
     await mintPntOnGnosis(forwarder.target, ethers.parseUnits('1'))
     await mintPntOnGnosis(daoVoting.target, ethers.parseUnits('1'))
   }
