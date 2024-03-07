@@ -1,6 +1,7 @@
 require('./acl-permission')
 require('./decode-forwarder-metadata')
 require('./check-all-permissions')
+require('./check-forwarder')
 require('./check-permissions')
 require('./deploy-dao')
 require('./deploy_forwarder_bsc')
