@@ -83,7 +83,8 @@ module.exports = {
     apiKey: {
       mainnet: getEnvironmentVariable('ETHERSCAN_API_KEY'),
       polygon: getEnvironmentVariable('POLYGONSCAN_API_KEY'),
-      xdai: getEnvironmentVariable('GNOSISSCAN_API_KEY')
+      xdai: getEnvironmentVariable('GNOSISSCAN_API_KEY'),
+      bsc: getEnvironmentVariable('BSCSCAN_API_KEY')
     }
   },
   gasReporter: {
