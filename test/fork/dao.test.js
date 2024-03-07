@@ -1010,7 +1010,7 @@ describe('Integration tests on Ethereum deployment', () => {
     pnetwork = await ethers.getImpersonatedSigner(PNETWORK)
     association = await ethers.getImpersonatedSigner(ASSOCIATION)
     ethPnt = await ethers.getContractAt(EthPntAbi, ETHPNT)
-    vault = await ethers.getContractAt('IErc20Vault', ERC20_VAULT)
+    vault = await ethers.getContractAt('IERC20Vault', ERC20_VAULT)
     safe = await ethers.getImpersonatedSigner(SAFE_ON_ETH)
     crossExecutor = await ethers.getContractAt('CrossExecutor', CROSS_EXECUTOR)
     expect(await crossExecutor.owner()).to.be.eq(SAFE_ON_ETH)

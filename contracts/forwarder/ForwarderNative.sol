@@ -9,7 +9,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IForwarder} from "../interfaces/IForwarder.sol";
-import {IErc20Vault} from "../interfaces/external/IErc20Vault.sol";
+import {IERC20Vault} from "../interfaces/external/IERC20Vault.sol";
 import {IPToken} from "../interfaces/external/IPToken.sol";
 import {Helpers} from "../libraries/Helpers.sol";
 import {BytesLib} from "../libraries/BytesLib.sol";
@@ -101,7 +101,7 @@ contract ForwarderNative is IForwarder, IERC777Recipient, Context, Ownable {
         uint256 effectiveAmount = amount == 0 ? 1 : amount;
 
         IERC20(token).safeApprove(vault, effectiveAmount);
-        IErc20Vault(vault).pegIn(
+        IERC20Vault(vault).pegIn(
             effectiveAmount,
             token,
             Helpers.addressToAsciiString(to),
