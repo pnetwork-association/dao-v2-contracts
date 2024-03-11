@@ -2,80 +2,80 @@
 
 pragma solidity ^0.8.17;
 
-import {Context} from "@openzeppelin/contracts/utils/Context.sol";
-import {IERC777Recipient} from "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
-import {IERC1820Registry} from "@openzeppelin/contracts/interfaces/IERC1820Registry.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC1820Registry} from "@openzeppelin/contracts/interfaces/IERC1820Registry.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC777Recipient} from "@openzeppelin/contracts/interfaces/IERC777Recipient.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 
-error CallFailed(address target, bytes data);
-error InvalidCallParams(address[] targets, bytes[] data, address caller);
-error InvalidOriginAddress(address originAddress);
-error InvalidCaller(address caller, address expected);
+contract CrossExecutor is Context, Ownable, IERC777Recipient {
+    using SafeERC20 for IERC20;
 
-contract CrossExecutor is IERC777Recipient, Context, Ownable {
     address public immutable token;
-    address public immutable sender;
-    mapping(address => bool) private _whitelistedOriginAddresses;
+    address public immutable vault;
+    address public immutable caller;
 
-    constructor(address _token, address _sender) {
+    mapping(bytes4 => mapping(string => bool)) private _whitelistedOriginAddresses;
+
+    error InvalidMetadataVersion(bytes1 version);
+    error InvalidOriginAddress(bytes4 originNetworkId, string originAddress);
+    error InvalidCallParams(address[] targets, bytes[] data, bytes4 networkId, address caller);
+    error CallFailed(address target, bytes data);
+    error InvalidCaller(address caller, address expected);
+
+    constructor(address _token, address _vault, address _caller) {
         IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24).setInterfaceImplementer(
             address(this),
             keccak256("ERC777TokensRecipient"),
             address(this)
         );
-
         token = _token;
-        sender = _sender; // set it to 0 on an host chain, vault address on a native chain
+        vault = _vault;
+        caller = _caller;
     }
 
+    function whitelistOriginAddress(bytes4 networkId, string calldata originAddress) external onlyOwner {
+        _whitelistedOriginAddresses[networkId][originAddress] = true;
+    }
+
+    function dewhitelistOriginAddress(bytes4 networkId, string calldata originAddress) external onlyOwner {
+        delete _whitelistedOriginAddresses[networkId][originAddress];
+    }
+
+    /// @inheritdoc IERC777Recipient
     function tokensReceived(
         address /*_operator*/,
         address _from,
         address /*_to,*/,
         uint256 /*_amount*/,
-        bytes calldata _metaData,
+        bytes calldata _metadata,
         bytes calldata /*_operatorData*/
-    ) external override {
-        if (_msgSender() == token && _from == sender) {
-            (, bytes memory callsAndTargets, , address originAddress) = abi.decode(
-                _metaData,
-                (bytes1, bytes, bytes4, address)
-            );
+    ) external {
+        if (_msgSender() == token && _from == vault) {
+            (bytes1 metadataVersion, bytes memory userData, bytes4 originNetworkId, string memory originAddress) = abi
+                .decode(_metadata, (bytes1, bytes, bytes4, string));
 
-            if (!_whitelistedOriginAddresses[originAddress]) {
-                revert InvalidOriginAddress(originAddress);
-            }
+            if (metadataVersion != 0x03) revert InvalidMetadataVersion(metadataVersion);
+
+            if (!_whitelistedOriginAddresses[originNetworkId][originAddress])
+                revert InvalidOriginAddress(originNetworkId, originAddress);
+
+            (bytes memory callsAndTargets, address _caller) = abi.decode(userData, (bytes, address));
+            if (_caller != caller) revert InvalidCaller(_caller, caller);
 
             (address[] memory targets, bytes[] memory data) = abi.decode(callsAndTargets, (address[], bytes[]));
 
-            if (targets.length != data.length) {
-                revert InvalidCallParams(targets, data, originAddress);
-            }
+            if (targets.length != data.length) revert InvalidCallParams(targets, data, originNetworkId, caller);
 
             for (uint256 i = 0; i < targets.length; ) {
                 (bool success, ) = targets[i].call(data[i]);
-                if (!success) {
-                    revert CallFailed(targets[i], data[i]);
-                }
+                if (!success) revert CallFailed(targets[i], data[i]);
+
                 unchecked {
                     ++i;
                 }
             }
         }
-    }
-
-    function call(address to, bytes memory data) external onlyOwner {
-        (bool success, ) = to.call(data);
-        if (!success) {
-            revert CallFailed(to, data);
-        }
-    }
-
-    function whitelistOriginAddress(address originAddress) external onlyOwner {
-        _whitelistedOriginAddresses[originAddress] = true;
-    }
-
-    function dewhitelistOriginAddress(address originAddress) external onlyOwner {
-        delete _whitelistedOriginAddresses[originAddress];
     }
 }
