@@ -19,6 +19,7 @@ const { sendEth } = require('./utils/send-eth')
 
 const { BORROW_ROLE, STAKE_ROLE, INCREASE_DURATION_ROLE, UPGRADE_ROLE, MINT_ROLE, BURN_ROLE, SET_FORWARDER_ROLE } =
   getAllRoles(ethers)
+const ADDRESS_PLACEHOLDER = '0x0123456789012345678901234567890123456789'
 
 const MOCK_PTOKEN_ERC777 = 'MockPTokenERC777'
 const MOCK_PTOKEN_ERC20 = 'MockPTokenERC20'
@@ -29,6 +30,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
     let acl,
       forwarderNative,
       forwarderHost,
+      crossExectutor,
       stakingManager,
       stakingManagerLM,
       stakingManagerRM,
@@ -40,6 +42,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       owner,
       pnt,
       pToken,
+      attacker,
       minter,
       sentinel1,
       daoRoot,
@@ -54,6 +57,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
     beforeEach(async () => {
       const Forwarder = await ethers.getContractFactory('Forwarder')
+      const CrossExecutor = await ethers.getContractFactory('CrossExecutor')
       const StakingManager = await ethers.getContractFactory('StakingManager')
       const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
       const LendingManager = await ethers.getContractFactory('LendingManager')
@@ -61,7 +65,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       const EpochsManager = await ethers.getContractFactory('EpochsManager')
       const MockPToken = await ethers.getContractFactory(_ptokenContract)
       const MockPTokensVault = await ethers.getContractFactory('MockPTokensVault')
-      const TestToken = await ethers.getContractFactory('TestToken')
+      const TestToken = await ethers.getContractFactory('TestTokenERC777')
       const Acl = await ethers.getContractFactory('ACL')
       const DandelionVoting = await ethers.getContractFactory('DandelionVoting')
 
@@ -70,6 +74,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       sentinel1 = signers[1]
       fakeForwarder = signers[2]
       fakeDandelionVoting = signers[3]
+      attacker = signers[4]
       minter = ethers.Wallet.createRandom().connect(ethers.provider)
       pntHolder1 = ethers.Wallet.createRandom().connect(ethers.provider)
       pntHolder2 = ethers.Wallet.createRandom().connect(ethers.provider)
@@ -90,11 +95,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
 
       forwarderNative = await Forwarder.deploy(pnt.target, vault.target)
       forwarderHost = await Forwarder.deploy(pToken.target, ethers.ZeroAddress)
+      crossExectutor = await CrossExecutor.deploy(pnt.target, vault.target, fakeDandelionVoting.address)
       const approveSigHash = (await ethers.getContractFactory('ERC20')).interface.getFunction('approve').selector
       await forwarderNative.addUnprivilegedCall(approveSigHash)
       await forwarderNative.whitelistOriginAddress(PNETWORK_NETWORK_IDS.GNOSIS, forwarderHost.target.toLowerCase())
       await forwarderHost.addUnprivilegedCall(approveSigHash)
       await forwarderHost.whitelistOriginAddress(PNETWORK_NETWORK_IDS.MAINNET, forwarderNative.target.toLowerCase())
+      await crossExectutor.whitelistOriginAddress(PNETWORK_NETWORK_IDS.GNOSIS, forwarderHost.target.toLowerCase())
 
       stakingManager = await upgrades.deployProxy(
         StakingManager,
@@ -180,6 +187,9 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       await sendEth(ethers, owner, pntHolder2.address, '10')
       await sendEth(ethers, owner, minter.address, '10')
       await pnt.connect(owner).transfer(forwarderNative.target, ethers.parseEther('10000'))
+      await pnt.connect(owner).transfer(vault.target, ethers.parseEther('10000'))
+      await pToken.connect(minter).mint(minter.address, ethers.parseEther('20000'), '0x', '0x')
+      await pToken.connect(minter).transfer(fakeDandelionVoting.address, ethers.parseEther('10000'))
 
       forwarderRecipientUpgradeableTestData = [
         {
@@ -229,6 +239,95 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       })
     })
 
+    it('should call a function if caller is the expected one', async () => {
+      const expectedData =
+        // secretlint-disable-next-line
+        '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000090f79bf6eb2c4f870365e785982e1f101e93b90600000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000044a9059cbb000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000'
+      const targetsAndData = encode(
+        ['address[]', 'bytes[]'],
+        [[ADDRESS_PLACEHOLDER], [pnt.interface.encodeFunctionData('transfer', [owner.address, 100])]]
+      )
+      await pToken.connect(fakeDandelionVoting).approve(forwarderHost.target, 100)
+      await expect(
+        forwarderHost
+          .connect(fakeDandelionVoting)
+          .call(100, crossExectutor.target, targetsAndData, PNETWORK_NETWORK_IDS.MAINNET)
+      )
+        .to.emit(pToken, 'Redeem')
+        .withArgs(
+          forwarderHost.target,
+          100,
+          crossExectutor.target.slice(2).toLowerCase(),
+          expectedData,
+          PNETWORK_NETWORK_IDS.GNOSIS,
+          PNETWORK_NETWORK_IDS.MAINNET
+        )
+      // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
+      const metadata = encodeMetadata(ethers, {
+        userData: expectedData.replace(ADDRESS_PLACEHOLDER.slice(2), pnt.target.slice(2)),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
+        senderAddress: forwarderHost.target,
+        destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
+        receiverAddress: crossExectutor.target
+      })
+      await expect(vault.pegOut(crossExectutor.target, pnt.target, 100, metadata))
+        .to.emit(pnt, 'Transfer')
+        .withArgs(crossExectutor.target, owner.address, 100)
+    })
+
+    it('should not call a function if request does not come from whitelisted entity', async () => {
+      const expectedData =
+        // secretlint-disable-next-line
+        '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000090f79bf6eb2c4f870365e785982e1f101e93b90600000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000044a9059cbb000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000'
+      // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
+      const metadata = encodeMetadata(ethers, {
+        userData: expectedData.replace(ADDRESS_PLACEHOLDER.slice(2), pnt.target.slice(2)),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
+        senderAddress: attacker.address,
+        destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
+        receiverAddress: crossExectutor.target
+      })
+      await expect(vault.pegOut(crossExectutor.target, pnt.target, 100, metadata))
+        .to.be.revertedWithCustomError(crossExectutor, 'InvalidOriginAddress')
+        .withArgs(PNETWORK_NETWORK_IDS.GNOSIS, attacker.address.toLowerCase())
+    })
+
+    it('should not call a function if caller is not the expected one', async () => {
+      const expectedData =
+        // secretlint-disable-next-line
+        '0x000000000000000000000000000000000000000000000000000000000000004000000000000000000000000015d34aaf54267db7d7c367839aaf71a00a2c6a6500000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000123456789012345678901234567890123456789000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000044a9059cbb000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000'
+      await sendEth(ethers, owner, attacker.address, '10')
+      await pToken.connect(minter).mint(attacker.address, 100, '0x', '0x')
+      const targetsAndData = encode(
+        ['address[]', 'bytes[]'],
+        [[ADDRESS_PLACEHOLDER], [pnt.interface.encodeFunctionData('transfer', [owner.address, 100])]]
+      )
+      await pToken.connect(attacker).approve(forwarderHost.target, 100)
+      await expect(
+        forwarderHost.connect(attacker).call(100, crossExectutor.target, targetsAndData, PNETWORK_NETWORK_IDS.MAINNET)
+      )
+        .to.emit(pToken, 'Redeem')
+        .withArgs(
+          forwarderHost.target,
+          100,
+          crossExectutor.target.slice(2).toLowerCase(),
+          expectedData,
+          PNETWORK_NETWORK_IDS.GNOSIS,
+          PNETWORK_NETWORK_IDS.MAINNET
+        )
+      // NOTE: at this point let's suppose that a pNetwork node processes the pegin ...
+      const metadata = encodeMetadata(ethers, {
+        userData: expectedData.replace(ADDRESS_PLACEHOLDER.slice(2), pnt.target.slice(2)),
+        sourceNetworkId: PNETWORK_NETWORK_IDS.GNOSIS,
+        senderAddress: forwarderHost.target,
+        destinationNetworkId: PNETWORK_NETWORK_IDS.MAINNET,
+        receiverAddress: crossExectutor.target
+      })
+      await expect(vault.pegOut(crossExectutor.target, pnt.target, 100, metadata))
+        .to.be.revertedWithCustomError(crossExectutor, 'InvalidCaller')
+        .withArgs(attacker.address, fakeDandelionVoting.address)
+    })
+
     it('should be able to forward a vote', async () => {
       const voteId = 1
       const dandelionVotingInterface = new ethers.Interface([
@@ -272,7 +371,6 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
     })
 
     it('should revert if an attacker calls delegateVote', async () => {
-      const attacker = ethers.Wallet.createRandom().connect(ethers.provider)
       await sendEth(ethers, owner, attacker.address, '10')
       const voteId = 1
       const dandelionVotingInterface = new ethers.Interface([
