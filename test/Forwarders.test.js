@@ -53,8 +53,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       mintPToken(pToken, minter, _recipient, _value, _metadata)
 
     beforeEach(async () => {
-      const ForwarderNative = await ethers.getContractFactory('ForwarderNative')
-      const ForwarderHost = await ethers.getContractFactory('ForwarderHost')
+      const Forwarder = await ethers.getContractFactory('Forwarder')
       const StakingManager = await ethers.getContractFactory('StakingManager')
       const StakingManagerPermissioned = await ethers.getContractFactory('StakingManagerPermissioned')
       const LendingManager = await ethers.getContractFactory('LendingManager')
@@ -89,10 +88,13 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       await pnt.connect(owner).transfer(pntHolder1.address, ethers.parseEther('400000'))
       await pnt.connect(owner).transfer(pntHolder2.address, ethers.parseEther('400000'))
 
-      forwarderNative = await ForwarderNative.deploy(pnt.target, vault.target)
-      forwarderHost = await ForwarderHost.deploy(pToken.target)
-      await forwarderNative.whitelistOriginAddress(forwarderHost.target)
-      await forwarderHost.whitelistOriginAddress(forwarderNative.target)
+      forwarderNative = await Forwarder.deploy(pnt.target, vault.target)
+      forwarderHost = await Forwarder.deploy(pToken.target, ethers.ZeroAddress)
+      const approveSigHash = (await ethers.getContractFactory('ERC20')).interface.getFunction('approve').selector
+      await forwarderNative.addUnprivilegedCall(approveSigHash)
+      await forwarderNative.whitelistOriginAddress(PNETWORK_NETWORK_IDS.GNOSIS, forwarderHost.target.toLowerCase())
+      await forwarderHost.addUnprivilegedCall(approveSigHash)
+      await forwarderHost.whitelistOriginAddress(PNETWORK_NETWORK_IDS.MAINNET, forwarderNative.target.toLowerCase())
 
       stakingManager = await upgrades.deployProxy(
         StakingManager,
@@ -350,7 +352,7 @@ PTOKEN_CONTRACTS.map((_ptokenContract) =>
       } else if (_ptokenContract === MOCK_PTOKEN_ERC777) {
         await expect(mintPTokenWithMetaData(forwarderHost.target, 0, metadata, '0x'))
           .to.be.revertedWithCustomError(forwarderHost, 'InvalidOriginAddress')
-          .withArgs(attacker.address)
+          .withArgs(PNETWORK_NETWORK_IDS.MAINNET, attacker.address.toLowerCase())
         expect(await pToken.balanceOf(forwarderHost.target)).to.be.eq(0)
       } else expect.fail('Unsupported pToken contract')
     })
