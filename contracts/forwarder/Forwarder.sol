@@ -60,6 +60,10 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
     function call(uint256 amount, address to, bytes calldata data, bytes4 chainId) external {
         address msgSender = _msgSender();
         bytes memory effectiveUserData = abi.encode(data, msgSender);
+
+        // NOTE: whenever the caller specified 0 for amount, use the bare minimum of 1 wei to deliver messages via pNetwork v2,
+        // e.g. when voting from another chain. The Forwarder contract will need a small reserve of PNT in this case.
+        // Otherwise, withdraw the specified amount from the caller, e.g. when staking from another chain.
         uint256 effectiveAmount = amount == 0 ? 1 : amount;
 
         if (amount > 0) IERC20(TOKEN).safeTransferFrom(msgSender, address(this), amount);
