@@ -110,10 +110,11 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
 
         (bytes memory callsAndTargets, address caller) = abi.decode(userData, (bytes, address));
         (address[] memory targets, bytes[] memory data) = abi.decode(callsAndTargets, (address[], bytes[]));
+        uint256 targetsLength = targets.length;
 
-        if (targets.length != data.length) revert InvalidCallParams(targets, data, originNetworkId, caller);
+        if (targetsLength != data.length) revert InvalidCallParams(targets, data, originNetworkId, caller);
 
-        for (uint256 i = 0; i < targets.length; ) {
+        for (uint256 i = 0; i < targetsLength; ) {
             // NOTE: avoid to check the caller if function is approve
             if (!_unprivilegedCalls[bytes4(data[i])]) {
                 bytes memory addrSlot = BytesLib.slice(data[i], 4, 36);
