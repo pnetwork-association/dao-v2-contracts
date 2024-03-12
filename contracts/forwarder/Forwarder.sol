@@ -101,10 +101,10 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
 
         if (metadataVersion != 0x03) revert InvalidMetadataVersion(metadataVersion);
 
-        (bytes memory callsAndTargets, address caller) = abi.decode(userData, (bytes, address));
         if (!_whitelistedOriginAddresses[originNetworkId][originAddress])
             revert InvalidOriginAddress(originNetworkId, originAddress);
 
+        (bytes memory callsAndTargets, address caller) = abi.decode(userData, (bytes, address));
         (address[] memory targets, bytes[] memory data) = abi.decode(callsAndTargets, (address[], bytes[]));
 
         if (targets.length != data.length) revert InvalidCallParams(targets, data, originNetworkId, caller);
