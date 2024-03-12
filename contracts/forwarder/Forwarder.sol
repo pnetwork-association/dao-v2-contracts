@@ -18,8 +18,8 @@ import {BytesLib} from "../libraries/BytesLib.sol";
 contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver {
     using SafeERC20 for IERC20;
 
-    address public immutable token;
-    address public immutable vault;
+    address public immutable TOKEN;
+    address public immutable VAULT;
 
     mapping(bytes4 => mapping(string => bool)) private _whitelistedOriginAddresses;
     mapping(bytes4 => bool) private _unprivilegedCalls;
@@ -36,8 +36,8 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
             keccak256("ERC777TokensRecipient"),
             address(this)
         );
-        token = _token;
-        vault = _vault; // set it to 0 on an host chain
+        TOKEN = _token;
+        VAULT = _vault; // set it to 0 on an host chain
     }
 
     function addUnprivilegedCall(bytes4 _call) external onlyOwner {
@@ -62,15 +62,15 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
         bytes memory effectiveUserData = abi.encode(data, msgSender);
         uint256 effectiveAmount = amount == 0 ? 1 : amount;
 
-        if (amount > 0) IERC20(token).safeTransferFrom(msgSender, address(this), amount);
+        if (amount > 0) IERC20(TOKEN).safeTransferFrom(msgSender, address(this), amount);
 
-        if (vault == address(0))
-            IPToken(token).redeem(effectiveAmount, effectiveUserData, Helpers.addressToAsciiString(to), chainId);
+        if (VAULT == address(0))
+            IPToken(TOKEN).redeem(effectiveAmount, effectiveUserData, Helpers.addressToAsciiString(to), chainId);
         else {
-            IERC20(token).safeApprove(vault, effectiveAmount);
-            IERC20Vault(vault).pegIn(
+            IERC20(TOKEN).safeApprove(VAULT, effectiveAmount);
+            IERC20Vault(VAULT).pegIn(
                 effectiveAmount,
-                token,
+                TOKEN,
                 Helpers.addressToAsciiString(to),
                 effectiveUserData,
                 chainId
@@ -80,7 +80,7 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
 
     /// @inheritdoc IPReceiver
     function receiveUserData(bytes calldata _metadata) external {
-        if (_msgSender() == token) _processMetadata(_metadata);
+        if (_msgSender() == TOKEN) _processMetadata(_metadata);
     }
 
     /// @inheritdoc IERC777Recipient
@@ -92,7 +92,7 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
         bytes calldata _metadata,
         bytes calldata /*_operatorData*/
     ) external {
-        if (_msgSender() == token && _from == vault) _processMetadata(_metadata);
+        if (_msgSender() == TOKEN && _from == VAULT) _processMetadata(_metadata);
     }
 
     function _processMetadata(bytes memory _metadata) internal {

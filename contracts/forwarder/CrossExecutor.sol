@@ -12,9 +12,9 @@ import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 contract CrossExecutor is Context, Ownable, IERC777Recipient {
     using SafeERC20 for IERC20;
 
-    address public immutable token;
-    address public immutable vault;
-    address public immutable caller;
+    address public immutable TOKEN;
+    address public immutable VAULT;
+    address public immutable CALLER;
 
     mapping(bytes4 => mapping(string => bool)) private _whitelistedOriginAddresses;
 
@@ -30,9 +30,9 @@ contract CrossExecutor is Context, Ownable, IERC777Recipient {
             keccak256("ERC777TokensRecipient"),
             address(this)
         );
-        token = _token;
-        vault = _vault;
-        caller = _caller;
+        TOKEN = _token;
+        VAULT = _vault;
+        CALLER = _caller;
     }
 
     function whitelistOriginAddress(bytes4 networkId, string calldata originAddress) external onlyOwner {
@@ -52,7 +52,7 @@ contract CrossExecutor is Context, Ownable, IERC777Recipient {
         bytes calldata _metadata,
         bytes calldata /*_operatorData*/
     ) external {
-        if (_msgSender() == token && _from == vault) {
+        if (_msgSender() == TOKEN && _from == VAULT) {
             (bytes1 metadataVersion, bytes memory userData, bytes4 originNetworkId, string memory originAddress) = abi
                 .decode(_metadata, (bytes1, bytes, bytes4, string));
 
@@ -62,11 +62,11 @@ contract CrossExecutor is Context, Ownable, IERC777Recipient {
                 revert InvalidOriginAddress(originNetworkId, originAddress);
 
             (bytes memory callsAndTargets, address _caller) = abi.decode(userData, (bytes, address));
-            if (_caller != caller) revert InvalidCaller(_caller, caller);
+            if (_caller != CALLER) revert InvalidCaller(_caller, CALLER);
 
             (address[] memory targets, bytes[] memory data) = abi.decode(callsAndTargets, (address[], bytes[]));
 
-            if (targets.length != data.length) revert InvalidCallParams(targets, data, originNetworkId, caller);
+            if (targets.length != data.length) revert InvalidCallParams(targets, data, originNetworkId, CALLER);
 
             for (uint256 i = 0; i < targets.length; ) {
                 (bool success, ) = targets[i].call(data[i]);
