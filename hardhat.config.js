@@ -59,24 +59,19 @@ module.exports = {
     },
     mainnet: {
       url: getEnvironmentVariable('MAINNET_NODE'),
-      accounts,
-      gasPrice: 20e9
+      accounts
     },
     polygon: {
       url: getEnvironmentVariable('POLYGON_NODE'),
-      accounts,
-      gasPrice: 250e9
+      accounts
     },
     gnosis: {
       url: getEnvironmentVariable('GNOSIS_NODE'),
-      accounts,
-      gasPrice: 15e9,
-      gas: 5e6
+      accounts
     },
     bsc: {
       url: getEnvironmentVariable('BSC_NODE'),
-      accounts,
-      gasPrice: 5e9
+      accounts
     }
   },
   etherscan: {
