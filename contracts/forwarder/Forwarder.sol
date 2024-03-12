@@ -37,7 +37,7 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
             address(this)
         );
         TOKEN = _token;
-        VAULT = _vault; // set it to 0 on an host chain
+        VAULT = _vault; // To be set to zero address on a host chain.
     }
 
     function addUnprivilegedCall(bytes4 _call) external onlyOwner {
@@ -115,12 +115,12 @@ contract Forwarder is Context, Ownable, IERC777Recipient, IForwarder, IPReceiver
         if (targetsLength != data.length) revert InvalidCallParams(targets, data, originNetworkId, caller);
 
         for (uint256 i = 0; i < targetsLength; ) {
-            // NOTE: avoid to check the caller if function is approve
+            // NOTE: for example, do not check the caller if function is approve.
             if (!_unprivilegedCalls[bytes4(data[i])]) {
                 bytes memory addrSlot = BytesLib.slice(data[i], 4, 36);
                 address expectedCaller = address(BytesLib.toAddress(addrSlot, 32 - 20));
 
-                // NOTE: needed to for example avoid someone to vote for someone else
+                // NOTE: needed, for example, to avoid someone to vote for someone else.
                 if (expectedCaller != caller) revert InvalidCaller(caller, expectedCaller);
             }
 
