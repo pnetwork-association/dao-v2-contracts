@@ -14,6 +14,7 @@ contract MockPTokenERC777 is ERC777 {
         address indexed redeemer,
         uint256 value,
         string underlyingAssetRecipient,
+        bytes userData,
         bytes4 originChainId,
         bytes4 destinationChainId
     );
@@ -62,7 +63,7 @@ contract MockPTokenERC777 is ERC777 {
         bytes4 destinationChainId
     ) public {
         _burn(_msgSender(), amount, data, "");
-        emit Redeem(msg.sender, amount, underlyingAssetRecipient, ORIGIN_CHAIN_ID, destinationChainId);
+        emit Redeem(msg.sender, amount, underlyingAssetRecipient, data, ORIGIN_CHAIN_ID, destinationChainId);
     }
 
     function owner() internal view returns (address) {

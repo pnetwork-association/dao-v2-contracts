@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.17;
 
-interface IErc20Vault {
+interface IERC20Vault {
     event PegIn(
         address _tokenAddress,
         address _tokenSender,
