@@ -419,7 +419,7 @@ describe('Integration tests on Gnosis deployment', () => {
   it('should move tokens to treasury and transfer from it following a vote', async () => {
     await mintPntOnGnosis(daoTreasury.target, parseEther('200000'))
     expect(await pntOnGnosis.balanceOf(daoTreasury.target)).to.be.eq(parseEther('200000'))
-    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
+    const userBalance = await pntOnGnosis.balanceOf(user.address)
 
     const metadata = 'Should we transfer from vault to user?'
     const executionScript = encodeCallScript(
@@ -438,7 +438,7 @@ describe('Integration tests on Gnosis deployment', () => {
       .and.to.emit(pntOnGnosis, 'Transfer')
       .withArgs(daoTreasury.target, user.address, parseEther('1'))
 
-    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1'))
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('1') + userBalance)
   })
 
   it('should create an immediate payment via finance app', async () => {
@@ -446,14 +446,16 @@ describe('Integration tests on Gnosis deployment', () => {
     const amount = parseEther('1.5')
     await mintPntOnGnosis(daoTreasury.target, parseEther('200000'))
     expect(await pntOnGnosis.balanceOf(daoTreasury.target)).to.be.eq(parseEther('200000'))
-    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(parseEther('0'))
+    const userBalance = await pntOnGnosis.balanceOf(user.address)
+
     await expect(finance.connect(faucet).newImmediatePayment(pntOnGnosis.target, user.address, amount, 'test'))
       .to.emit(daoTreasury, 'VaultTransfer')
       .withArgs(pntOnGnosis.target, user.address, amount)
       .and.to.emit(pntOnGnosis, 'Transfer')
       .withArgs(daoTreasury.target, user.address, amount)
+
     expect(await pntOnGnosis.balanceOf(daoTreasury.target)).to.be.eq(parseEther('200000') - amount)
-    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(amount)
+    expect(await pntOnGnosis.balanceOf(user.address)).to.be.eq(amount + userBalance)
   })
 
   it('should open a vote (1)', async () => {
