@@ -22,13 +22,12 @@ task('utils:decode-forwarder-metadata', 'Decode the pNetwork Forwarder Metadata'
       protocolReceipt
     } = decodeMetadata(ethers, metadata)
 
-    const [callsAndTargets, originAddress, callerAddress] = abiCoder.decode(['bytes', 'address', 'address'], userData)
+    const [callsAndTargets, callerAddress] = abiCoder.decode(['bytes', 'address'], userData)
 
     console.log({
       version,
       userData: {
         callsAndTargets,
-        originAddress,
         callerAddress
       },
       sourceNetworkId,
